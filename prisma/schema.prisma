@@ -7,6 +7,108 @@ generator client {
   provider = "prisma-client-js"
 }
 
-model Test {
-  id Int @id @default(autoincrement())
+enum TeamRole {
+  PLAYER
+  COACH
+  CAPTAIN
+  PARENT
+}
+
+
+model User {
+  id           Int      @id @default(autoincrement())
+  email        String?  @unique
+  phone        String?  @unique
+  telegramId   String?  @unique
+  passwordHash String?
+
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  profiles     UserProfile[]
+  memberships  TeamMember[]
+  bookings     Booking[]
+}
+
+model UserProfile {
+  id         Int      @id @default(autoincrement())
+  userId     Int
+  user       User     @relation(fields: [userId], references: [id])
+
+  profileType String
+  firstName   String?
+  lastName    String?
+  birthDate   DateTime?
+
+  parentId    Int?
+  parent      UserProfile? @relation("ParentChild", fields: [parentId], references: [id])
+  children    UserProfile[] @relation("ParentChild")
+
+  cityId      Int?
+
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
+model Team {
+  id        Int      @id @default(autoincrement())
+  name      String
+  cityId    Int?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  members   TeamMember[]
+}
+
+model TeamMember {
+  id        Int      @id @default(autoincrement())
+
+  userId    Int
+  teamId    Int
+
+  role      TeamRole
+  status    String?  // active, injured, etc.
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  user      User     @relation(fields: [userId], references: [id])
+  team      Team     @relation(fields: [teamId], references: [id])
+
+  @@unique([userId, teamId])
+}
+
+model Session {
+  id          Int      @id @default(autoincrement())
+
+  title       String
+  description String?
+
+  startTime   DateTime
+  endTime     DateTime
+
+  cityId      Int?
+
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  bookings    Booking[]
+}
+
+model Booking {
+  id        Int      @id @default(autoincrement())
+
+  userId    Int
+  sessionId Int
+
+  status    String   // booked, cancelled, etc.
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  user      User     @relation(fields: [userId], references: [id])
+  session   Session  @relation(fields: [sessionId], references: [id])
+
+  @@unique([userId, sessionId])
 }

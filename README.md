@@ -46,3 +46,41 @@ Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/bui
 ## 0.1 Коммит localhost 0 + Tailwind + Docker + prisma 
 
 содержит в себе установленные и подключенные на локальный хост сервисы. Создаем базы данных и настраиваем взаимосвязь между ними. 
+
+## 0.2 Коммит Gorilla 0.0 
+
+Привели в порядок взаимосвязи и настроили миграцию таблиц
+
+## 0.3 Коммит Gorilla 0.1
+
+Итог по состоянию проекта
+
+сейчас:
+
+🟢 User
+- email / phone / telegramId
+- passwordHash
+- timestamps
+- связь с профилями
+
+🟢 UserProfile
+- профили пользователей
+- self-relation (parent/children)
+- расширяемая модель
+
+🟢 Team
+- базовая сущность команды
+
+🟢 TeamMember
+- связь user ↔ team
+- роли через enum TeamRole
+- уникальность [userId, teamId]
+
+🟢 User расширен
+- memberships теперь связывает пользователя с командами
+
+🟢 Session
+- создали таблицу сессий (игровые матчи)
+
+🟢 Booking
+- создали таблицу тренировок (для школы)
