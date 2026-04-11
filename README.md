@@ -156,3 +156,90 @@ Trainings
 - Используется Thunder Client (VS Code)
 - POST/GET запросы работают
 - Добавлен дебаг через console.log(req.body)
+
+## 5 Коммит Gorilla 0.4
+
+1. Инициализация и стабильность проекта
+- Настроен и запущен Next.js проект (TypeScript)
+- Подключён Prisma ORM
+- Подключена PostgreSQL база через Docker
+- Проверена работоспособность локального dev-сервера
+
+2. Работа с базой данных (Prisma)
+Выполнено:
+- Создана и стабилизирована Prisma schema
+- Добавлены основные модели:
+--User
+--UserProfile
+--Team
+--TeamMember
+--Session
+--Booking
+--SchoolTraining
+--City
+
+Добавлены enum:
+- TeamRole
+- TeamMemberStatus
+
+Исправлено в процессе:
+- устранены ошибки связей (relation errors)
+- исправлены дублирующиеся модели/поля
+- исправлены конфликты City model
+- приведены связи Booking ↔ UserProfile ↔ Session ↔ Training
+
+3. Миграции Prisma
+- Выполнена первая миграция (init schema)
+- Выполнена миграция исправления связей
+- Выполнена миграция City модели
+- Выполнена миграция корректировки relations
+- Prisma Client успешно генерируется
+
+4. API (Next.js)
+
+Созданы и проверены базовые endpoints:
+
+Users
+- POST /api/users
+- GET /api/users
+Participants (UserProfile)
+- POST /api/participants
+- GET /api/participants
+- PATCH /api/participants
+Cities
+- POST /api/city
+- GET /api/city
+Trainings
+- POST /api/trainings
+- GET /api/trainings
+Booking (частично)
+- создан endpoint /api/trainings/[id]/book
+- реализована логика создания записи на тренировку
+
+5. Проверка через Postman / API
+- Проверены POST запросы к API
+- Проверено создание пользователей
+- Проверено создание тренировок
+- Проверено создание участников
+- Проверена работа Prisma Studio
+- Исправлена проблема с частично пустыми данными при записи в БД
+
+6. Исправления и отладка
+- исправлены ошибки Prisma relation validation (P1012)
+- исправлены ошибки duplicate fields в schema.prisma
+- устранены ошибки миграций (P3018 rollback / sync issues)
+- решена проблема EPERM при генерации Prisma Client (в процессе повторного запуска)
+
+Итог состояния на конец дня
+
+Backend полностью поднят и работает:
+
+- база данных стабильна
+- ORM настроен
+- API endpoints функционируют
+- основные сущности и связи определены
+- система уже принимает и сохраняет реальные данные
+
+Статус проекта
+
+Backend MVP foundation — завершён (v0.1 stable)
