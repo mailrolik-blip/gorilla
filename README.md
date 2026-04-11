@@ -1,5 +1,16 @@
 
-## Gorilla Hockey
+# Gorilla Hockey
+
+Контрольная точка разработки (MVP v1)
+📌 Общая цель проекта
+
+Разработка платформы для хоккейной школы/клуба с возможностями:
+
+- запись на тренировки
+- управление участниками (игроки, дети)
+- команды и заявки в команды
+- аренда льда
+- дальнейшая интеграция с Telegram
 
 Платформа для хоккейной школы. первым делом поднимаем локальный сервер и настраиваем гит проекта:
 
@@ -47,6 +58,15 @@ Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/bui
 
 содержит в себе установленные и подключенные на локальный хост сервисы. Создаем базы данных и настраиваем взаимосвязь между ними. 
 
+⚙️ Текущий стек
+
+- Next.js (App Router)
+- TypeScript
+- PostgreSQL (в Docker)
+- Prisma ORM
+- API через Next.js (/api/*)
+- Thunder Client для тестирования
+
 ## 2 Коммит Gorilla 0.0 
 
 Привели в порядок взаимосвязи и настроили миграцию таблиц
@@ -80,14 +100,19 @@ Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/bui
 - роли через enum TeamRole
 - уникальность [userId, teamId]
 
-🟢 User расширен
+🟢 UserProfile
 - memberships теперь связывает пользователя с командами
+- участники (игрок / ребёнок)
 
 🟢 Session
 - создали таблицу сессий (игровые матчи)
 
 🟢 Booking
 - создали таблицу тренировок (для школы)
+
+⚠️ Частично есть рассинхрон архитектуры:
+
+Booking привязан к User, а не к UserProfile (планируется исправление)
 
 </details>
 
@@ -105,3 +130,29 @@ Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/bui
 Попробуй /book [trainingId], чтобы забронировать тренировку.
 
 2. исправление ошибок миграции и тестирования связи базы данных
+
+## 4 Коммит Gorilla 0.3
+
+🔌 API (реализовано)
+
+Сделаны базовые endpoint'ы:
+
+Users
+- GET /api/users
+- POST /api/users
+Teams
+- GET /api/teams
+- POST /api/teams
+Trainings
+- GET /api/trainings
+- POST /api/trainings
+
+✔ данные успешно сохраняются в БД
+✔ Prisma работает
+✔ миграции применяются
+
+🧪 Тестирование
+
+- Используется Thunder Client (VS Code)
+- POST/GET запросы работают
+- Добавлен дебаг через console.log(req.body)

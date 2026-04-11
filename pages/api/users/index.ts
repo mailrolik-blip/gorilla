@@ -1,29 +1,45 @@
-// pages/api/users/index.ts
 import { NextApiRequest, NextApiResponse } from 'next';
 import prisma from '../../../lib/prisma';
 
-const handler = async (req: NextApiRequest, res: NextApiResponse) => {
-  if (req.method === 'GET') {
+export default async function handler(req: NextApiRequest, res: NextApiResponse) {
+  if (req.method === 'POST') {
     try {
-      const users = await prisma.user.findMany();
-      res.status(200).json(users);
-    } catch (error) {
-      res.status(500).json({ error: 'Error fetching users' });
-    }
-  } else if (req.method === 'POST') {
-    const { email, passwordHash } = req.body;
-    try {
+      console.log('BODY:', req.body); 
+      const {
+        email,
+        phone,
+        telegramId,
+        passwordHash
+      } = req.body;
+
+      // простая валидация
+      if (!email && !phone && !telegramId) {
+        return res.status(400).json({
+          error: 'At least one auth field required'
+        });
+      }
+
       const user = await prisma.user.create({
         data: {
-          email,
-          passwordHash,
+          email: email || null,
+          phone: phone || null,
+          telegramId: telegramId || null,
+          passwordHash: passwordHash || null,
         },
       });
-      res.status(201).json(user);
+
+      return res.status(201).json(user);
+
     } catch (error) {
-      res.status(500).json({ error: 'Error creating user' });
+      console.error(error);
+      return res.status(500).json({ error: 'Create user failed' });
     }
   }
-};
 
-export default handler;
+  if (req.method === 'GET') {
+    const users = await prisma.user.findMany();
+    return res.json(users);
+  }
+
+  return res.status(405).end();
+}

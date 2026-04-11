@@ -2,28 +2,35 @@
 import { NextApiRequest, NextApiResponse } from 'next';
 import prisma from '../../../lib/prisma';
 
-const handler = async (req: NextApiRequest, res: NextApiResponse) => {
-  if (req.method === 'GET') {
+export default async function handler(req: NextApiRequest, res: NextApiResponse) {
+  if (req.method === 'POST') {
     try {
-      const teams = await prisma.team.findMany();
-      res.status(200).json(teams);
-    } catch (error) {
-      res.status(500).json({ error: 'Error fetching teams' });
-    }
-  } else if (req.method === 'POST') {
-    const { name, cityId } = req.body;
-    try {
+      console.log('BODY:', req.body);
+      const { name, cityId } = req.body;
+
+      if (!name) {
+        return res.status(400).json({ error: 'Name required' });
+      }
+
       const team = await prisma.team.create({
         data: {
           name,
-          cityId,
+          cityId: cityId ? Number(cityId) : null,
         },
       });
-      res.status(201).json(team);
+
+      return res.status(201).json(team);
+
     } catch (error) {
-      res.status(500).json({ error: 'Error creating team' });
+      console.error(error);
+      return res.status(500).json({ error: 'Create team failed' });
     }
   }
-};
 
-export default handler;
+  if (req.method === 'GET') {
+    const teams = await prisma.team.findMany();
+    return res.json(teams);
+  }
+
+  return res.status(405).end();
+}
