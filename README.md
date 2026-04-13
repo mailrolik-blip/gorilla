@@ -243,3 +243,43 @@ Backend полностью поднят и работает:
 Статус проекта
 
 Backend MVP foundation — завершён (v0.1 stable)
+
+## 6 Коммит Gorilla 0.5
+
+Привели backend-контур в рабочее и стабильное состояние.
+
+Что сделано:
+
+- выровнены связи Prisma-моделей;
+- стабилизирована архитектура бронирований тренировок;
+- добавлена отдельная модель TrainingBooking;
+- приведены в порядок связи City, UserProfile, Team, Session;
+- донастроены API-роуты:
+    - users
+    - city
+    - participants
+    - teams
+    - trainings
+    - training-bookings
+    - trainings/[id]/book
+- из API-ответов убран passwordHash;
+- вынесены безопасные select и общий booking-flow;
+- Telegram-бот переведён на переменную окружения TELEGRAM_BOT_TOKEN.
+
+Проверка:
+
+- npx prisma validate — ok
+- npx tsc --noEmit — ok
+- npm run lint — ok
+- npm run build — ok
+
+Дополнительно:
+
+- проверены живые GET/POST/PATCH запросы к основным endpoint’ам;
+- повторное бронирование корректно возвращает 409;
+- в локальной БД созданы smoke-test данные для проверки сценариев.
+
+Итог:
+
+- backend foundation стабилизирован;
+- база и API готовы к следующему этапу — завершению пользовательского school-flow.

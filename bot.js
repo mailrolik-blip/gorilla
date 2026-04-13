@@ -1,3 +1,192 @@
+/* eslint-disable @typescript-eslint/no-require-imports */
+const { Telegraf } = require('telegraf');
+const { PrismaClient } = require('@prisma/client');
+
+const prisma = new PrismaClient();
+const token = process.env.TELEGRAM_BOT_TOKEN;
+
+if (!token) {
+  throw new Error('TELEGRAM_BOT_TOKEN is not set');
+}
+
+const bot = new Telegraf(token);
+
+function formatDate(date) {
+  return new Intl.DateTimeFormat('ru-RU', {
+    dateStyle: 'short',
+    timeStyle: 'short',
+  }).format(date);
+}
+
+bot.start((ctx) => {
+  return ctx.reply(
+    'Привет. Я помогу зарегистрироваться и посмотреть доступные тренировки.'
+  );
+});
+
+bot.command('register', async (ctx) => {
+  const telegramId = String(ctx.from.id);
+
+  try {
+    const existingUser = await prisma.user.findUnique({
+      where: { telegramId },
+    });
+
+    if (existingUser) {
+      return ctx.reply('Пользователь с этим Telegram уже зарегистрирован.');
+    }
+
+    await prisma.user.create({
+      data: { telegramId },
+    });
+
+    return ctx.reply('Регистрация завершена.');
+  } catch (error) {
+    console.error('Telegram register failed:', error);
+    return ctx.reply('Не удалось завершить регистрацию.');
+  }
+});
+
+bot.command('trainings', async (ctx) => {
+  try {
+    const trainings = await prisma.schoolTraining.findMany({
+      where: { isActive: true },
+      orderBy: { startTime: 'asc' },
+      take: 10,
+    });
+
+    if (trainings.length === 0) {
+      return ctx.reply('Сейчас нет доступных тренировок.');
+    }
+
+    const lines = trainings.map(
+      (training) =>
+        `${training.trainingId}. ${training.name} | ${formatDate(training.startTime)} | ${training.location}`
+    );
+
+    return ctx.reply(
+      `Ближайшие тренировки:\n${lines.join('\n')}\n\nДля бронирования: /book <trainingId> <participantId>`
+    );
+  } catch (error) {
+    console.error('Telegram trainings failed:', error);
+    return ctx.reply('Не удалось загрузить список тренировок.');
+  }
+});
+
+bot.command('book', async (ctx) => {
+  try {
+    const telegramId = String(ctx.from.id);
+    const parts = ctx.message.text.trim().split(/\s+/);
+    const trainingRaw = parts[1];
+    const participantRaw = parts[2];
+
+    const trainingId = Number(trainingRaw);
+    const requestedParticipantId = participantRaw ? Number(participantRaw) : null;
+
+    if (!Number.isInteger(trainingId) || trainingId <= 0) {
+      return ctx.reply('Укажи корректный trainingId: /book <trainingId> <participantId>');
+    }
+
+    const user = await prisma.user.findUnique({
+      where: { telegramId },
+      include: {
+        profiles: true,
+      },
+    });
+
+    if (!user) {
+      return ctx.reply('Сначала зарегистрируйся через /register');
+    }
+
+    let participantId = requestedParticipantId;
+
+    if (!participantId) {
+      if (user.profiles.length !== 1) {
+        const profilesList =
+          user.profiles.length === 0
+            ? 'У тебя пока нет связанных участников.'
+            : user.profiles
+                .map((profile) => `${profile.id}: ${profile.firstName || 'Без имени'} ${profile.lastName || ''}`.trim())
+                .join('\n');
+
+        return ctx.reply(
+          `Нужно указать participantId: /book <trainingId> <participantId>\n${profilesList}`
+        );
+      }
+
+      participantId = user.profiles[0].id;
+    }
+
+    const participant = user.profiles.find((profile) => profile.id === participantId);
+
+    if (!participant) {
+      return ctx.reply('Этот participantId не принадлежит твоему аккаунту.');
+    }
+
+    const training = await prisma.schoolTraining.findUnique({
+      where: { trainingId },
+    });
+
+    if (!training) {
+      return ctx.reply('Тренировка не найдена.');
+    }
+
+    if (!training.isActive) {
+      return ctx.reply('Эта тренировка сейчас неактивна.');
+    }
+
+    const existingBooking = await prisma.trainingBooking.findUnique({
+      where: {
+        participantId_trainingId: {
+          participantId,
+          trainingId,
+        },
+      },
+    });
+
+    if (existingBooking?.status === 'booked') {
+      return ctx.reply('Участник уже записан на эту тренировку.');
+    }
+
+    const activeBookingsCount = await prisma.trainingBooking.count({
+      where: {
+        trainingId,
+        status: 'booked',
+      },
+    });
+
+    if (activeBookingsCount >= training.capacity) {
+      return ctx.reply('Свободных мест на тренировку больше нет.');
+    }
+
+    if (existingBooking?.status === 'cancelled') {
+      await prisma.trainingBooking.update({
+        where: { id: existingBooking.id },
+        data: { status: 'booked' },
+      });
+    } else {
+      await prisma.trainingBooking.create({
+        data: {
+          participantId,
+          trainingId,
+          status: 'booked',
+        },
+      });
+    }
+
+    return ctx.reply(`Запись подтверждена: ${training.name}`);
+  } catch (error) {
+    console.error('Telegram booking failed:', error);
+    return ctx.reply('Не удалось забронировать тренировку.');
+  }
+});
+
+bot.launch();
+
+process.once('SIGINT', () => bot.stop('SIGINT'));
+process.once('SIGTERM', () => bot.stop('SIGTERM'));
+
+/*
 const { Telegraf } = require('telegraf');
 const { PrismaClient } = require('@prisma/client');
 const prismaClient = new PrismaClient();
@@ -121,3 +310,4 @@ bot.command('book', async (ctx) => {
 
 // Стартуем бота
 bot.launch();
+*/

@@ -1,3 +1,63 @@
+import { Prisma } from '@prisma/client';
+import type { NextApiRequest, NextApiResponse } from 'next';
+
+import prisma from '../../../../lib/prisma';
+import { HttpError, createTrainingBooking } from '../../../../lib/training-bookings';
+
+function toPositiveInt(value: unknown): number | null {
+  const parsed = Number(value);
+
+  if (!Number.isInteger(parsed) || parsed <= 0) {
+    return null;
+  }
+
+  return parsed;
+}
+
+export default async function handler(
+  req: NextApiRequest,
+  res: NextApiResponse
+) {
+  if (req.method !== 'POST') {
+    return res.status(405).json({ error: 'Method not allowed' });
+  }
+
+  try {
+    const rawId = Array.isArray(req.query.id) ? req.query.id[0] : req.query.id;
+    const trainingId = toPositiveInt(rawId);
+    const participantId = toPositiveInt(req.body.participantId);
+
+    if (!trainingId || !participantId) {
+      return res.status(400).json({
+        error: 'training id and participantId must be positive integers',
+      });
+    }
+
+    const booking = await createTrainingBooking(prisma, {
+      participantId,
+      trainingId,
+    });
+
+    return res.status(201).json(booking);
+  } catch (error) {
+    console.error(error);
+
+    if (error instanceof HttpError) {
+      return res.status(error.statusCode).json({ error: error.message });
+    }
+
+    if (
+      error instanceof Prisma.PrismaClientKnownRequestError &&
+      error.code === 'P2002'
+    ) {
+      return res.status(409).json({ error: 'Already booked' });
+    }
+
+    return res.status(500).json({ error: 'Server error' });
+  }
+}
+
+/*
 import { PrismaClient } from '@prisma/client';
 
 const prisma = new PrismaClient();
@@ -45,3 +105,4 @@ export default async function handler(req, res) {
     return res.status(500).json({ error: 'Server error' });
   }
 }
+*/

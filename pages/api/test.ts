@@ -1,20 +1,32 @@
 // pages/api/test.ts
-import { NextApiRequest, NextApiResponse } from 'next';
+import type { NextApiRequest, NextApiResponse } from 'next';
 import prisma from '../../lib/prisma';
 
 const handler = async (req: NextApiRequest, res: NextApiResponse) => {
+  if (req.method !== 'GET') {
+    return res.status(405).json({ error: 'Method not allowed' });
+  }
+
   try {
     // Создание пользователя
-    const user = await prisma.user.create({
-      data: {
-        email: 'test@example.com',
-        passwordHash: 'hashedPassword123',
+    const [users, participants, trainings, bookings] = await Promise.all([
+      prisma.user.count(),
+      prisma.userProfile.count(),
+      prisma.schoolTraining.count(),
+      prisma.trainingBooking.count(),
+    ]);
+
+    return res.status(200).json({
+      ok: true,
+      stats: {
+        users,
+        participants,
+        trainings,
+        bookings,
       },
     });
-
-    res.status(200).json(user);
-  } catch (error) {
-    res.status(500).json({ error: 'Error creating user' });
+  } catch {
+    return res.status(500).json({ error: 'Database health check failed' });
   }
 };
 
