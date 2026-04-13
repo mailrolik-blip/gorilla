@@ -195,6 +195,68 @@ export const staffTeamApplicationSelect = {
   },
 } satisfies Prisma.TeamApplicationSelect;
 
+export const rentalResourceSummarySelect = {
+  id: true,
+  name: true,
+  resourceType: true,
+} satisfies Prisma.RentalResourceSelect;
+
+export const rentalFacilitySummarySelect = {
+  id: true,
+  name: true,
+} satisfies Prisma.RentalFacilitySelect;
+
+export const publicRentalSlotSelect = {
+  id: true,
+  startsAt: true,
+  endsAt: true,
+  status: true,
+  resource: {
+    select: {
+      ...rentalResourceSummarySelect,
+      facility: {
+        select: {
+          ...rentalFacilitySummarySelect,
+          city: {
+            select: publicCitySelect,
+          },
+        },
+      },
+    },
+  },
+} satisfies Prisma.RentalSlotSelect;
+
+export const myRentalBookingSelect = {
+  id: true,
+  status: true,
+  createdAt: true,
+  updatedAt: true,
+  participant: {
+    select: myTrainingBookingParticipantSelect,
+  },
+  slot: {
+    select: {
+      id: true,
+      startsAt: true,
+      endsAt: true,
+      status: true,
+      resource: {
+        select: {
+          ...rentalResourceSummarySelect,
+          facility: {
+            select: {
+              ...rentalFacilitySummarySelect,
+              city: {
+                select: publicCitySelect,
+              },
+            },
+          },
+        },
+      },
+    },
+  },
+} satisfies Prisma.RentalBookingSelect;
+
 export const teamApplicationInclude = {
   participant: {
     select: teamApplicationParticipantSelect,

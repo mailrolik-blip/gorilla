@@ -33,6 +33,18 @@ enum TeamApplicationStatus {
   CANCELLED
 }
 
+enum RentalSlotStatus {
+  AVAILABLE
+  BOOKED
+  UNAVAILABLE
+}
+
+enum RentalBookingStatus {
+  PENDING_CONFIRMATION
+  CONFIRMED
+  CANCELLED
+}
+
 model User {
   id           Int     @id @default(autoincrement())
   email        String? @unique
@@ -46,7 +58,8 @@ model User {
 
   profiles    UserProfile[]
   memberships TeamMember[]
-  bookings    Booking[]        @relation("UserBookings")
+  bookings       Booking[]       @relation("UserBookings")
+  rentalBookings RentalBooking[] @relation("UserRentalBookings")
   trainings   SchoolTraining[] // как тренер
 }
 
@@ -71,6 +84,7 @@ model UserProfile {
   updatedAt DateTime @updatedAt
 
   bookings         Booking[]         @relation("UserProfileBookings")
+  rentalBookings   RentalBooking[]
   trainingBookings TrainingBooking[]
   teamApplications TeamApplication[]
 }
@@ -147,6 +161,7 @@ model City {
   teams     Team[]
   sessions  Session[]
   trainings SchoolTraining[]
+  rentalFacilities RentalFacility[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -215,5 +230,71 @@ model TeamApplication {
 
   @@index([participantId])
   @@index([teamId])
+  @@index([status])
+}
+
+model RentalFacility {
+  id        Int      @id @default(autoincrement())
+  name      String
+  cityId    Int
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  city      City             @relation(fields: [cityId], references: [id])
+  resources RentalResource[]
+
+  @@index([cityId])
+}
+
+model RentalResource {
+  id           Int      @id @default(autoincrement())
+  facilityId   Int
+  name         String
+  resourceType String?
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  facility RentalFacility @relation(fields: [facilityId], references: [id])
+  slots    RentalSlot[]
+
+  @@index([facilityId])
+}
+
+model RentalSlot {
+  id         Int              @id @default(autoincrement())
+  resourceId Int
+  startsAt   DateTime
+  endsAt     DateTime
+  status     RentalSlotStatus @default(AVAILABLE)
+  isPublic   Boolean          @default(true)
+  createdAt  DateTime         @default(now())
+  updatedAt  DateTime         @updatedAt
+
+  resource RentalResource @relation(fields: [resourceId], references: [id])
+  bookings RentalBooking[]
+
+  @@index([resourceId])
+  @@index([startsAt])
+  @@index([endsAt])
+  @@index([status])
+  @@index([isPublic])
+}
+
+model RentalBooking {
+  id           Int                 @id @default(autoincrement())
+  slotId        Int
+  userId        Int
+  participantId Int?
+  status        RentalBookingStatus @default(PENDING_CONFIRMATION)
+  createdAt     DateTime            @default(now())
+  updatedAt     DateTime            @updatedAt
+
+  slot        RentalSlot   @relation(fields: [slotId], references: [id])
+  user        User         @relation("UserRentalBookings", fields: [userId], references: [id])
+  participant UserProfile? @relation(fields: [participantId], references: [id])
+
+  @@index([slotId])
+  @@index([userId])
+  @@index([participantId])
   @@index([status])
 }

@@ -388,3 +388,48 @@ Backend MVP foundation — завершён (v0.1 stable)
 - командный контур доведён до staff-level review
 - school-flow и team-flow базово закрыты
 - следующий этап: пользовательский rental flow
+
+## 6.4 Gorilla 0.5.4
+
+Закрыт базовый rental user flow для MVP v1.
+
+Что сделано:
+
+- добавлен минимальный rental-домен в Prisma:
+    - RentalFacility
+    - RentalResource
+    - RentalSlot
+    - RentalBooking
+- добавлены endpoint’ы:
+    - GET /api/public/rental-slots
+    - POST /api/rental-slots/[id]/book
+    - GET /api/my/rental-bookings
+    - POST /api/rental-bookings/[id]/cancel
+- реализованы safe select’ы для публичной выдачи и личных бронирований
+- реализован ownership-check по participantId
+- бронирование создаётся со статусом PENDING_CONFIRMATION
+- при отмене бронь не удаляется физически, а переводится в CANCELLED
+- после отмены слот возвращается в AVAILABLE
+
+Проверка:
+
+- npx prisma validate — ok
+- npx tsc --noEmit — ok
+- npm run lint — ok
+- npm run build — ok
+
+Ручная проверка:
+
+- публичные rental-slots читаются — ok
+- пользователь может создать бронь доступного слота — 201
+- занятый слот возвращает — 409
+- пользователь видит только свои rental bookings — ok
+- пользователь может отменить только свою бронь — 200
+- повторная отмена — 409
+- отмена чужой брони — 404
+
+Итог:
+
+- пользовательский контур аренды доведён до рабочего состояния
+- school-flow, team-flow и rental user-flow базово закрыты
+- следующий этап: staff/admin flow для аренды
