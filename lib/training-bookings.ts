@@ -1,6 +1,6 @@
 import { Prisma, type PrismaClient } from '@prisma/client';
 
-import { trainingBookingInclude } from './selects';
+import { myTrainingBookingInclude, trainingBookingInclude } from './selects';
 
 export class HttpError extends Error {
   statusCode: number;
@@ -93,4 +93,57 @@ export async function createTrainingBooking(
       isolationLevel: Prisma.TransactionIsolationLevel.Serializable,
     }
   );
+}
+
+export async function listTrainingBookingsForUser(
+  prisma: PrismaClient,
+  userId: number
+) {
+  const bookings = await prisma.trainingBooking.findMany({
+    where: {
+      participant: {
+        userId,
+      },
+    },
+    include: myTrainingBookingInclude,
+  });
+
+  return bookings.sort(
+    (left, right) =>
+      left.training.startTime.getTime() - right.training.startTime.getTime()
+  );
+}
+
+export async function cancelTrainingBookingForUser(
+  prisma: PrismaClient,
+  bookingId: number,
+  userId: number
+) {
+  const booking = await prisma.trainingBooking.findUnique({
+    where: { id: bookingId },
+    include: {
+      participant: {
+        select: {
+          id: true,
+          userId: true,
+        },
+      },
+    },
+  });
+
+  if (!booking || booking.participant.userId !== userId) {
+    throw new HttpError(404, 'Training booking not found');
+  }
+
+  if (booking.status === CANCELLED_STATUS) {
+    throw new HttpError(409, 'Training booking is already cancelled');
+  }
+
+  return prisma.trainingBooking.update({
+    where: { id: bookingId },
+    data: {
+      status: CANCELLED_STATUS,
+    },
+    include: myTrainingBookingInclude,
+  });
 }

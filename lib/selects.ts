@@ -98,3 +98,45 @@ export const trainingBookingInclude = {
     select: trainingSelect,
   },
 } satisfies Prisma.TrainingBookingInclude;
+
+export const myTrainingBookingParticipantSelect = {
+  id: true,
+  profileType: true,
+  firstName: true,
+  lastName: true,
+  birthDate: true,
+  cityId: true,
+  createdAt: true,
+  updatedAt: true,
+  city: {
+    select: publicCitySelect,
+  },
+} satisfies Prisma.UserProfileSelect;
+
+export const myTrainingBookingTrainingSelect = {
+  trainingId: true,
+  name: true,
+  description: true,
+  trainingType: true,
+  cityId: true,
+  trainerId: true,
+  startTime: true,
+  endTime: true,
+  location: true,
+  capacity: true,
+  isActive: true,
+  createdAt: true,
+  updatedAt: true,
+  city: {
+    select: publicCitySelect,
+  },
+} satisfies Prisma.SchoolTrainingSelect;
+
+export const myTrainingBookingInclude = {
+  participant: {
+    select: myTrainingBookingParticipantSelect,
+  },
+  training: {
+    select: myTrainingBookingTrainingSelect,
+  },
+} satisfies Prisma.TrainingBookingInclude;
