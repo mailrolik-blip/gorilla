@@ -558,3 +558,50 @@ Backend MVP foundation — завершён (v0.1 stable)
 
 - rental-модуль доведён до полноценного staff/admin уровня
 - следующий этап: team roster management и staff-операционка по составу команды
+
+## 6.8 Gorilla 0.5.8
+
+Закрыт staff/admin team roster management flow для MVP v1.
+
+Что сделано:
+
+- расширена модель TeamMember под реальный состав команды;
+- добавлены поля:
+    - participantId
+    - positionCode
+    - jerseyNumber
+    - joinedAt
+- userId в TeamMember сделан nullable для roster-сценариев;
+- добавлена связь участника с командным членством;
+- добавлены endpoint’ы:
+    - GET /api/admin/team-members
+    - POST /api/admin/team-members
+    - PATCH /api/admin/team-members/[id]
+- реализован staff-facing select для состава команды;
+- добавлен helper lib/team-members.ts для list/create/update roster entries;
+- добавлен helper для ручного добавления участника из ACCEPTED team application без автосвязывания;
+- добавлена защита от дублей членства по (participantId, teamId)
+
+Проверка:
+
+- npx prisma validate — ok
+- npx tsc --noEmit — ok
+- npm run lint — ok
+- npm run build — ok
+- npx prisma migrate deploy — ok
+- npx prisma generate — ok
+
+Ручная проверка:
+
+- manager/admin видят список team members — ok
+- manager/admin могут добавить participant в команду — 201
+- дублирующее членство даёт 409
+- manager/admin могут обновить team member — 200
+- обычный user получает 403
+- team applications flow после изменений не сломан
+
+Итог:
+
+- командный модуль доведён до управления составом
+- school-flow, team-flow и rental-flow базово закрыты как по user-, так и по staff-логике
+- следующий этап: staff/admin management для rental inventory

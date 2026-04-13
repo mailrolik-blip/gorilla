@@ -87,6 +87,7 @@ model UserProfile {
   rentalBookings   RentalBooking[]
   trainingBookings TrainingBooking[]
   teamApplications TeamApplication[]
+  teamMemberships  TeamMember[]
 }
 
 model Team {
@@ -103,18 +104,25 @@ model Team {
 }
 
 model TeamMember {
-  id        Int              @id @default(autoincrement())
-  userId    Int
-  teamId    Int
-  role      TeamRole
-  status    TeamMemberStatus
-  createdAt DateTime         @default(now())
-  updatedAt DateTime         @updatedAt
+  id           Int              @id @default(autoincrement())
+  userId       Int?
+  participantId Int?
+  teamId       Int
+  role         TeamRole
+  status       TeamMemberStatus
+  positionCode String?
+  jerseyNumber Int?
+  joinedAt     DateTime         @default(now())
+  createdAt    DateTime         @default(now())
+  updatedAt    DateTime         @updatedAt
 
-  user User @relation(fields: [userId], references: [id])
-  team Team @relation(fields: [teamId], references: [id])
+  user        User?       @relation(fields: [userId], references: [id])
+  participant UserProfile? @relation(fields: [participantId], references: [id])
+  team        Team        @relation(fields: [teamId], references: [id])
 
   @@unique([userId, teamId])
+  @@unique([participantId, teamId])
+  @@index([participantId])
 }
 
 model Session {

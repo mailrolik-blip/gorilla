@@ -211,6 +211,36 @@ export const staffTeamApplicationSelect = {
   },
 } satisfies Prisma.TeamApplicationSelect;
 
+export const staffTeamMemberParticipantSelect = {
+  id: true,
+  profileType: true,
+  firstName: true,
+  lastName: true,
+  birthDate: true,
+  cityId: true,
+  createdAt: true,
+  updatedAt: true,
+  city: {
+    select: publicCitySelect,
+  },
+} satisfies Prisma.UserProfileSelect;
+
+export const staffTeamMemberSelect = {
+  id: true,
+  status: true,
+  positionCode: true,
+  jerseyNumber: true,
+  joinedAt: true,
+  createdAt: true,
+  updatedAt: true,
+  team: {
+    select: teamApplicationTeamSelect,
+  },
+  participant: {
+    select: staffTeamMemberParticipantSelect,
+  },
+} satisfies Prisma.TeamMemberSelect;
+
 export const rentalResourceSummarySelect = {
   id: true,
   name: true,
