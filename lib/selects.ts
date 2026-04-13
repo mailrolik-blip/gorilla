@@ -90,6 +90,22 @@ export const trainingSelect = {
   },
 } satisfies Prisma.SchoolTrainingSelect;
 
+export const staffTrainingSelect = {
+  trainingId: true,
+  name: true,
+  trainingType: true,
+  capacity: true,
+  isActive: true,
+  createdAt: true,
+  updatedAt: true,
+  city: {
+    select: publicCitySelect,
+  },
+  trainer: {
+    select: publicUserSelect,
+  },
+} satisfies Prisma.SchoolTrainingSelect;
+
 export const trainingBookingInclude = {
   participant: {
     select: participantSummarySelect,

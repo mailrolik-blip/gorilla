@@ -479,3 +479,40 @@ Backend MVP foundation — завершён (v0.1 stable)
 - rental flow доведён до staff/admin уровня
 - school-flow, team-flow и rental-flow базово закрыты
 - следующий этап: базовый staff/admin CRUD для тренировок и командной операционки
+
+## 6.6 Gorilla 0.5.6
+
+Закрыт staff/admin trainings management flow для MVP v1.
+
+Что сделано:
+
+- добавлен endpoint GET /api/admin/trainings
+- добавлен endpoint POST /api/admin/trainings
+- добавлен endpoint PATCH /api/admin/trainings/[id]
+- добавлен staff-facing select для тренировок
+- добавлен helper lib/admin-trainings.ts для staff-управления тренировками
+- реализована валидация cityId и coachId
+- taff-facing JSON маппит trainer в поле coach
+- в ответах используется name как текущий title тренировки
+- доступ ограничен только для manager/admin
+
+Проверка:
+
+- npx prisma validate — ok
+- npx tsc --noEmit — ok
+- npm run lint — ok
+- npm run build — ok
+
+Ручная проверка:
+
+- manager видит список тренировок — ok
+- admin видит список тренировок — ok
+- manager создаёт тренировку — 201
+- admin изменяет тренировку — 200
+- обычный user получает 403
+- существующий school-flow не сломан после create/update training
+
+Итог:
+
+- staff/admin управление тренировками доведено до рабочего состояния
+- следующий шаг: управление rental inventory и rental slots без Prisma Studio
