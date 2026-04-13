@@ -1,6 +1,6 @@
-import { Prisma, type PrismaClient, type TeamApplicationStatus } from '@prisma/client';
+import { Prisma, type PrismaClient, type StaffRole, type TeamApplicationStatus } from '@prisma/client';
 
-import { teamApplicationInclude } from './selects';
+import { myTeamApplicationSelect, staffTeamApplicationSelect } from './selects';
 import { HttpError } from './training-bookings';
 
 type CreateTeamApplicationInput = {
@@ -10,10 +10,83 @@ type CreateTeamApplicationInput = {
   commentFromApplicant: string | null;
 };
 
+type UpdateTeamApplicationByStaffInput = {
+  applicationId: number;
+  currentUserId: number;
+  status?: StaffManagedTeamApplicationStatus;
+  internalNote?: string | null;
+};
+
+type TeamApplicationStaffAccess = {
+  coachedTeamIds: number[];
+  isGlobalStaff: boolean;
+};
+
+export type StaffManagedTeamApplicationStatus =
+  | 'PENDING'
+  | 'IN_REVIEW'
+  | 'ACCEPTED'
+  | 'REJECTED';
+
+const GLOBAL_STAFF_ROLES: StaffRole[] = ['MANAGER', 'ADMIN'];
+
 const ACTIVE_TEAM_APPLICATION_STATUSES: TeamApplicationStatus[] = [
   'PENDING',
-  'APPROVED',
+  'IN_REVIEW',
+  'ACCEPTED',
 ];
+
+function getVisibleTeamApplicationsWhere(
+  staffAccess: TeamApplicationStaffAccess
+): Prisma.TeamApplicationWhereInput {
+  if (staffAccess.isGlobalStaff) {
+    return {};
+  }
+
+  return {
+    teamId: {
+      in: staffAccess.coachedTeamIds,
+    },
+  };
+}
+
+async function getTeamApplicationStaffAccess(
+  prisma: PrismaClient,
+  userId: number
+): Promise<TeamApplicationStaffAccess> {
+  const [user, coachedMemberships] = await Promise.all([
+    prisma.user.findUnique({
+      where: { id: userId },
+      select: {
+        staffRole: true,
+      },
+    }),
+    prisma.teamMember.findMany({
+      where: {
+        userId,
+        role: 'COACH',
+      },
+      select: {
+        teamId: true,
+      },
+    }),
+  ]);
+
+  const isGlobalStaff =
+    user?.staffRole !== null &&
+    user?.staffRole !== undefined &&
+    GLOBAL_STAFF_ROLES.includes(user.staffRole);
+  const coachedTeamIds = coachedMemberships.map((membership) => membership.teamId);
+
+  if (!isGlobalStaff && coachedTeamIds.length === 0) {
+    throw new HttpError(403, 'Staff access required');
+  }
+
+  return {
+    coachedTeamIds,
+    isGlobalStaff,
+  };
+}
 
 export async function createTeamApplication(
   prisma: PrismaClient,
@@ -72,7 +145,7 @@ export async function createTeamApplication(
           status: 'PENDING',
           commentFromApplicant,
         },
-        include: teamApplicationInclude,
+        select: myTeamApplicationSelect,
       });
     },
     {
@@ -91,7 +164,7 @@ export async function listTeamApplicationsForUser(
         userId,
       },
     },
-    include: teamApplicationInclude,
+    select: myTeamApplicationSelect,
     orderBy: {
       createdAt: 'desc',
     },
@@ -129,6 +202,59 @@ export async function cancelTeamApplicationForUser(
     data: {
       status: 'CANCELLED',
     },
-    include: teamApplicationInclude,
+    select: myTeamApplicationSelect,
+  });
+}
+
+export async function listTeamApplicationsForStaff(
+  prisma: PrismaClient,
+  userId: number
+) {
+  const staffAccess = await getTeamApplicationStaffAccess(prisma, userId);
+
+  return prisma.teamApplication.findMany({
+    where: getVisibleTeamApplicationsWhere(staffAccess),
+    select: staffTeamApplicationSelect,
+    orderBy: {
+      createdAt: 'desc',
+    },
+  });
+}
+
+export async function updateTeamApplicationByStaff(
+  prisma: PrismaClient,
+  input: UpdateTeamApplicationByStaffInput
+) {
+  const { applicationId, currentUserId, status, internalNote } = input;
+  const staffAccess = await getTeamApplicationStaffAccess(prisma, currentUserId);
+
+  const application = await prisma.teamApplication.findFirst({
+    where: {
+      id: applicationId,
+      ...getVisibleTeamApplicationsWhere(staffAccess),
+    },
+    select: {
+      id: true,
+    },
+  });
+
+  if (!application) {
+    throw new HttpError(404, 'Team application not found');
+  }
+
+  const data: Prisma.TeamApplicationUpdateInput = {};
+
+  if (status !== undefined) {
+    data.status = status;
+  }
+
+  if (internalNote !== undefined) {
+    data.internalNote = internalNote;
+  }
+
+  return prisma.teamApplication.update({
+    where: { id: applicationId },
+    data,
+    select: staffTeamApplicationSelect,
   });
 }

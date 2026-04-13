@@ -166,6 +166,35 @@ export const teamApplicationTeamSelect = {
   },
 } satisfies Prisma.TeamSelect;
 
+export const myTeamApplicationSelect = {
+  id: true,
+  status: true,
+  commentFromApplicant: true,
+  createdAt: true,
+  updatedAt: true,
+  participant: {
+    select: teamApplicationParticipantSelect,
+  },
+  team: {
+    select: teamApplicationTeamSelect,
+  },
+} satisfies Prisma.TeamApplicationSelect;
+
+export const staffTeamApplicationSelect = {
+  id: true,
+  status: true,
+  commentFromApplicant: true,
+  internalNote: true,
+  createdAt: true,
+  updatedAt: true,
+  participant: {
+    select: teamApplicationParticipantSelect,
+  },
+  team: {
+    select: teamApplicationTeamSelect,
+  },
+} satisfies Prisma.TeamApplicationSelect;
+
 export const teamApplicationInclude = {
   participant: {
     select: teamApplicationParticipantSelect,

@@ -341,3 +341,50 @@ Backend MVP foundation — завершён (v0.1 stable)
 
 - пользовательский team-flow доведён до рабочего состояния
 - backend готов к следующему этапу: staff review flow для заявок в команду
+
+## 6.3 Gorilla 0.5.3
+
+Закрыт staff review flow для заявок в команду.
+
+Что сделано:
+
+- добавлен GET /api/coach/team-applications
+- добавлен PATCH /api/coach/team-applications/[id]
+- добавлено поле internalNote у TeamApplication
+- добавлена staff-роль пользователя:
+    - MANAGER
+    - ADMIN
+- расширены статусы review-flow:
+    - IN_REVIEW
+    - ACCEPTED
+- выполнена миграция legacy-статуса:
+    - APPROVED -> ACCEPTED
+- реализованы safe select’ы:
+    - user-facing без internalNote
+    - staff-facing с internalNote
+- реализовано разграничение доступа:
+    - coach видит и меняет заявки только своих команд
+    - manager/admin имеют расширенный доступ
+    - обычный user не имеет доступа к staff-endpoints
+
+Проверка:
+
+- npx prisma validate — ok
+- npx tsc --noEmit — ok
+- npm run lint — ok
+- npm run build — ok
+
+Ручная проверка:
+
+- coach видел только заявки своей команды
+- coach не видел чужие заявки
+- coach менял статус своей заявки — ok
+- internalNote сохраняется — ok
+- manager видел все заявки и менял чужие — ok
+- обычный user получал 403 — ok
+
+Итог:
+
+- командный контур доведён до staff-level review
+- school-flow и team-flow базово закрыты
+- следующий этап: пользовательский rental flow
