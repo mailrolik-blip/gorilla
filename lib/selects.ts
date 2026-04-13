@@ -1,4 +1,4 @@
-import type { Prisma } from '@prisma/client';
+import type { Prisma, RentalBookingStatus } from '@prisma/client';
 
 export const publicUserSelect = {
   id: true,
@@ -286,6 +286,63 @@ export const staffRentalBookingParticipantSelect = {
     select: publicCitySelect,
   },
 } satisfies Prisma.UserProfileSelect;
+
+const activeRentalBookingStatuses: RentalBookingStatus[] = [
+  'PENDING_CONFIRMATION',
+  'CONFIRMED',
+];
+
+export const staffRentalSlotActiveBookingSummarySelect = {
+  id: true,
+  participantId: true,
+  status: true,
+  createdAt: true,
+  updatedAt: true,
+  user: {
+    select: publicUserSelect,
+  },
+  participant: {
+    select: staffRentalBookingParticipantSelect,
+  },
+} satisfies Prisma.RentalBookingSelect;
+
+export const staffRentalSlotSelect = {
+  id: true,
+  status: true,
+  startsAt: true,
+  endsAt: true,
+  isPublic: true,
+  resource: {
+    select: {
+      ...rentalResourceSummarySelect,
+      facility: {
+        select: {
+          ...rentalFacilitySummarySelect,
+          city: {
+            select: publicCitySelect,
+          },
+        },
+      },
+    },
+  },
+  bookings: {
+    where: {
+      status: {
+        in: activeRentalBookingStatuses,
+      },
+    },
+    orderBy: [
+      {
+        createdAt: 'desc',
+      },
+      {
+        id: 'desc',
+      },
+    ],
+    take: 1,
+    select: staffRentalSlotActiveBookingSummarySelect,
+  },
+} satisfies Prisma.RentalSlotSelect;
 
 export const staffRentalBookingSelect = {
   id: true,

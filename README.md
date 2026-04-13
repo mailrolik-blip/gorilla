@@ -516,3 +516,45 @@ Backend MVP foundation — завершён (v0.1 stable)
 
 - staff/admin управление тренировками доведено до рабочего состояния
 - следующий шаг: управление rental inventory и rental slots без Prisma Studio
+
+## 6.7 Gorilla 0.5.7
+
+Закрыт staff/admin rental slots management flow для MVP v1.
+
+Что сделано:
+
+- добавлен endpoint GET /api/admin/rental-slots
+- добавлен endpoint POST /api/admin/rental-slots
+- добавлен endpoint PATCH /api/admin/rental-slots/[id]
+- добавлен staff-facing select для rental slots
+- добавлен helper lib/admin-rental-slots.ts для staff-управления слотами аренды
+- реализована проверка overlap слотов по resourceId
+- добавлена staff-facing выдача activeBookingSummary
+- реализована синхронизация статуса слота с активной бронью
+- запрещён перевод слота с активной бронью в неконсистентный статус
+- isPublic маппится в visibleToPublic
+
+Проверка:
+
+- npx prisma validate — ok
+- npx tsc --noEmit — ok
+- npm run lint — ok
+- npm run build — ok
+
+Ручная проверка:
+
+- manager/admin видят rental slots — ok
+- manager создаёт slot — 201
+- admin изменяет slot — 200
+- обычный user получает 403
+- public rental flow не сломан
+- созданный staff-слот доступен в public flow и бронируется пользователем
+- staff list показывает activeBookingSummary
+- некорректный диапазон времени — 400
+- пересекающийся слот — 409
+- попытка перевести слот с активной booking в UNAVAILABLE — 409
+
+Итог:
+
+- rental-модуль доведён до полноценного staff/admin уровня
+- следующий этап: team roster management и staff-операционка по составу команды
