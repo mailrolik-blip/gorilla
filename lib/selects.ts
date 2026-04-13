@@ -252,6 +252,35 @@ export const rentalFacilitySummarySelect = {
   name: true,
 } satisfies Prisma.RentalFacilitySelect;
 
+export const staffRentalFacilitySelect = {
+  id: true,
+  name: true,
+  createdAt: true,
+  updatedAt: true,
+  city: {
+    select: publicCitySelect,
+  },
+} satisfies Prisma.RentalFacilitySelect;
+
+export const staffRentalResourceFacilitySelect = {
+  id: true,
+  name: true,
+  city: {
+    select: publicCitySelect,
+  },
+} satisfies Prisma.RentalFacilitySelect;
+
+export const staffRentalResourceSelect = {
+  id: true,
+  name: true,
+  resourceType: true,
+  createdAt: true,
+  updatedAt: true,
+  facility: {
+    select: staffRentalResourceFacilitySelect,
+  },
+} satisfies Prisma.RentalResourceSelect;
+
 export const publicRentalSlotSelect = {
   id: true,
   startsAt: true,

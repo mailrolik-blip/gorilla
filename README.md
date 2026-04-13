@@ -605,3 +605,43 @@ Backend MVP foundation — завершён (v0.1 stable)
 - командный модуль доведён до управления составом
 - school-flow, team-flow и rental-flow базово закрыты как по user-, так и по staff-логике
 - следующий этап: staff/admin management для rental inventory
+
+## 6.9 Gorilla 0.5.9
+
+Закрыт staff/admin rental inventory management flow для MVP v1.
+
+Что сделано:
+
+- добавлен endpoint GET /api/admin/rental-facilities
+- добавлен endpoint POST /api/admin/rental-facilities
+- добавлен endpoint PATCH /api/admin/rental-facilities/[id]
+- добавлен endpoint GET /api/admin/rental-resources
+- добавлен endpoint POST /api/admin/rental-resources
+- добавлен endpoint PATCH /api/admin/rental-resources/[id]
+- вынесена inventory-логика в lib/admin-rental-inventory.ts
+- добавлены safe select’ы для facilities/resources
+- используется существующая staff-role проверка manager/admin
+- в resource API поле type маппится на текущую колонку resourceType
+
+Проверка:
+
+- npx prisma validate — ok
+- npx tsc --noEmit — ok
+- npm run lint — ok
+- npm run build — ok
+
+Ручная проверка:
+
+- manager/admin видят rental facilities — ok
+- manager/admin создают facility — 201
+- manager/admin обновляют facility — 200
+- manager/admin видят rental resources — ok
+- manager/admin создают resource — 201
+- manager/admin обновляют resource — 200
+- обычный user получает 403
+- существующий public/user rental flow не сломан
+
+Итог:
+
+- rental-модуль теперь управляется staff/admin полностью без Prisma Studio
+- следующий этап: staff/admin management для команд и team applications из единого admin-контура
