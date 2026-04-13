@@ -20,6 +20,13 @@ enum TeamMemberStatus {
   SUSPENDED
 }
 
+enum TeamApplicationStatus {
+  PENDING
+  APPROVED
+  REJECTED
+  CANCELLED
+}
+
 model User {
   id           Int     @id @default(autoincrement())
   email        String? @unique
@@ -58,6 +65,7 @@ model UserProfile {
 
   bookings         Booking[]         @relation("UserProfileBookings")
   trainingBookings TrainingBooking[]
+  teamApplications TeamApplication[]
 }
 
 model Team {
@@ -70,6 +78,7 @@ model Team {
   updatedAt DateTime @updatedAt
 
   members TeamMember[]
+  applications TeamApplication[]
 }
 
 model TeamMember {
@@ -182,4 +191,21 @@ model TrainingBooking {
   @@unique([participantId, trainingId])
   @@index([participantId])
   @@index([trainingId])
+}
+
+model TeamApplication {
+  id                   Int                   @id @default(autoincrement())
+  participantId        Int
+  teamId               Int
+  status               TeamApplicationStatus @default(PENDING)
+  commentFromApplicant String?
+  createdAt            DateTime              @default(now())
+  updatedAt            DateTime              @updatedAt
+
+  participant UserProfile @relation(fields: [participantId], references: [id])
+  team        Team        @relation(fields: [teamId], references: [id])
+
+  @@index([participantId])
+  @@index([teamId])
+  @@index([status])
 }
