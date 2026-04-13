@@ -4,13 +4,26 @@ import {
   type RentalBookingStatus,
 } from '@prisma/client';
 
-import { myRentalBookingSelect, publicRentalSlotSelect } from './selects';
+import {
+  myRentalBookingSelect,
+  publicRentalSlotSelect,
+  staffRentalBookingSelect,
+} from './selects';
+import { assertGlobalStaffAccess } from './staff';
 import { HttpError } from './training-bookings';
 
 type CreateRentalBookingInput = {
   currentUserId: number;
   slotId: number;
   participantId: number | null;
+  noteFromUser: string | null;
+};
+
+type UpdateRentalBookingByStaffInput = {
+  bookingId: number;
+  currentUserId: number;
+  status?: StaffManagedRentalBookingStatus;
+  managerNote?: string | null;
 };
 
 type PublicRentalSlotRecord = Prisma.RentalSlotGetPayload<{
@@ -20,6 +33,15 @@ type PublicRentalSlotRecord = Prisma.RentalSlotGetPayload<{
 type MyRentalBookingRecord = Prisma.RentalBookingGetPayload<{
   select: typeof myRentalBookingSelect;
 }>;
+
+type StaffRentalBookingRecord = Prisma.RentalBookingGetPayload<{
+  select: typeof staffRentalBookingSelect;
+}>;
+
+export type StaffManagedRentalBookingStatus =
+  | 'PENDING_CONFIRMATION'
+  | 'CONFIRMED'
+  | 'CANCELLED';
 
 const ACTIVE_RENTAL_BOOKING_STATUSES: RentalBookingStatus[] = [
   'PENDING_CONFIRMATION',
@@ -72,6 +94,90 @@ function mapRentalBookingForUser(booking: MyRentalBookingRecord) {
     },
     city: booking.slot.resource.facility.city,
   };
+}
+
+function mapRentalBookingForStaff(booking: StaffRentalBookingRecord) {
+  return {
+    id: booking.id,
+    status: booking.status,
+    bookingType: booking.participantId ? 'PARTICIPANT' : 'SELF',
+    noteFromUser: booking.noteFromUser,
+    managerNote: booking.managerNote,
+    createdAt: booking.createdAt,
+    updatedAt: booking.updatedAt,
+    user: booking.user,
+    participant: booking.participant,
+    rentalSlot: {
+      id: booking.slot.id,
+      startsAt: booking.slot.startsAt,
+      endsAt: booking.slot.endsAt,
+      status: booking.slot.status,
+      isPublic: booking.slot.isPublic,
+    },
+    resource: {
+      id: booking.slot.resource.id,
+      name: booking.slot.resource.name,
+      resourceType: booking.slot.resource.resourceType,
+    },
+    facility: {
+      id: booking.slot.resource.facility.id,
+      name: booking.slot.resource.facility.name,
+    },
+    city: booking.slot.resource.facility.city,
+  };
+}
+
+async function syncRentalSlotStatus(
+  tx: Prisma.TransactionClient,
+  slotId: number
+) {
+  const [slot, activeBookingsCount] = await Promise.all([
+    tx.rentalSlot.findUnique({
+      where: { id: slotId },
+      select: {
+        id: true,
+        status: true,
+      },
+    }),
+    tx.rentalBooking.count({
+      where: {
+        slotId,
+        status: {
+          in: ACTIVE_RENTAL_BOOKING_STATUSES,
+        },
+      },
+    }),
+  ]);
+
+  if (!slot) {
+    throw new HttpError(404, 'Rental slot not found');
+  }
+
+  if (activeBookingsCount > 0) {
+    if (slot.status === 'UNAVAILABLE') {
+      throw new HttpError(409, 'Rental slot is unavailable');
+    }
+
+    if (slot.status !== 'BOOKED') {
+      await tx.rentalSlot.update({
+        where: { id: slotId },
+        data: {
+          status: 'BOOKED',
+        },
+      });
+    }
+
+    return;
+  }
+
+  if (slot.status === 'BOOKED') {
+    await tx.rentalSlot.update({
+      where: { id: slotId },
+      data: {
+        status: 'AVAILABLE',
+      },
+    });
+  }
 }
 
 async function ensureCurrentUserExists(
@@ -141,7 +247,7 @@ export async function createRentalBooking(
   prisma: PrismaClient,
   input: CreateRentalBookingInput
 ) {
-  const { currentUserId, slotId, participantId } = input;
+  const { currentUserId, slotId, participantId, noteFromUser } = input;
 
   return prisma.$transaction(
     async (tx) => {
@@ -194,6 +300,7 @@ export async function createRentalBooking(
             connect: { id: currentUserId },
           },
           status: 'PENDING_CONFIRMATION',
+          noteFromUser,
           ...(participant
             ? {
                 participant: {
@@ -283,32 +390,7 @@ export async function cancelRentalBookingForUser(
       },
     });
 
-    const remainingActiveBookings = await tx.rentalBooking.count({
-      where: {
-        slotId: booking.slotId,
-        status: {
-          in: ACTIVE_RENTAL_BOOKING_STATUSES,
-        },
-      },
-    });
-
-    if (remainingActiveBookings === 0) {
-      const slot = await tx.rentalSlot.findUnique({
-        where: { id: booking.slotId },
-        select: {
-          status: true,
-        },
-      });
-
-      if (slot?.status === 'BOOKED') {
-        await tx.rentalSlot.update({
-          where: { id: booking.slotId },
-          data: {
-            status: 'AVAILABLE',
-          },
-        });
-      }
-    }
+    await syncRentalSlotStatus(tx, booking.slotId);
 
     const updatedBooking = await tx.rentalBooking.findUnique({
       where: { id: bookingId },
@@ -320,5 +402,123 @@ export async function cancelRentalBookingForUser(
     }
 
     return mapRentalBookingForUser(updatedBooking);
+  });
+}
+
+export async function listRentalBookingsForStaff(
+  prisma: PrismaClient,
+  userId: number
+) {
+  await assertGlobalStaffAccess(prisma, userId);
+
+  const bookings = await prisma.rentalBooking.findMany({
+    select: staffRentalBookingSelect,
+    orderBy: {
+      createdAt: 'desc',
+    },
+  });
+
+  return bookings.map(mapRentalBookingForStaff);
+}
+
+export async function updateRentalBookingByStaff(
+  prisma: PrismaClient,
+  input: UpdateRentalBookingByStaffInput
+) {
+  const { bookingId, currentUserId, status, managerNote } = input;
+
+  await assertGlobalStaffAccess(prisma, currentUserId);
+
+  return prisma.$transaction(async (tx) => {
+    const booking = await tx.rentalBooking.findUnique({
+      where: { id: bookingId },
+      select: {
+        id: true,
+        status: true,
+        slotId: true,
+      },
+    });
+
+    if (!booking) {
+      throw new HttpError(404, 'Rental booking not found');
+    }
+
+    if (
+      status === CANCELLED_RENTAL_BOOKING_STATUS &&
+      booking.status === CANCELLED_RENTAL_BOOKING_STATUS
+    ) {
+      throw new HttpError(409, 'Rental booking is already cancelled');
+    }
+
+    if (
+      status !== undefined &&
+      status !== CANCELLED_RENTAL_BOOKING_STATUS
+    ) {
+      const [slot, otherActiveBooking] = await Promise.all([
+        tx.rentalSlot.findUnique({
+          where: { id: booking.slotId },
+          select: {
+            id: true,
+            status: true,
+          },
+        }),
+        tx.rentalBooking.findFirst({
+          where: {
+            slotId: booking.slotId,
+            id: {
+              not: booking.id,
+            },
+            status: {
+              in: ACTIVE_RENTAL_BOOKING_STATUSES,
+            },
+          },
+          select: {
+            id: true,
+          },
+        }),
+      ]);
+
+      if (!slot) {
+        throw new HttpError(404, 'Rental slot not found');
+      }
+
+      if (slot.status === 'UNAVAILABLE') {
+        throw new HttpError(409, 'Rental slot is unavailable');
+      }
+
+      if (otherActiveBooking) {
+        throw new HttpError(409, 'Rental slot is already booked');
+      }
+    }
+
+    const data: Prisma.RentalBookingUpdateInput = {};
+
+    if (status !== undefined) {
+      data.status = status;
+    }
+
+    if (managerNote !== undefined) {
+      data.managerNote = managerNote;
+    }
+
+    await tx.rentalBooking.update({
+      where: { id: booking.id },
+      data,
+    });
+
+    if (status !== undefined) {
+      await syncRentalSlotStatus(tx, booking.slotId);
+    }
+
+    const updatedBooking = await tx.rentalBooking.findUnique({
+      where: { id: booking.id },
+      select: staffRentalBookingSelect,
+    });
+
+    if (!updatedBooking) {
+      throw new HttpError(500, 'Rental booking was not updated');
+    }
+
+    return mapRentalBookingForStaff(updatedBooking);
   });
 }

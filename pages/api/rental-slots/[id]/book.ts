@@ -15,6 +15,19 @@ function toPositiveInt(value: unknown): number | null {
   return parsed;
 }
 
+function toOptionalString(value: unknown): string | null | 'invalid' {
+  if (value === undefined || value === null || value === '') {
+    return null;
+  }
+
+  if (typeof value !== 'string') {
+    return 'invalid';
+  }
+
+  const trimmed = value.trim();
+  return trimmed.length > 0 ? trimmed : null;
+}
+
 export default async function handler(
   req: NextApiRequest,
   res: NextApiResponse
@@ -37,6 +50,7 @@ export default async function handler(
     req.body.participantId === ''
       ? null
       : toPositiveInt(req.body.participantId);
+  const noteFromUser = toOptionalString(req.body.noteFromUser);
 
   if (!slotId) {
     return res.status(400).json({ error: 'Invalid rental slot id' });
@@ -46,11 +60,16 @@ export default async function handler(
     return res.status(400).json({ error: 'participantId must be a positive integer' });
   }
 
+  if (noteFromUser === 'invalid') {
+    return res.status(400).json({ error: 'noteFromUser must be a string' });
+  }
+
   try {
     const booking = await createRentalBooking(prisma, {
       currentUserId,
       slotId,
       participantId,
+      noteFromUser,
     });
 
     return res.status(201).json(booking);

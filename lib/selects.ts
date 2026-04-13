@@ -257,6 +257,58 @@ export const myRentalBookingSelect = {
   },
 } satisfies Prisma.RentalBookingSelect;
 
+export const staffRentalBookingParticipantSelect = {
+  id: true,
+  profileType: true,
+  firstName: true,
+  lastName: true,
+  birthDate: true,
+  cityId: true,
+  createdAt: true,
+  updatedAt: true,
+  city: {
+    select: publicCitySelect,
+  },
+} satisfies Prisma.UserProfileSelect;
+
+export const staffRentalBookingSelect = {
+  id: true,
+  status: true,
+  participantId: true,
+  noteFromUser: true,
+  managerNote: true,
+  createdAt: true,
+  updatedAt: true,
+  user: {
+    select: publicUserSelect,
+  },
+  participant: {
+    select: staffRentalBookingParticipantSelect,
+  },
+  slot: {
+    select: {
+      id: true,
+      startsAt: true,
+      endsAt: true,
+      status: true,
+      isPublic: true,
+      resource: {
+        select: {
+          ...rentalResourceSummarySelect,
+          facility: {
+            select: {
+              ...rentalFacilitySummarySelect,
+              city: {
+                select: publicCitySelect,
+              },
+            },
+          },
+        },
+      },
+    },
+  },
+} satisfies Prisma.RentalBookingSelect;
+
 export const teamApplicationInclude = {
   participant: {
     select: teamApplicationParticipantSelect,

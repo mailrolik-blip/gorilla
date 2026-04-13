@@ -433,3 +433,49 @@ Backend MVP foundation — завершён (v0.1 stable)
 - пользовательский контур аренды доведён до рабочего состояния
 - school-flow, team-flow и rental user-flow базово закрыты
 - следующий этап: staff/admin flow для аренды
+
+## 6.5 Gorilla 0.5.5
+
+Закрыт staff/admin rental review flow для MVP v1.
+
+Что сделано:
+
+- добавлен endpoint GET /api/admin/rental-bookings
+- добавлен endpoint PATCH /api/admin/rental-bookings/[id]
+- добавлен staff-only helper проверки доступа для MANAGER / ADMIN
+- добавлены поля:
+    - RentalBooking.noteFromUser
+    - RentalBooking.managerNote
+- добавлен staff-facing select для rental bookings
+- реализовано обновление статуса брони staff’ом:
+    - PENDING_CONFIRMATION
+    - CONFIRMED
+    - CANCELLED
+- синхронизирован RentalSlot.status при confirm/cancel
+- POST /api/rental-slots/[id]/book теперь принимает noteFromUser
+
+Проверка:
+
+- npx prisma validate — ok
+- npx tsc --noEmit — ok
+- npm run lint — ok
+- npm run build — ok
+
+Ручная проверка:
+
+- manager видит rental bookings — ok
+- admin видит rental bookings — ok
+- обычный user на /api/admin/rental-bookings* получает 403
+- admin подтверждает бронь — ok
+- manager отменяет бронь — ok
+- managerNote сохраняется — ok
+- повторная отмена даёт 409
+- slot.status остаётся согласованным:
+    - после confirm — BOOKED
+    - после cancel — AVAILABLE
+
+Итог:
+
+- rental flow доведён до staff/admin уровня
+- school-flow, team-flow и rental-flow базово закрыты
+- следующий этап: базовый staff/admin CRUD для тренировок и командной операционки
