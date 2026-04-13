@@ -1,6 +1,11 @@
 import { Prisma, type PrismaClient, type StaffRole, type TeamApplicationStatus } from '@prisma/client';
 
-import { myTeamApplicationSelect, staffTeamApplicationSelect } from './selects';
+import {
+  adminTeamApplicationSelect,
+  myTeamApplicationSelect,
+  staffTeamApplicationSelect,
+} from './selects';
+import { assertGlobalStaffAccess } from './staff';
 import { HttpError } from './training-bookings';
 
 type CreateTeamApplicationInput = {
@@ -16,6 +21,14 @@ type UpdateTeamApplicationByStaffInput = {
   status?: StaffManagedTeamApplicationStatus;
   internalNote?: string | null;
 };
+
+type ListTeamApplicationsForAdminInput = {
+  currentUserId: number;
+  teamId?: number;
+  status?: TeamApplicationStatus;
+};
+
+type UpdateTeamApplicationByAdminInput = UpdateTeamApplicationByStaffInput;
 
 type TeamApplicationStaffAccess = {
   coachedTeamIds: number[];
@@ -221,6 +234,26 @@ export async function listTeamApplicationsForStaff(
   });
 }
 
+export async function listTeamApplicationsForAdmin(
+  prisma: PrismaClient,
+  input: ListTeamApplicationsForAdminInput
+) {
+  const { currentUserId, teamId, status } = input;
+
+  await assertGlobalStaffAccess(prisma, currentUserId);
+
+  return prisma.teamApplication.findMany({
+    where: {
+      ...(teamId !== undefined ? { teamId } : {}),
+      ...(status !== undefined ? { status } : {}),
+    },
+    select: adminTeamApplicationSelect,
+    orderBy: {
+      createdAt: 'desc',
+    },
+  });
+}
+
 export async function updateTeamApplicationByStaff(
   prisma: PrismaClient,
   input: UpdateTeamApplicationByStaffInput
@@ -252,9 +285,36 @@ export async function updateTeamApplicationByStaff(
     data.internalNote = internalNote;
   }
 
+  if (status !== undefined || internalNote !== undefined) {
+    data.reviewedBy = {
+      connect: { id: currentUserId },
+    };
+  }
+
   return prisma.teamApplication.update({
     where: { id: applicationId },
     data,
     select: staffTeamApplicationSelect,
   });
+}
+
+export async function updateTeamApplicationByAdmin(
+  prisma: PrismaClient,
+  input: UpdateTeamApplicationByAdminInput
+) {
+  const { applicationId, currentUserId } = input;
+
+  await assertGlobalStaffAccess(prisma, currentUserId);
+  await updateTeamApplicationByStaff(prisma, input);
+
+  const application = await prisma.teamApplication.findUnique({
+    where: { id: applicationId },
+    select: adminTeamApplicationSelect,
+  });
+
+  if (!application) {
+    throw new HttpError(500, 'Team application was not updated');
+  }
+
+  return application;
 }

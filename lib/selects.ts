@@ -63,6 +63,18 @@ export const teamSelect = {
   },
 } satisfies Prisma.TeamSelect;
 
+export const adminTeamSelect = {
+  id: true,
+  name: true,
+  slug: true,
+  description: true,
+  createdAt: true,
+  updatedAt: true,
+  city: {
+    select: publicCitySelect,
+  },
+} satisfies Prisma.TeamSelect;
+
 export const trainingSelect = {
   trainingId: true,
   name: true,
@@ -208,6 +220,24 @@ export const staffTeamApplicationSelect = {
   },
   team: {
     select: teamApplicationTeamSelect,
+  },
+} satisfies Prisma.TeamApplicationSelect;
+
+export const adminTeamApplicationSelect = {
+  id: true,
+  status: true,
+  commentFromApplicant: true,
+  internalNote: true,
+  createdAt: true,
+  updatedAt: true,
+  participant: {
+    select: teamApplicationParticipantSelect,
+  },
+  team: {
+    select: adminTeamSelect,
+  },
+  reviewedBy: {
+    select: publicUserSelect,
   },
 } satisfies Prisma.TeamApplicationSelect;
 

@@ -645,3 +645,50 @@ Backend MVP foundation — завершён (v0.1 stable)
 
 - rental-модуль теперь управляется staff/admin полностью без Prisma Studio
 - следующий этап: staff/admin management для команд и team applications из единого admin-контура
+
+## 6.10 Gorilla 0.5.10
+
+Закрыт staff/admin team management flow для MVP v1.
+
+Что сделано:
+
+- добавлен endpoint GET /api/admin/teams
+- добавлен endpoint POST /api/admin/teams
+- добавлен endpoint PATCH /api/admin/teams/[id]
+- добавлен endpoint GET /api/admin/team-applications
+- добавлен endpoint PATCH /api/admin/team-applications/[id]
+- вынесена admin team logic в lib/admin-teams.ts
+- admin review для заявок в команду переиспользует существующую review-логику из lib/team-applications.ts
+- добавлены поля:
+    - Team.slug
+    - Team.description
+    - TeamApplication.reviewedById
+    - TeamApplication.reviewedBy
+- добавлены staff-facing select’ы для команд и team applications
+- реализована проверка уникальности slug
+- reviewedBy сохраняется при staff-review
+
+Проверка:
+
+- npx prisma validate — ok
+- npx tsc --noEmit — ok
+- npm run lint — ok
+- npm run build — ok
+
+Ручная проверка:
+
+- manager/admin видят список команд — ok
+- manager/admin создают команду — 201
+- manager/admin обновляют команду — 200
+- конфликтующий slug даёт 409
+- manager/admin видят team applications — ok
+- manager/admin меняют status и internalNote — ok
+- reviewedBy сохраняется — ok
+- обычный user получает 403
+- существующий user/team flow не сломан
+
+Итог:
+
+- командный модуль собран в единый admin/staff контур
+- school-flow, team-flow и rental-flow закрыты по user- и staff-логике
+- следующий этап: auth foundation вместо разрозненного x-user-id
