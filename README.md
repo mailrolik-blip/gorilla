@@ -774,3 +774,56 @@ Backend MVP foundation — завершён (v0.1 stable)
 - auth foundation готов
 - backend почти собран в единый продуктовый контур
 - следующий этап: browser-ready dev auth + user dashboard foundation
+
+## 7.2 Gorilla 0.6.2
+
+Закрыт browser-ready dev auth bridge + dashboard foundation для MVP v1.
+
+Что сделано:
+
+- добавлен browser-ready dev auth bridge через cookie
+- current user теперь определяется по приоритету:
+    - session-ready abstraction
+    - dev cookie
+    - x-user-id fallback
+- добавлены helper’ы в lib/current-user.ts:
+    - getCurrentUserById()
+    - toCurrentUserSummary()
+    - assertDevAuthBridgeEnabled()
+    - setDevCurrentUserCookie()
+    - clearDevCurrentUserCookie()
+- добавлен endpoint POST /api/dev/login-as
+- добавлен endpoint POST /api/dev/logout
+- добавлен endpoint GET /api/me/dashboard
+- dashboard агрегирует:
+    - current user summary
+    - participants
+    - training bookings
+    - team applications
+    - rental bookings
+- /api/me переведён на общий safe summary helper
+
+Проверка:
+
+- npx prisma validate — ok
+- npx tsc --noEmit — ok
+- npm run lint — ok
+- npm run build — ok
+
+Ручная проверка:
+
+- POST /api/dev/login-as в dev-режиме устанавливает cookie — 200
+- GET /api/me с dev cookie и без x-user-id — 200
+- POST /api/dev/logout очищает cookie — 200
+- GET /api/me после logout без current user — 401
+- GET /api/me через старый x-user-id fallback всё ещё работает — 200
+- GET /api/me/dashboard работает для текущего пользователя — 200
+- dashboard возвращает только данные текущего пользователя
+- существующие user/admin/coach flows не сломаны
+- dev endpoints вне dev/local режима недоступны
+
+Итог:
+
+- auth foundation и browser-ready dev bridge готовы
+- backend собран в более цельный продуктовый контур
+- следующий этап: первый минимальный пользовательский кабинет в интерфейсе

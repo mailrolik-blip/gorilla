@@ -1,8 +1,9 @@
 import type { NextApiRequest, NextApiResponse } from 'next';
 
-import { requireCurrentUser, toCurrentUserSummary } from '../../lib/current-user';
-import prisma from '../../lib/prisma';
-import { HttpError } from '../../lib/training-bookings';
+import { requireCurrentUser } from '../../../lib/current-user';
+import { getDashboardForCurrentUser } from '../../../lib/dashboard';
+import prisma from '../../../lib/prisma';
+import { HttpError } from '../../../lib/training-bookings';
 
 export default async function handler(
   req: NextApiRequest,
@@ -14,8 +15,9 @@ export default async function handler(
 
   try {
     const currentUser = await requireCurrentUser(prisma, req);
+    const dashboard = await getDashboardForCurrentUser(prisma, currentUser);
 
-    return res.status(200).json(toCurrentUserSummary(currentUser));
+    return res.status(200).json(dashboard);
   } catch (error) {
     console.error(error);
 
@@ -23,6 +25,6 @@ export default async function handler(
       return res.status(error.statusCode).json({ error: error.message });
     }
 
-    return res.status(500).json({ error: 'Failed to fetch current user' });
+    return res.status(500).json({ error: 'Failed to fetch dashboard' });
   }
 }
