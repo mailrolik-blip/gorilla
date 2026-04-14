@@ -1,7 +1,7 @@
 import type { TeamMemberStatus } from '@prisma/client';
 import type { NextApiRequest, NextApiResponse } from 'next';
 
-import { getCurrentUserId } from '../../../../lib/current-user';
+import { requireManagerOrAdmin } from '../../../../lib/current-user';
 import prisma from '../../../../lib/prisma';
 import { updateTeamMemberByStaff } from '../../../../lib/team-members';
 import { HttpError } from '../../../../lib/training-bookings';
@@ -88,12 +88,6 @@ export default async function handler(
     return res.status(405).json({ error: 'Method not allowed' });
   }
 
-  const currentUserId = getCurrentUserId(req);
-
-  if (!currentUserId) {
-    return res.status(401).json({ error: 'x-user-id header is required' });
-  }
-
   const rawTeamMemberId = Array.isArray(req.query.id) ? req.query.id[0] : req.query.id;
   const teamMemberId = toPositiveInt(rawTeamMemberId);
   const status = toTeamMemberStatus(req.body.status);
@@ -136,9 +130,10 @@ export default async function handler(
   }
 
   try {
+    const currentUser = await requireManagerOrAdmin(prisma, req);
     const teamMember = await updateTeamMemberByStaff(prisma, {
       teamMemberId,
-      currentUserId,
+      currentUserId: currentUser.id,
       ...(status !== undefined ? { status } : {}),
       ...(positionCode !== undefined ? { positionCode } : {}),
       ...(jerseyNumber !== undefined ? { jerseyNumber } : {}),

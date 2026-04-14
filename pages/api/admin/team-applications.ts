@@ -1,7 +1,7 @@
 import type { TeamApplicationStatus } from '@prisma/client';
 import type { NextApiRequest, NextApiResponse } from 'next';
 
-import { getCurrentUserId } from '../../../lib/current-user';
+import { requireManagerOrAdmin } from '../../../lib/current-user';
 import prisma from '../../../lib/prisma';
 import { listTeamApplicationsForAdmin } from '../../../lib/team-applications';
 import { HttpError } from '../../../lib/training-bookings';
@@ -54,12 +54,6 @@ export default async function handler(
     return res.status(405).json({ error: 'Method not allowed' });
   }
 
-  const currentUserId = getCurrentUserId(req);
-
-  if (!currentUserId) {
-    return res.status(401).json({ error: 'x-user-id header is required' });
-  }
-
   const teamIdQuery = getSingleValue(req.query.teamId);
   const statusQuery = getSingleValue(req.query.status);
   const parsedTeamId =
@@ -79,8 +73,9 @@ export default async function handler(
   const teamId = teamIdQuery === undefined ? undefined : (parsedTeamId as number);
 
   try {
+    const currentUser = await requireManagerOrAdmin(prisma, req);
     const applications = await listTeamApplicationsForAdmin(prisma, {
-      currentUserId,
+      currentUserId: currentUser.id,
       ...(teamId !== undefined ? { teamId } : {}),
       ...(status !== undefined ? { status } : {}),
     });

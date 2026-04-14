@@ -692,3 +692,43 @@ Backend MVP foundation — завершён (v0.1 stable)
 - командный модуль собран в единый admin/staff контур
 - school-flow, team-flow и rental-flow закрыты по user- и staff-логике
 - следующий этап: auth foundation вместо разрозненного x-user-id
+
+## 7.0 Gorilla 0.6.0
+
+Закрыт staff/admin rental inventory management flow для MVP v1.
+
+Что сделано:
+
+- добавлен endpoint GET /api/admin/rental-facilities
+- добавлен endpoint POST /api/admin/rental-facilities
+- добавлен endpoint PATCH /api/admin/rental-facilities/[id]
+- добавлен endpoint GET /api/admin/rental-resources
+- добавлен endpoint POST /api/admin/rental-resources
+- добавлен endpoint PATCH /api/admin/rental-resources/[id]
+- вынесена inventory-логика в lib/admin-rental-inventory.ts
+- добавлены safe select’ы для facilities/resources
+- используется существующая staff-role проверка manager/admin
+- в resource API поле type маппится на текущую колонку resourceType
+
+Проверка:
+
+- npx prisma validate — ok
+- npx tsc --noEmit — ok
+- npm run lint — ok
+- npm run build — ok
+
+Ручная проверка:
+
+- manager/admin видят rental facilities — ok
+- manager/admin создают facility — 201
+- manager/admin обновляют facility — 200
+- manager/admin видят rental resources — ok
+- manager/admin создают resource — 201
+- manager/admin обновляют resource — 200
+- обычный user получает 403
+- существующий public/user rental flow не сломан
+
+Итог:
+
+- rental-модуль теперь управляется staff/admin полностью без Prisma Studio
+- следующий этап: auth foundation

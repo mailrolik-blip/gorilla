@@ -1,11 +1,11 @@
-import { Prisma, type PrismaClient, type StaffRole, type TeamApplicationStatus } from '@prisma/client';
+import { Prisma, type PrismaClient, type TeamApplicationStatus } from '@prisma/client';
 
 import {
   adminTeamApplicationSelect,
   myTeamApplicationSelect,
   staffTeamApplicationSelect,
 } from './selects';
-import { assertGlobalStaffAccess } from './staff';
+import { assertGlobalStaffAccess, assertStaffAccess, type StaffAccessContext } from './staff';
 import { HttpError } from './training-bookings';
 
 type CreateTeamApplicationInput = {
@@ -30,18 +30,11 @@ type ListTeamApplicationsForAdminInput = {
 
 type UpdateTeamApplicationByAdminInput = UpdateTeamApplicationByStaffInput;
 
-type TeamApplicationStaffAccess = {
-  coachedTeamIds: number[];
-  isGlobalStaff: boolean;
-};
-
 export type StaffManagedTeamApplicationStatus =
   | 'PENDING'
   | 'IN_REVIEW'
   | 'ACCEPTED'
   | 'REJECTED';
-
-const GLOBAL_STAFF_ROLES: StaffRole[] = ['MANAGER', 'ADMIN'];
 
 const ACTIVE_TEAM_APPLICATION_STATUSES: TeamApplicationStatus[] = [
   'PENDING',
@@ -50,7 +43,7 @@ const ACTIVE_TEAM_APPLICATION_STATUSES: TeamApplicationStatus[] = [
 ];
 
 function getVisibleTeamApplicationsWhere(
-  staffAccess: TeamApplicationStaffAccess
+  staffAccess: StaffAccessContext
 ): Prisma.TeamApplicationWhereInput {
   if (staffAccess.isGlobalStaff) {
     return {};
@@ -60,44 +53,6 @@ function getVisibleTeamApplicationsWhere(
     teamId: {
       in: staffAccess.coachedTeamIds,
     },
-  };
-}
-
-async function getTeamApplicationStaffAccess(
-  prisma: PrismaClient,
-  userId: number
-): Promise<TeamApplicationStaffAccess> {
-  const [user, coachedMemberships] = await Promise.all([
-    prisma.user.findUnique({
-      where: { id: userId },
-      select: {
-        staffRole: true,
-      },
-    }),
-    prisma.teamMember.findMany({
-      where: {
-        userId,
-        role: 'COACH',
-      },
-      select: {
-        teamId: true,
-      },
-    }),
-  ]);
-
-  const isGlobalStaff =
-    user?.staffRole !== null &&
-    user?.staffRole !== undefined &&
-    GLOBAL_STAFF_ROLES.includes(user.staffRole);
-  const coachedTeamIds = coachedMemberships.map((membership) => membership.teamId);
-
-  if (!isGlobalStaff && coachedTeamIds.length === 0) {
-    throw new HttpError(403, 'Staff access required');
-  }
-
-  return {
-    coachedTeamIds,
-    isGlobalStaff,
   };
 }
 
@@ -223,7 +178,7 @@ export async function listTeamApplicationsForStaff(
   prisma: PrismaClient,
   userId: number
 ) {
-  const staffAccess = await getTeamApplicationStaffAccess(prisma, userId);
+  const staffAccess = await assertStaffAccess(prisma, userId);
 
   return prisma.teamApplication.findMany({
     where: getVisibleTeamApplicationsWhere(staffAccess),
@@ -259,7 +214,7 @@ export async function updateTeamApplicationByStaff(
   input: UpdateTeamApplicationByStaffInput
 ) {
   const { applicationId, currentUserId, status, internalNote } = input;
-  const staffAccess = await getTeamApplicationStaffAccess(prisma, currentUserId);
+  const staffAccess = await assertStaffAccess(prisma, currentUserId);
 
   const application = await prisma.teamApplication.findFirst({
     where: {

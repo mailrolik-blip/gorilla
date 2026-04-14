@@ -1,6 +1,6 @@
 import type { NextApiRequest, NextApiResponse } from 'next';
 
-import { getCurrentUserId } from '../../../../lib/current-user';
+import { requireCurrentUser } from '../../../../lib/current-user';
 import prisma from '../../../../lib/prisma';
 import { cancelRentalBookingForUser } from '../../../../lib/rental-bookings';
 import { HttpError } from '../../../../lib/training-bookings';
@@ -23,12 +23,6 @@ export default async function handler(
     return res.status(405).json({ error: 'Method not allowed' });
   }
 
-  const currentUserId = getCurrentUserId(req);
-
-  if (!currentUserId) {
-    return res.status(401).json({ error: 'x-user-id header is required' });
-  }
-
   const rawBookingId = Array.isArray(req.query.id) ? req.query.id[0] : req.query.id;
   const bookingId = toPositiveInt(rawBookingId);
 
@@ -37,10 +31,11 @@ export default async function handler(
   }
 
   try {
+    const currentUser = await requireCurrentUser(prisma, req);
     const cancelledBooking = await cancelRentalBookingForUser(
       prisma,
       bookingId,
-      currentUserId
+      currentUser.id
     );
 
     return res.status(200).json(cancelledBooking);

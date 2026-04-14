@@ -1,6 +1,6 @@
 import type { NextApiRequest, NextApiResponse } from 'next';
 
-import { getCurrentUserId } from '../../../../lib/current-user';
+import { requireCurrentUser } from '../../../../lib/current-user';
 import prisma from '../../../../lib/prisma';
 import { createTeamApplication } from '../../../../lib/team-applications';
 import { HttpError } from '../../../../lib/training-bookings';
@@ -36,12 +36,6 @@ export default async function handler(
     return res.status(405).json({ error: 'Method not allowed' });
   }
 
-  const currentUserId = getCurrentUserId(req);
-
-  if (!currentUserId) {
-    return res.status(401).json({ error: 'x-user-id header is required' });
-  }
-
   const rawTeamId = Array.isArray(req.query.id) ? req.query.id[0] : req.query.id;
   const teamId = toPositiveInt(rawTeamId);
   const participantId = toPositiveInt(req.body.participantId);
@@ -60,8 +54,9 @@ export default async function handler(
   }
 
   try {
+    const currentUser = await requireCurrentUser(prisma, req);
     const application = await createTeamApplication(prisma, {
-      currentUserId,
+      currentUserId: currentUser.id,
       participantId,
       teamId,
       commentFromApplicant,

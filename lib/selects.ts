@@ -14,6 +14,42 @@ export const publicCitySelect = {
   name: true,
 } satisfies Prisma.CitySelect;
 
+export const currentUserProfileSelect = {
+  id: true,
+  profileType: true,
+  firstName: true,
+  lastName: true,
+  birthDate: true,
+  createdAt: true,
+  updatedAt: true,
+  city: {
+    select: publicCitySelect,
+  },
+} satisfies Prisma.UserProfileSelect;
+
+export const currentUserSelect = {
+  id: true,
+  email: true,
+  phone: true,
+  telegramId: true,
+  staffRole: true,
+  createdAt: true,
+  updatedAt: true,
+  profiles: {
+    orderBy: [{ createdAt: 'asc' }, { id: 'asc' }],
+    take: 1,
+    select: currentUserProfileSelect,
+  },
+  memberships: {
+    where: {
+      role: 'COACH',
+    },
+    select: {
+      teamId: true,
+    },
+  },
+} satisfies Prisma.UserSelect;
+
 const participantRelationSelect = {
   id: true,
   userId: true,

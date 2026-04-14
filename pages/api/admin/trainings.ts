@@ -1,7 +1,7 @@
 import type { NextApiRequest, NextApiResponse } from 'next';
 
 import { createTrainingByStaff, listTrainingsForStaff } from '../../../lib/admin-trainings';
-import { getCurrentUserId } from '../../../lib/current-user';
+import { requireManagerOrAdmin } from '../../../lib/current-user';
 import prisma from '../../../lib/prisma';
 import { HttpError } from '../../../lib/training-bookings';
 
@@ -74,15 +74,10 @@ export default async function handler(
     return res.status(405).json({ error: 'Method not allowed' });
   }
 
-  const currentUserId = getCurrentUserId(req);
-
-  if (!currentUserId) {
-    return res.status(401).json({ error: 'x-user-id header is required' });
-  }
-
   if (req.method === 'GET') {
     try {
-      const trainings = await listTrainingsForStaff(prisma, currentUserId);
+      const currentUser = await requireManagerOrAdmin(prisma, req);
+      const trainings = await listTrainingsForStaff(prisma, currentUser.id);
       return res.status(200).json(trainings);
     } catch (error) {
       console.error(error);
@@ -146,8 +141,9 @@ export default async function handler(
     }
 
     try {
+      const currentUser = await requireManagerOrAdmin(prisma, req);
       const training = await createTrainingByStaff(prisma, {
-        currentUserId,
+        currentUserId: currentUser.id,
         name,
         description: description ?? null,
         trainingType,
