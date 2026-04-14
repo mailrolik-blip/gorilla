@@ -47,6 +47,28 @@ type TrainingBookingSummary = {
   };
 };
 
+type AvailableTrainingSummary = {
+  trainingId: number;
+  name: string;
+  description: string | null;
+  trainingType: string;
+  startTime: string;
+  endTime: string;
+  location: string;
+  capacity: number;
+  isActive: boolean;
+  city: CitySummary;
+  trainer: {
+    id: number;
+    email: string | null;
+    phone: string | null;
+    telegramId: string | null;
+  } | null;
+  _count: {
+    bookings: number;
+  };
+};
+
 type TeamApplicationSummary = {
   id: number;
   status: string;
@@ -98,6 +120,12 @@ type ParticipantFormState = {
   birthDate: string;
 };
 
+type TrainingFeedback = {
+  scope: 'catalog' | 'bookings';
+  tone: 'success' | 'error';
+  message: string;
+};
+
 const roleLabels: Record<string, string> = {
   USER: 'Пользователь',
   COACH: 'Тренер',
@@ -115,6 +143,17 @@ const profileTypeLabels: Record<string, string> = {
 const participantProfileKindLabels: Record<ParticipantProfileKind, string> = {
   SELF: 'Свой профиль',
   CHILD: 'Ребенок',
+};
+
+const trainingTypeLabels: Record<string, string> = {
+  general: 'Общая',
+  GENERAL: 'Общая',
+  group: 'Групповая',
+  GROUP: 'Групповая',
+  private: 'Индивидуальная',
+  PRIVATE: 'Индивидуальная',
+  individual: 'Индивидуальная',
+  INDIVIDUAL: 'Индивидуальная',
 };
 
 const statusLabels: Record<string, string> = {
@@ -139,10 +178,21 @@ const initialParticipantFormState: ParticipantFormState = {
 function translateErrorMessage(message: string) {
   const errorMessages: Record<string, string> = {
     'Failed to load dashboard': 'Не удалось загрузить кабинет.',
+    'Failed to load trainings': 'Не удалось загрузить список тренировок.',
     'Failed to save participant': 'Не удалось сохранить участника.',
+    'Failed to book training': 'Не удалось оформить запись на тренировку.',
+    'Failed to cancel training booking': 'Не удалось отменить запись на тренировку.',
     'Current user is not authenticated': 'Пользователь не авторизован.',
     'User not found': 'Пользователь не найден.',
     'Participant not found': 'Участник не найден.',
+    'Training not found': 'Тренировка не найдена.',
+    'Training is not active': 'Запись на эту тренировку сейчас недоступна.',
+    'Training is full': 'Свободных мест на тренировку больше нет.',
+    'Already booked': 'Участник уже записан на эту тренировку.',
+    'Training booking not found': 'Запись на тренировку не найдена.',
+    'Training booking is already cancelled': 'Запись на тренировку уже отменена.',
+    'training id and participantId must be positive integers':
+      'Некорректно указаны тренировка или участник.',
     'userId and profileType are required':
       'Не удалось создать участника: не хватает обязательных данных.',
     'profileType cannot be empty': 'Тип профиля не может быть пустым.',
@@ -161,6 +211,12 @@ function translateErrorMessage(message: string) {
 function formatDateTime(value: string) {
   return new Intl.DateTimeFormat('ru-RU', {
     dateStyle: 'medium',
+    timeStyle: 'short',
+  }).format(new Date(value));
+}
+
+function formatTime(value: string) {
+  return new Intl.DateTimeFormat('ru-RU', {
     timeStyle: 'short',
   }).format(new Date(value));
 }
@@ -203,6 +259,79 @@ function formatPersonName(person: PersonSummary | null) {
 
 function formatStatus(status: string) {
   return statusLabels[status] ?? status;
+}
+
+function formatTrainingType(trainingType: string) {
+  return trainingTypeLabels[trainingType] ?? trainingType;
+}
+
+function formatTrainerName(trainer: AvailableTrainingSummary['trainer']) {
+  if (!trainer) {
+    return 'Не указан';
+  }
+
+  if (trainer.email) {
+    return trainer.email;
+  }
+
+  if (trainer.telegramId) {
+    return `@${trainer.telegramId}`;
+  }
+
+  if (trainer.phone) {
+    return trainer.phone;
+  }
+
+  return `Тренер #${trainer.id}`;
+}
+
+function sortAndFilterAvailableTrainings(trainings: AvailableTrainingSummary[]) {
+  const now = Date.now();
+
+  return [...trainings]
+    .filter((training) => new Date(training.endTime).getTime() >= now)
+    .sort(
+      (left, right) =>
+        new Date(left.startTime).getTime() - new Date(right.startTime).getTime()
+    );
+}
+
+function getTrainingAvailability(training: AvailableTrainingSummary) {
+  const placesLeft = Math.max(training.capacity - training._count.bookings, 0);
+
+  if (!training.isActive) {
+    return {
+      canBook: false,
+      label: 'Набор закрыт',
+      detail: 'Тренировка временно недоступна для записи.',
+      badgeClass: 'bg-stone-200 text-stone-700',
+    };
+  }
+
+  if (new Date(training.endTime).getTime() < Date.now()) {
+    return {
+      canBook: false,
+      label: 'Тренировка завершена',
+      detail: 'Запись на прошедшие тренировки недоступна.',
+      badgeClass: 'bg-stone-200 text-stone-700',
+    };
+  }
+
+  if (placesLeft === 0) {
+    return {
+      canBook: false,
+      label: 'Мест нет',
+      detail: `Записано ${training._count.bookings} из ${training.capacity}.`,
+      badgeClass: 'bg-rose-100 text-rose-700',
+    };
+  }
+
+  return {
+    canBook: true,
+    label: `Свободно ${placesLeft} из ${training.capacity}`,
+    detail: `Уже записано ${training._count.bookings} из ${training.capacity}.`,
+    badgeClass: 'bg-emerald-100 text-emerald-700',
+  };
 }
 
 function getParticipantProfileKind(profileType: string): ParticipantProfileKind {
@@ -283,6 +412,23 @@ export default function CabinetPage() {
   );
   const [participantError, setParticipantError] = useState<string | null>(null);
   const [participantSuccess, setParticipantSuccess] = useState<string | null>(null);
+  const [availableTrainings, setAvailableTrainings] = useState<
+    AvailableTrainingSummary[]
+  >([]);
+  const [trainingsStatus, setTrainingsStatus] = useState<
+    'loading' | 'ready' | 'error'
+  >('loading');
+  const [trainingsError, setTrainingsError] = useState<string | null>(null);
+  const [selectedParticipantIds, setSelectedParticipantIds] = useState<
+    Record<number, string>
+  >({});
+  const [bookingTrainingId, setBookingTrainingId] = useState<number | null>(null);
+  const [cancellingBookingId, setCancellingBookingId] = useState<number | null>(
+    null
+  );
+  const [trainingFeedback, setTrainingFeedback] = useState<TrainingFeedback | null>(
+    null
+  );
 
   function resetParticipantForm() {
     setParticipantForm(initialParticipantFormState);
@@ -314,6 +460,34 @@ export default function CabinetPage() {
     setParticipantSuccess(null);
   }
 
+  function handleTrainingParticipantChange(trainingId: number, participantId: string) {
+    setSelectedParticipantIds((currentSelections) => ({
+      ...currentSelections,
+      [trainingId]: participantId,
+    }));
+    setTrainingFeedback((currentFeedback) =>
+      currentFeedback?.scope === 'catalog' ? null : currentFeedback
+    );
+  }
+
+  function getSelectedParticipantIdForTraining(trainingId: number) {
+    if (!dashboard || dashboard.participants.length === 0) {
+      return null;
+    }
+
+    const storedValue = selectedParticipantIds[trainingId];
+    const parsedValue = storedValue ? Number(storedValue) : NaN;
+
+    if (
+      Number.isInteger(parsedValue) &&
+      dashboard.participants.some((participant) => participant.id === parsedValue)
+    ) {
+      return parsedValue;
+    }
+
+    return dashboard.participants[0].id;
+  }
+
   async function reloadDashboard(keepContent: boolean) {
     if (!keepContent) {
       setStatus('loading');
@@ -343,6 +517,35 @@ export default function CabinetPage() {
 
     setDashboard(payload as DashboardPayload);
     setStatus('ready');
+    return true;
+  }
+
+  async function reloadAvailableTrainings(keepContent: boolean) {
+    if (!keepContent) {
+      setTrainingsStatus('loading');
+    }
+
+    setTrainingsError(null);
+
+    const { response, payload } = await fetchJson('/api/trainings?isActive=true');
+
+    if (!response.ok) {
+      const message = translateErrorMessage(
+        (payload as { error?: string } | null)?.error || 'Failed to load trainings'
+      );
+      setTrainingsError(message);
+
+      if (!keepContent || availableTrainings.length === 0) {
+        setTrainingsStatus('error');
+      }
+
+      return false;
+    }
+
+    setAvailableTrainings(
+      sortAndFilterAvailableTrainings(payload as AvailableTrainingSummary[])
+    );
+    setTrainingsStatus('ready');
     return true;
   }
 
@@ -392,6 +595,59 @@ export default function CabinetPage() {
       isCancelled = true;
     };
   }, [router]);
+
+  useEffect(() => {
+    let isCancelled = false;
+
+    async function loadAvailableTrainings() {
+      setTrainingsStatus('loading');
+      setTrainingsError(null);
+
+      try {
+        const { response, payload } = await fetchJson('/api/trainings?isActive=true');
+
+        if (!response.ok) {
+          throw new Error(
+            translateErrorMessage(
+              (payload as { error?: string } | null)?.error ||
+                'Failed to load trainings'
+            )
+          );
+        }
+
+        if (!isCancelled) {
+          setAvailableTrainings(
+            sortAndFilterAvailableTrainings(payload as AvailableTrainingSummary[])
+          );
+          setTrainingsStatus('ready');
+        }
+      } catch (loadError) {
+        if (!isCancelled) {
+          setTrainingsError(
+            loadError instanceof Error
+              ? loadError.message
+              : 'Не удалось загрузить список тренировок.'
+          );
+          setTrainingsStatus('error');
+        }
+      }
+    }
+
+    void loadAvailableTrainings();
+
+    return () => {
+      isCancelled = true;
+    };
+  }, []);
+
+  async function refreshTrainingSections() {
+    const [dashboardWasReloaded, trainingsWereReloaded] = await Promise.all([
+      reloadDashboard(true),
+      reloadAvailableTrainings(true),
+    ]);
+
+    return dashboardWasReloaded && trainingsWereReloaded;
+  }
 
   async function handleParticipantSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -490,6 +746,167 @@ export default function CabinetPage() {
       );
     } finally {
       setParticipantStatus('idle');
+    }
+  }
+
+  async function handleTrainingBooking(training: AvailableTrainingSummary) {
+    if (!dashboard) {
+      setTrainingFeedback({
+        scope: 'catalog',
+        tone: 'error',
+        message: 'Кабинет еще не загружен.',
+      });
+      return;
+    }
+
+    const availability = getTrainingAvailability(training);
+
+    if (!availability.canBook) {
+      setTrainingFeedback({
+        scope: 'catalog',
+        tone: 'error',
+        message: 'Эта тренировка сейчас недоступна для записи.',
+      });
+      return;
+    }
+
+    if (dashboard.participants.length === 0) {
+      setTrainingFeedback({
+        scope: 'catalog',
+        tone: 'error',
+        message: 'Сначала добавьте участника в разделе «Мои участники».',
+      });
+      return;
+    }
+
+    const participantId = getSelectedParticipantIdForTraining(training.trainingId);
+
+    if (!participantId) {
+      setTrainingFeedback({
+        scope: 'catalog',
+        tone: 'error',
+        message: 'Выберите участника для записи на тренировку.',
+      });
+      return;
+    }
+
+    const hasActiveBooking = dashboard.trainingBookings.some(
+      (booking) =>
+        booking.training.trainingId === training.trainingId &&
+        booking.participant?.id === participantId
+    );
+
+    if (hasActiveBooking) {
+      setTrainingFeedback({
+        scope: 'catalog',
+        tone: 'error',
+        message: 'Выбранный участник уже записан на эту тренировку.',
+      });
+      return;
+    }
+
+    setBookingTrainingId(training.trainingId);
+    setTrainingFeedback(null);
+
+    try {
+      const { response, payload } = await fetchJson(
+        `/api/trainings/${training.trainingId}/book`,
+        {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({ participantId }),
+        }
+      );
+
+      if (response.status === 401) {
+        router.replace('/dev/login?next=/cabinet');
+        return;
+      }
+
+      if (!response.ok) {
+        throw new Error(
+          translateErrorMessage(
+            (payload as { error?: string } | null)?.error ||
+              'Failed to book training'
+          )
+        );
+      }
+
+      const refreshedSuccessfully = await refreshTrainingSections();
+
+      if (!refreshedSuccessfully) {
+        throw new Error('Не удалось обновить кабинет после записи на тренировку.');
+      }
+
+      setTrainingFeedback({
+        scope: 'catalog',
+        tone: 'success',
+        message: `Запись на тренировку «${training.name}» оформлена.`,
+      });
+    } catch (bookingError) {
+      setTrainingFeedback({
+        scope: 'catalog',
+        tone: 'error',
+        message:
+          bookingError instanceof Error
+            ? bookingError.message
+            : 'Не удалось оформить запись на тренировку.',
+      });
+    } finally {
+      setBookingTrainingId(null);
+    }
+  }
+
+  async function handleTrainingBookingCancel(booking: TrainingBookingSummary) {
+    setCancellingBookingId(booking.id);
+    setTrainingFeedback(null);
+
+    try {
+      const { response, payload } = await fetchJson(
+        `/api/training-bookings/${booking.id}/cancel`,
+        {
+          method: 'POST',
+        }
+      );
+
+      if (response.status === 401) {
+        router.replace('/dev/login?next=/cabinet');
+        return;
+      }
+
+      if (!response.ok) {
+        throw new Error(
+          translateErrorMessage(
+            (payload as { error?: string } | null)?.error ||
+              'Failed to cancel training booking'
+          )
+        );
+      }
+
+      const refreshedSuccessfully = await refreshTrainingSections();
+
+      if (!refreshedSuccessfully) {
+        throw new Error('Не удалось обновить кабинет после отмены записи.');
+      }
+
+      setTrainingFeedback({
+        scope: 'bookings',
+        tone: 'success',
+        message: `Запись на тренировку «${booking.training.name}» отменена.`,
+      });
+    } catch (cancelError) {
+      setTrainingFeedback({
+        scope: 'bookings',
+        tone: 'error',
+        message:
+          cancelError instanceof Error
+            ? cancelError.message
+            : 'Не удалось отменить запись на тренировку.',
+      });
+    } finally {
+      setCancellingBookingId(null);
     }
   }
 
@@ -754,7 +1171,196 @@ export default function CabinetPage() {
                 </div>
               </SectionCard>
 
+              <SectionCard
+                eyebrow="Тренировки"
+                title="Доступные тренировки"
+              >
+                <div className="space-y-4">
+                  <p className="text-sm text-stone-600">
+                    Выберите участника и оформите запись на подходящую тренировку.
+                  </p>
+
+                  {trainingFeedback?.scope === 'catalog' ? (
+                    <p
+                      className={`rounded-2xl border px-4 py-3 text-sm ${
+                        trainingFeedback.tone === 'success'
+                          ? 'border-emerald-200 bg-emerald-50 text-emerald-700'
+                          : 'border-rose-200 bg-rose-50 text-rose-700'
+                      }`}
+                    >
+                      {trainingFeedback.message}
+                    </p>
+                  ) : null}
+
+                  {trainingsStatus === 'loading' ? (
+                    <p className="rounded-2xl border border-dashed border-stone-300 bg-stone-50 p-5 text-sm text-stone-600">
+                      Загружаем доступные тренировки...
+                    </p>
+                  ) : trainingsStatus === 'error' && availableTrainings.length === 0 ? (
+                    <p className="rounded-2xl border border-rose-200 bg-rose-50 p-5 text-sm text-rose-700">
+                      {trainingsError}
+                    </p>
+                  ) : availableTrainings.length === 0 ? (
+                    <p className="rounded-2xl border border-dashed border-stone-300 bg-stone-50 p-5 text-sm text-stone-600">
+                      Сейчас нет доступных тренировок для записи.
+                    </p>
+                  ) : (
+                    <div className="space-y-3">
+                      {availableTrainings.map((training) => {
+                        const availability = getTrainingAvailability(training);
+                        const selectedParticipantId =
+                          getSelectedParticipantIdForTraining(training.trainingId);
+                        const selectedParticipant = dashboard.participants.find(
+                          (participant) => participant.id === selectedParticipantId
+                        );
+                        const isSelectedParticipantAlreadyBooked =
+                          selectedParticipantId !== null &&
+                          dashboard.trainingBookings.some(
+                            (booking) =>
+                              booking.training.trainingId === training.trainingId &&
+                              booking.participant?.id === selectedParticipantId
+                          );
+                        const bookedParticipants = dashboard.trainingBookings.filter(
+                          (booking) =>
+                            booking.training.trainingId === training.trainingId
+                        );
+                        const isBookingInProgress =
+                          bookingTrainingId === training.trainingId;
+                        const isBookingDisabled =
+                          !availability.canBook ||
+                          dashboard.participants.length === 0 ||
+                          selectedParticipantId === null ||
+                          isSelectedParticipantAlreadyBooked ||
+                          isBookingInProgress;
+
+                        return (
+                          <article
+                            key={training.trainingId}
+                            className="rounded-2xl border border-stone-200 bg-stone-50 p-4"
+                          >
+                            <div className="flex flex-col gap-4">
+                              <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                                <div>
+                                  <p className="font-semibold text-stone-950">
+                                    {training.name}
+                                  </p>
+                                  <p className="mt-1 text-sm text-stone-600">
+                                    {training.city.name} / {training.location}
+                                  </p>
+                                  <p className="mt-2 text-sm text-stone-700">
+                                    {formatDateTime(training.startTime)} —{' '}
+                                    {formatTime(training.endTime)}
+                                  </p>
+                                </div>
+                                <span
+                                  className={`rounded-full px-3 py-1 text-xs font-medium ${availability.badgeClass}`}
+                                >
+                                  {availability.label}
+                                </span>
+                              </div>
+
+                              <div className="grid gap-1 text-sm text-stone-600">
+                                <p>Формат: {formatTrainingType(training.trainingType)}</p>
+                                <p>Тренер: {formatTrainerName(training.trainer)}</p>
+                                <p>{availability.detail}</p>
+                                {bookedParticipants.length > 0 ? (
+                                  <p>
+                                    Уже записаны:{' '}
+                                    {bookedParticipants
+                                      .map((booking) =>
+                                        formatPersonName(booking.participant)
+                                      )
+                                      .join(', ')}
+                                  </p>
+                                ) : null}
+                              </div>
+
+                              <div className="flex flex-col gap-3 md:flex-row md:items-end">
+                                <label className="flex-1 text-sm font-medium text-stone-700">
+                                  Участник
+                                  <select
+                                    value={
+                                      selectedParticipantId
+                                        ? String(selectedParticipantId)
+                                        : ''
+                                    }
+                                    onChange={(event) =>
+                                      handleTrainingParticipantChange(
+                                        training.trainingId,
+                                        event.target.value
+                                      )
+                                    }
+                                    disabled={
+                                      dashboard.participants.length === 0 ||
+                                      isBookingInProgress
+                                    }
+                                    className="mt-2 w-full rounded-2xl border border-stone-300 bg-white px-4 py-3 text-base text-stone-950 outline-none transition focus:border-stone-500 disabled:cursor-not-allowed disabled:bg-stone-100"
+                                  >
+                                    {dashboard.participants.length === 0 ? (
+                                      <option value="">
+                                        Сначала добавьте участника
+                                      </option>
+                                    ) : (
+                                      dashboard.participants.map((participant) => (
+                                        <option
+                                          key={participant.id}
+                                          value={participant.id}
+                                        >
+                                          {formatPersonName(participant)}
+                                        </option>
+                                      ))
+                                    )}
+                                  </select>
+                                </label>
+
+                                <button
+                                  type="button"
+                                  onClick={() => handleTrainingBooking(training)}
+                                  disabled={isBookingDisabled}
+                                  className="rounded-full bg-stone-950 px-5 py-3 text-sm font-semibold text-white transition hover:bg-stone-800 disabled:cursor-not-allowed disabled:bg-stone-400"
+                                >
+                                  {isBookingInProgress
+                                    ? 'Оформляем запись...'
+                                    : 'Записать на тренировку'}
+                                </button>
+                              </div>
+
+                              {dashboard.participants.length === 0 ? (
+                                <p className="text-sm text-stone-600">
+                                  Чтобы записаться на тренировку, сначала добавьте
+                                  участника в разделе «Мои участники».
+                                </p>
+                              ) : null}
+
+                              {isSelectedParticipantAlreadyBooked &&
+                              selectedParticipant ? (
+                                <p className="text-sm text-amber-700">
+                                  {formatPersonName(selectedParticipant)} уже записан
+                                  на эту тренировку.
+                                </p>
+                              ) : null}
+                            </div>
+                          </article>
+                        );
+                      })}
+                    </div>
+                  )}
+                </div>
+              </SectionCard>
+
               <SectionCard eyebrow="Тренировки" title="Мои записи на тренировки">
+                {trainingFeedback?.scope === 'bookings' ? (
+                  <p
+                    className={`mb-4 rounded-2xl border px-4 py-3 text-sm ${
+                      trainingFeedback.tone === 'success'
+                        ? 'border-emerald-200 bg-emerald-50 text-emerald-700'
+                        : 'border-rose-200 bg-rose-50 text-rose-700'
+                    }`}
+                  >
+                    {trainingFeedback.message}
+                  </p>
+                ) : null}
+
                 {dashboard.trainingBookings.length === 0 ? (
                   <p className="text-sm text-stone-600">
                     У вас пока нет ближайших записей на тренировки.
@@ -766,7 +1372,7 @@ export default function CabinetPage() {
                         key={booking.id}
                         className="rounded-2xl border border-stone-200 bg-stone-50 p-4"
                       >
-                        <div className="flex items-start justify-between gap-4">
+                        <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
                           <div>
                             <p className="font-semibold text-stone-950">
                               {booking.training.name}
@@ -776,12 +1382,25 @@ export default function CabinetPage() {
                               {booking.training.location}
                             </p>
                             <p className="mt-2 text-sm text-stone-700">
-                              {formatDateTime(booking.training.startTime)}
+                              {formatDateTime(booking.training.startTime)} —{' '}
+                              {formatTime(booking.training.endTime)}
                             </p>
                           </div>
-                          <span className="rounded-full bg-emerald-100 px-3 py-1 text-xs font-medium text-emerald-700">
-                            {formatStatus(booking.status)}
-                          </span>
+                          <div className="flex flex-col items-start gap-3 sm:items-end">
+                            <span className="rounded-full bg-emerald-100 px-3 py-1 text-xs font-medium text-emerald-700">
+                              {formatStatus(booking.status)}
+                            </span>
+                            <button
+                              type="button"
+                              onClick={() => handleTrainingBookingCancel(booking)}
+                              disabled={cancellingBookingId === booking.id}
+                              className="rounded-full border border-stone-300 px-4 py-2 text-sm font-medium text-stone-700 transition hover:border-stone-500 hover:text-stone-950 disabled:cursor-not-allowed disabled:opacity-60"
+                            >
+                              {cancellingBookingId === booking.id
+                                ? 'Отменяем...'
+                                : 'Отменить запись'}
+                            </button>
+                          </div>
                         </div>
                       </article>
                     ))}
