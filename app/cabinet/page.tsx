@@ -81,6 +81,13 @@ type TeamApplicationSummary = {
   };
 };
 
+type AvailableTeamSummary = {
+  id: number;
+  name: string;
+  city: CitySummary | null;
+  description?: string | null;
+};
+
 type RentalBookingSummary = {
   id: number;
   status: string;
@@ -122,6 +129,12 @@ type ParticipantFormState = {
 
 type TrainingFeedback = {
   scope: 'catalog' | 'bookings';
+  tone: 'success' | 'error';
+  message: string;
+};
+
+type TeamFeedback = {
+  scope: 'catalog' | 'applications';
   tone: 'success' | 'error';
   message: string;
 };
@@ -168,6 +181,8 @@ const statusLabels: Record<string, string> = {
   CONFIRMED: 'Подтверждено',
 };
 
+const activeTeamApplicationStatuses = new Set(['PENDING', 'IN_REVIEW', 'ACCEPTED']);
+
 const initialParticipantFormState: ParticipantFormState = {
   firstName: '',
   lastName: '',
@@ -178,21 +193,39 @@ const initialParticipantFormState: ParticipantFormState = {
 function translateErrorMessage(message: string) {
   const errorMessages: Record<string, string> = {
     'Failed to load dashboard': 'Не удалось загрузить кабинет.',
+    'Failed to fetch dashboard': 'Не удалось загрузить кабинет.',
     'Failed to load trainings': 'Не удалось загрузить список тренировок.',
+    'Failed to load teams': 'Не удалось загрузить список команд.',
+    'Failed to load team applications': 'Не удалось загрузить ваши заявки в команду.',
+    'Failed to fetch current user team applications':
+      'Не удалось загрузить ваши заявки в команду.',
     'Failed to save participant': 'Не удалось сохранить участника.',
     'Failed to book training': 'Не удалось оформить запись на тренировку.',
     'Failed to cancel training booking': 'Не удалось отменить запись на тренировку.',
+    'Failed to create team application': 'Не удалось отправить заявку в команду.',
+    'Failed to cancel team application': 'Не удалось отменить заявку в команду.',
     'Current user is not authenticated': 'Пользователь не авторизован.',
     'User not found': 'Пользователь не найден.',
     'Participant not found': 'Участник не найден.',
+    'Team not found': 'Команда не найдена.',
     'Training not found': 'Тренировка не найдена.',
     'Training is not active': 'Запись на эту тренировку сейчас недоступна.',
     'Training is full': 'Свободных мест на тренировку больше нет.',
     'Already booked': 'Участник уже записан на эту тренировку.',
+    'Active team application already exists':
+      'Для выбранного участника уже есть активная заявка в эту команду.',
     'Training booking not found': 'Запись на тренировку не найдена.',
     'Training booking is already cancelled': 'Запись на тренировку уже отменена.',
+    'Team application not found': 'Заявка в команду не найдена.',
+    'Team application is already cancelled': 'Заявка в команду уже отменена.',
+    'Invalid team id': 'Некорректная команда.',
+    'Invalid team application id': 'Некорректная заявка в команду.',
     'training id and participantId must be positive integers':
       'Некорректно указаны тренировка или участник.',
+    'participantId must be a positive integer':
+      'Выберите участника для заявки в команду.',
+    'commentFromApplicant must be a string':
+      'Комментарий к заявке указан некорректно.',
     'userId and profileType are required':
       'Не удалось создать участника: не хватает обязательных данных.',
     'profileType cannot be empty': 'Тип профиля не может быть пустым.',
@@ -259,6 +292,21 @@ function formatPersonName(person: PersonSummary | null) {
 
 function formatStatus(status: string) {
   return statusLabels[status] ?? status;
+}
+
+function getTeamApplicationStatusBadgeClass(status: string) {
+  switch (status) {
+    case 'ACCEPTED':
+      return 'bg-emerald-100 text-emerald-700';
+    case 'REJECTED':
+      return 'bg-rose-100 text-rose-700';
+    case 'CANCELLED':
+      return 'bg-stone-200 text-stone-700';
+    case 'IN_REVIEW':
+      return 'bg-sky-100 text-sky-700';
+    default:
+      return 'bg-amber-100 text-amber-700';
+  }
 }
 
 function formatTrainingType(trainingType: string) {
@@ -429,6 +477,29 @@ export default function CabinetPage() {
   const [trainingFeedback, setTrainingFeedback] = useState<TrainingFeedback | null>(
     null
   );
+  const [availableTeams, setAvailableTeams] = useState<AvailableTeamSummary[]>([]);
+  const [teamsStatus, setTeamsStatus] = useState<'loading' | 'ready' | 'error'>(
+    'loading'
+  );
+  const [teamsError, setTeamsError] = useState<string | null>(null);
+  const [teamApplications, setTeamApplications] = useState<TeamApplicationSummary[]>(
+    []
+  );
+  const [teamApplicationsStatus, setTeamApplicationsStatus] = useState<
+    'loading' | 'ready' | 'error'
+  >('loading');
+  const [teamApplicationsError, setTeamApplicationsError] = useState<string | null>(
+    null
+  );
+  const [selectedTeamParticipantIds, setSelectedTeamParticipantIds] = useState<
+    Record<number, string>
+  >({});
+  const [teamComments, setTeamComments] = useState<Record<number, string>>({});
+  const [submittingTeamId, setSubmittingTeamId] = useState<number | null>(null);
+  const [cancellingTeamApplicationId, setCancellingTeamApplicationId] = useState<
+    number | null
+  >(null);
+  const [teamFeedback, setTeamFeedback] = useState<TeamFeedback | null>(null);
 
   function resetParticipantForm() {
     setParticipantForm(initialParticipantFormState);
@@ -486,6 +557,59 @@ export default function CabinetPage() {
     }
 
     return dashboard.participants[0].id;
+  }
+
+  function handleTeamParticipantChange(teamId: number, participantId: string) {
+    setSelectedTeamParticipantIds((currentSelections) => ({
+      ...currentSelections,
+      [teamId]: participantId,
+    }));
+    setTeamFeedback((currentFeedback) =>
+      currentFeedback?.scope === 'catalog' ? null : currentFeedback
+    );
+  }
+
+  function handleTeamCommentChange(teamId: number, comment: string) {
+    setTeamComments((currentComments) => ({
+      ...currentComments,
+      [teamId]: comment,
+    }));
+    setTeamFeedback((currentFeedback) =>
+      currentFeedback?.scope === 'catalog' ? null : currentFeedback
+    );
+  }
+
+  function getSelectedParticipantIdForTeam(teamId: number) {
+    if (!dashboard || dashboard.participants.length === 0) {
+      return null;
+    }
+
+    const storedValue = selectedTeamParticipantIds[teamId];
+    const parsedValue = storedValue ? Number(storedValue) : NaN;
+
+    if (
+      Number.isInteger(parsedValue) &&
+      dashboard.participants.some((participant) => participant.id === parsedValue)
+    ) {
+      return parsedValue;
+    }
+
+    return dashboard.participants[0].id;
+  }
+
+  function getActiveTeamApplication(teamId: number, participantId: number | null) {
+    if (participantId === null) {
+      return null;
+    }
+
+    return (
+      teamApplications.find(
+        (application) =>
+          application.team.id === teamId &&
+          application.participant?.id === participantId &&
+          activeTeamApplicationStatuses.has(application.status)
+      ) ?? null
+    );
   }
 
   async function reloadDashboard(keepContent: boolean) {
@@ -546,6 +670,71 @@ export default function CabinetPage() {
       sortAndFilterAvailableTrainings(payload as AvailableTrainingSummary[])
     );
     setTrainingsStatus('ready');
+    return true;
+  }
+
+  async function reloadAvailableTeams(keepContent: boolean) {
+    if (!keepContent) {
+      setTeamsStatus('loading');
+    }
+
+    setTeamsError(null);
+
+    const { response, payload } = await fetchJson('/api/teams');
+
+    if (response.status === 401) {
+      router.replace('/dev/login?next=/cabinet');
+      return false;
+    }
+
+    if (!response.ok) {
+      const message = translateErrorMessage(
+        (payload as { error?: string } | null)?.error || 'Failed to load teams'
+      );
+      setTeamsError(message);
+
+      if (!keepContent || availableTeams.length === 0) {
+        setTeamsStatus('error');
+      }
+
+      return false;
+    }
+
+    setAvailableTeams(payload as AvailableTeamSummary[]);
+    setTeamsStatus('ready');
+    return true;
+  }
+
+  async function reloadTeamApplications(keepContent: boolean) {
+    if (!keepContent) {
+      setTeamApplicationsStatus('loading');
+    }
+
+    setTeamApplicationsError(null);
+
+    const { response, payload } = await fetchJson('/api/my/team-applications');
+
+    if (response.status === 401) {
+      router.replace('/dev/login?next=/cabinet');
+      return false;
+    }
+
+    if (!response.ok) {
+      const message = translateErrorMessage(
+        (payload as { error?: string } | null)?.error ||
+          'Failed to load team applications'
+      );
+      setTeamApplicationsError(message);
+
+      if (!keepContent || teamApplications.length === 0) {
+        setTeamApplicationsStatus('error');
+      }
+
+      return false;
+    }
+
+    setTeamApplications(payload as TeamApplicationSummary[]);
+    setTeamApplicationsStatus('ready');
     return true;
   }
 
@@ -640,6 +829,99 @@ export default function CabinetPage() {
     };
   }, []);
 
+  useEffect(() => {
+    let isCancelled = false;
+
+    async function loadAvailableTeams() {
+      setTeamsStatus('loading');
+      setTeamsError(null);
+
+      try {
+        const { response, payload } = await fetchJson('/api/teams');
+
+        if (response.status === 401) {
+          router.replace('/dev/login?next=/cabinet');
+          return;
+        }
+
+        if (!response.ok) {
+          throw new Error(
+            translateErrorMessage(
+              (payload as { error?: string } | null)?.error || 'Failed to load teams'
+            )
+          );
+        }
+
+        if (!isCancelled) {
+          setAvailableTeams(payload as AvailableTeamSummary[]);
+          setTeamsStatus('ready');
+        }
+      } catch (loadError) {
+        if (!isCancelled) {
+          setTeamsError(
+            loadError instanceof Error
+              ? loadError.message
+              : 'Не удалось загрузить список команд.'
+          );
+          setTeamsStatus('error');
+        }
+      }
+    }
+
+    void loadAvailableTeams();
+
+    return () => {
+      isCancelled = true;
+    };
+  }, [router]);
+
+  useEffect(() => {
+    let isCancelled = false;
+
+    async function loadTeamApplications() {
+      setTeamApplicationsStatus('loading');
+      setTeamApplicationsError(null);
+
+      try {
+        const { response, payload } = await fetchJson('/api/my/team-applications');
+
+        if (response.status === 401) {
+          router.replace('/dev/login?next=/cabinet');
+          return;
+        }
+
+        if (!response.ok) {
+          throw new Error(
+            translateErrorMessage(
+              (payload as { error?: string } | null)?.error ||
+                'Failed to load team applications'
+            )
+          );
+        }
+
+        if (!isCancelled) {
+          setTeamApplications(payload as TeamApplicationSummary[]);
+          setTeamApplicationsStatus('ready');
+        }
+      } catch (loadError) {
+        if (!isCancelled) {
+          setTeamApplicationsError(
+            loadError instanceof Error
+              ? loadError.message
+              : 'Не удалось загрузить ваши заявки в команду.'
+          );
+          setTeamApplicationsStatus('error');
+        }
+      }
+    }
+
+    void loadTeamApplications();
+
+    return () => {
+      isCancelled = true;
+    };
+  }, [router]);
+
   async function refreshTrainingSections() {
     const [dashboardWasReloaded, trainingsWereReloaded] = await Promise.all([
       reloadDashboard(true),
@@ -647,6 +929,15 @@ export default function CabinetPage() {
     ]);
 
     return dashboardWasReloaded && trainingsWereReloaded;
+  }
+
+  async function refreshTeamApplicationsSection() {
+    const [teamApplicationsWereReloaded] = await Promise.all([
+      reloadTeamApplications(true),
+      reloadAvailableTeams(true),
+    ]);
+
+    return teamApplicationsWereReloaded;
   }
 
   async function handleParticipantSubmit(event: FormEvent<HTMLFormElement>) {
@@ -907,6 +1198,157 @@ export default function CabinetPage() {
       });
     } finally {
       setCancellingBookingId(null);
+    }
+  }
+
+  async function handleTeamApplicationSubmit(team: AvailableTeamSummary) {
+    if (!dashboard) {
+      setTeamFeedback({
+        scope: 'catalog',
+        tone: 'error',
+        message: 'Кабинет еще не загружен.',
+      });
+      return;
+    }
+
+    if (dashboard.participants.length === 0) {
+      setTeamFeedback({
+        scope: 'catalog',
+        tone: 'error',
+        message: 'Сначала добавьте участника в разделе «Мои участники».',
+      });
+      return;
+    }
+
+    const participantId = getSelectedParticipantIdForTeam(team.id);
+
+    if (!participantId) {
+      setTeamFeedback({
+        scope: 'catalog',
+        tone: 'error',
+        message: 'Выберите участника для заявки в команду.',
+      });
+      return;
+    }
+
+    const existingActiveApplication = getActiveTeamApplication(team.id, participantId);
+
+    if (existingActiveApplication) {
+      setTeamFeedback({
+        scope: 'catalog',
+        tone: 'error',
+        message: `${formatPersonName(existingActiveApplication.participant)} уже имеет активную заявку в команду «${team.name}».`,
+      });
+      return;
+    }
+
+    setSubmittingTeamId(team.id);
+    setTeamFeedback(null);
+
+    try {
+      const commentFromApplicant = teamComments[team.id]?.trim() || null;
+      const { response, payload } = await fetchJson(`/api/teams/${team.id}/applications`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          participantId,
+          commentFromApplicant,
+        }),
+      });
+
+      if (response.status === 401) {
+        router.replace('/dev/login?next=/cabinet');
+        return;
+      }
+
+      if (!response.ok) {
+        throw new Error(
+          translateErrorMessage(
+            (payload as { error?: string } | null)?.error ||
+              'Failed to create team application'
+          )
+        );
+      }
+
+      const refreshedSuccessfully = await refreshTeamApplicationsSection();
+
+      if (!refreshedSuccessfully) {
+        throw new Error('Не удалось обновить список заявок в команду.');
+      }
+
+      setTeamComments((currentComments) => ({
+        ...currentComments,
+        [team.id]: '',
+      }));
+      setTeamFeedback({
+        scope: 'catalog',
+        tone: 'success',
+        message: `Заявка в команду «${team.name}» отправлена.`,
+      });
+    } catch (submitError) {
+      setTeamFeedback({
+        scope: 'catalog',
+        tone: 'error',
+        message:
+          submitError instanceof Error
+            ? submitError.message
+            : 'Не удалось отправить заявку в команду.',
+      });
+    } finally {
+      setSubmittingTeamId(null);
+    }
+  }
+
+  async function handleTeamApplicationCancel(application: TeamApplicationSummary) {
+    setCancellingTeamApplicationId(application.id);
+    setTeamFeedback(null);
+
+    try {
+      const { response, payload } = await fetchJson(
+        `/api/team-applications/${application.id}/cancel`,
+        {
+          method: 'POST',
+        }
+      );
+
+      if (response.status === 401) {
+        router.replace('/dev/login?next=/cabinet');
+        return;
+      }
+
+      if (!response.ok) {
+        throw new Error(
+          translateErrorMessage(
+            (payload as { error?: string } | null)?.error ||
+              'Failed to cancel team application'
+          )
+        );
+      }
+
+      const refreshedSuccessfully = await refreshTeamApplicationsSection();
+
+      if (!refreshedSuccessfully) {
+        throw new Error('Не удалось обновить список заявок в команду.');
+      }
+
+      setTeamFeedback({
+        scope: 'applications',
+        tone: 'success',
+        message: `Заявка в команду «${application.team.name}» отменена.`,
+      });
+    } catch (cancelError) {
+      setTeamFeedback({
+        scope: 'applications',
+        tone: 'error',
+        message:
+          cancelError instanceof Error
+            ? cancelError.message
+            : 'Не удалось отменить заявку в команду.',
+      });
+    } finally {
+      setCancellingTeamApplicationId(null);
     }
   }
 
@@ -1408,36 +1850,243 @@ export default function CabinetPage() {
                 )}
               </SectionCard>
 
-              <SectionCard eyebrow="Команда" title="Мои заявки в команду">
-                {dashboard.teamApplications.length === 0 ? (
+              <SectionCard eyebrow="Команда" title="Доступные команды">
+                <div className="space-y-4">
                   <p className="text-sm text-stone-600">
-                    У вас пока нет активных заявок в команду.
+                    Выберите участника и отправьте заявку в подходящую команду прямо
+                    из кабинета.
+                  </p>
+
+                  {teamFeedback?.scope === 'catalog' ? (
+                    <p
+                      className={`rounded-2xl border px-4 py-3 text-sm ${
+                        teamFeedback.tone === 'success'
+                          ? 'border-emerald-200 bg-emerald-50 text-emerald-700'
+                          : 'border-rose-200 bg-rose-50 text-rose-700'
+                      }`}
+                    >
+                      {teamFeedback.message}
+                    </p>
+                  ) : null}
+
+                  {teamsStatus === 'loading' ? (
+                    <p className="rounded-2xl border border-dashed border-stone-300 bg-stone-50 p-5 text-sm text-stone-600">
+                      Загружаем список команд...
+                    </p>
+                  ) : teamsStatus === 'error' && availableTeams.length === 0 ? (
+                    <p className="rounded-2xl border border-rose-200 bg-rose-50 p-5 text-sm text-rose-700">
+                      {teamsError}
+                    </p>
+                  ) : availableTeams.length === 0 ? (
+                    <p className="rounded-2xl border border-dashed border-stone-300 bg-stone-50 p-5 text-sm text-stone-600">
+                      Сейчас нет доступных команд для подачи заявки.
+                    </p>
+                  ) : (
+                    <div className="space-y-3">
+                      {availableTeams.map((team) => {
+                        const selectedParticipantId = getSelectedParticipantIdForTeam(
+                          team.id
+                        );
+                        const selectedParticipant =
+                          selectedParticipantId === null
+                            ? null
+                            : dashboard.participants.find(
+                                (participant) => participant.id === selectedParticipantId
+                              ) ?? null;
+                        const existingActiveApplication = getActiveTeamApplication(
+                          team.id,
+                          selectedParticipantId
+                        );
+                        const isSubmitting = submittingTeamId === team.id;
+                        const isSubmitDisabled =
+                          dashboard.participants.length === 0 ||
+                          selectedParticipantId === null ||
+                          existingActiveApplication !== null ||
+                          isSubmitting;
+
+                        return (
+                          <article
+                            key={team.id}
+                            className="rounded-2xl border border-stone-200 bg-stone-50 p-4"
+                          >
+                            <div className="flex flex-col gap-4">
+                              <div>
+                                <p className="font-semibold text-stone-950">{team.name}</p>
+                                <p className="mt-1 text-sm text-stone-600">
+                                  {team.city?.name || 'Город не указан'}
+                                </p>
+                                {team.description ? (
+                                  <p className="mt-2 text-sm text-stone-700">
+                                    {team.description}
+                                  </p>
+                                ) : null}
+                              </div>
+
+                              <div className="grid gap-3">
+                                <label className="text-sm font-medium text-stone-700">
+                                  Участник
+                                  <select
+                                    value={
+                                      selectedParticipantId
+                                        ? String(selectedParticipantId)
+                                        : ''
+                                    }
+                                    onChange={(event) =>
+                                      handleTeamParticipantChange(
+                                        team.id,
+                                        event.target.value
+                                      )
+                                    }
+                                    disabled={
+                                      dashboard.participants.length === 0 || isSubmitting
+                                    }
+                                    className="mt-2 w-full rounded-2xl border border-stone-300 bg-white px-4 py-3 text-base text-stone-950 outline-none transition focus:border-stone-500 disabled:cursor-not-allowed disabled:bg-stone-100"
+                                  >
+                                    {dashboard.participants.length === 0 ? (
+                                      <option value="">
+                                        Сначала добавьте участника
+                                      </option>
+                                    ) : (
+                                      dashboard.participants.map((participant) => (
+                                        <option
+                                          key={participant.id}
+                                          value={participant.id}
+                                        >
+                                          {formatPersonName(participant)}
+                                        </option>
+                                      ))
+                                    )}
+                                  </select>
+                                </label>
+
+                                <label className="text-sm font-medium text-stone-700">
+                                  Комментарий к заявке
+                                  <textarea
+                                    value={teamComments[team.id] ?? ''}
+                                    onChange={(event) =>
+                                      handleTeamCommentChange(team.id, event.target.value)
+                                    }
+                                    rows={3}
+                                    disabled={isSubmitting}
+                                    placeholder="Необязательно"
+                                    className="mt-2 w-full rounded-2xl border border-stone-300 bg-white px-4 py-3 text-base text-stone-950 outline-none transition focus:border-stone-500 disabled:cursor-not-allowed disabled:bg-stone-100"
+                                  />
+                                </label>
+                              </div>
+
+                              <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+                                <div className="space-y-2">
+                                  {dashboard.participants.length === 0 ? (
+                                    <p className="text-sm text-stone-600">
+                                      Чтобы отправить заявку, сначала добавьте участника
+                                      в разделе «Мои участники».
+                                    </p>
+                                  ) : null}
+                                  {existingActiveApplication && selectedParticipant ? (
+                                    <p className="text-sm text-amber-700">
+                                      У {formatPersonName(selectedParticipant)} уже есть
+                                      заявка со статусом{' '}
+                                      {formatStatus(existingActiveApplication.status)}.
+                                    </p>
+                                  ) : null}
+                                </div>
+
+                                <button
+                                  type="button"
+                                  onClick={() => handleTeamApplicationSubmit(team)}
+                                  disabled={isSubmitDisabled}
+                                  className="rounded-full bg-stone-950 px-5 py-3 text-sm font-semibold text-white transition hover:bg-stone-800 disabled:cursor-not-allowed disabled:bg-stone-400"
+                                >
+                                  {isSubmitting
+                                    ? 'Отправляем заявку...'
+                                    : 'Подать заявку'}
+                                </button>
+                              </div>
+                            </div>
+                          </article>
+                        );
+                      })}
+                    </div>
+                  )}
+                </div>
+              </SectionCard>
+
+              <SectionCard eyebrow="Команда" title="Мои заявки в команду">
+                {teamFeedback?.scope === 'applications' ? (
+                  <p
+                    className={`mb-4 rounded-2xl border px-4 py-3 text-sm ${
+                      teamFeedback.tone === 'success'
+                        ? 'border-emerald-200 bg-emerald-50 text-emerald-700'
+                        : 'border-rose-200 bg-rose-50 text-rose-700'
+                    }`}
+                  >
+                    {teamFeedback.message}
+                  </p>
+                ) : null}
+
+                {teamApplicationsStatus === 'loading' ? (
+                  <p className="rounded-2xl border border-dashed border-stone-300 bg-stone-50 p-5 text-sm text-stone-600">
+                    Загружаем ваши заявки в команду...
+                  </p>
+                ) : teamApplicationsStatus === 'error' && teamApplications.length === 0 ? (
+                  <p className="rounded-2xl border border-rose-200 bg-rose-50 p-5 text-sm text-rose-700">
+                    {teamApplicationsError}
+                  </p>
+                ) : teamApplications.length === 0 ? (
+                  <p className="text-sm text-stone-600">
+                    У вас пока нет заявок в команду.
                   </p>
                 ) : (
                   <div className="space-y-3">
-                    {dashboard.teamApplications.map((application) => (
-                      <article
-                        key={application.id}
-                        className="rounded-2xl border border-stone-200 bg-stone-50 p-4"
-                      >
-                        <div className="flex items-start justify-between gap-4">
-                          <div>
-                            <p className="font-semibold text-stone-950">
-                              {application.team.name}
-                            </p>
-                            <p className="mt-1 text-sm text-stone-600">
-                              {formatPersonName(application.participant)}
-                            </p>
-                            <p className="mt-2 text-sm text-stone-700">
-                              {application.commentFromApplicant || 'Комментарий не указан.'}
-                            </p>
+                    {teamApplications.map((application) => {
+                      const isCancelling =
+                        cancellingTeamApplicationId === application.id;
+                      const canCancel = application.status !== 'CANCELLED';
+
+                      return (
+                        <article
+                          key={application.id}
+                          className="rounded-2xl border border-stone-200 bg-stone-50 p-4"
+                        >
+                          <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+                            <div>
+                              <p className="font-semibold text-stone-950">
+                                {application.team.name}
+                              </p>
+                              <p className="mt-1 text-sm text-stone-600">
+                                {formatPersonName(application.participant)} /{' '}
+                                {application.team.city?.name || 'Город не указан'}
+                              </p>
+                              <p className="mt-2 text-sm text-stone-700">
+                                {application.commentFromApplicant ||
+                                  'Комментарий не указан.'}
+                              </p>
+                            </div>
+                            <div className="flex flex-col items-start gap-3 sm:items-end">
+                              <span
+                                className={`rounded-full px-3 py-1 text-xs font-medium ${getTeamApplicationStatusBadgeClass(application.status)}`}
+                              >
+                                {formatStatus(application.status)}
+                              </span>
+                              {canCancel ? (
+                                <button
+                                  type="button"
+                                  onClick={() =>
+                                    handleTeamApplicationCancel(application)
+                                  }
+                                  disabled={isCancelling}
+                                  className="rounded-full border border-stone-300 px-4 py-2 text-sm font-medium text-stone-700 transition hover:border-stone-500 hover:text-stone-950 disabled:cursor-not-allowed disabled:opacity-60"
+                                >
+                                  {isCancelling
+                                    ? 'Отменяем заявку...'
+                                    : 'Отменить заявку'}
+                                </button>
+                              ) : null}
+                            </div>
                           </div>
-                          <span className="rounded-full bg-amber-100 px-3 py-1 text-xs font-medium text-amber-700">
-                            {formatStatus(application.status)}
-                          </span>
-                        </div>
-                      </article>
-                    ))}
+                        </article>
+                      );
+                    })}
                   </div>
                 )}
               </SectionCard>
