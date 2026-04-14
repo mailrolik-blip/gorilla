@@ -2,7 +2,7 @@
 # Gorilla Hockey
 
 Контрольная точка разработки (MVP v1)
-📌 Общая цель проекта
+Общая цель проекта
 
 Разработка платформы для хоккейной школы/клуба с возможностями:
 
@@ -58,7 +58,7 @@ Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/bui
 
 содержит в себе установленные и подключенные на локальный хост сервисы. Создаем базы данных и настраиваем взаимосвязь между ними. 
 
-⚙️ Текущий стек
+Текущий стек
 
 - Next.js (App Router)
 - TypeScript
@@ -81,36 +81,36 @@ Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/bui
 
 <details>
 
-🟢 User
+User
 - email / phone / telegramId
 - passwordHash
 - timestamps
 - связь с профилями
 
-🟢 UserProfile
+UserProfile
 - профили пользователей
 - self-relation (parent/children)
 - расширяемая модель
 
-🟢 Team
+Team
 - базовая сущность команды
 
-🟢 TeamMember
+TeamMember
 - связь user ↔ team
 - роли через enum TeamRole
 - уникальность [userId, teamId]
 
-🟢 UserProfile
+UserProfile
 - memberships теперь связывает пользователя с командами
 - участники (игрок / ребёнок)
 
-🟢 Session
+Session
 - создали таблицу сессий (игровые матчи)
 
-🟢 Booking
+Booking
 - создали таблицу тренировок (для школы)
 
-⚠️ Частично есть рассинхрон архитектуры:
+Частично есть рассинхрон архитектуры:
 
 Booking привязан к User, а не к UserProfile (планируется исправление)
 
@@ -133,7 +133,7 @@ Booking привязан к User, а не к UserProfile (планируется
 
 ## 4 Коммит Gorilla 0.3
 
-🔌 API (реализовано)
+API (реализовано)
 
 Сделаны базовые endpoint'ы:
 
@@ -151,7 +151,7 @@ Trainings
 ✔ Prisma работает
 ✔ миграции применяются
 
-🧪 Тестирование
+Тестирование
 
 - Используется Thunder Client (VS Code)
 - POST/GET запросы работают
@@ -827,3 +827,37 @@ Backend MVP foundation — завершён (v0.1 stable)
 - auth foundation и browser-ready dev bridge готовы
 - backend собран в более цельный продуктовый контур
 - следующий этап: первый минимальный пользовательский кабинет в интерфейсе
+
+## 7.3 Gorilla 0.6.3
+
+Закрыт первый минимальный русскоязычный пользовательский кабинет.
+
+Что сделано:
+
+- локализована страница /dev/login
+- локализована страница /cabinet
+- сохранён текущий dev auth bridge и redirect-flow на /dev/login?next=/cabinet
+- backend-логика не менялась
+
+Проверка:
+
+- npx prisma validate — ok
+- npx tsc --noEmit — ok
+- npm run lint — ok
+- npm run build — ok
+
+Ручная проверка:
+
+- /dev/login открывается — ok
+- dev login работает — ok
+- gorilla_dev_user_id cookie устанавливается — ok
+- /cabinet открывается — ok
+- данные dashboard отображаются — ok
+- logout очищает cookie — ok
+- после logout /api/me снова даёт 401
+- старого англоязычного UI на этих страницах больше нет
+
+Итог:
+
+- появился первый живой русскоязычный пользовательский экран платформы
+- следующий шаг: сделать кабинет не только обзорным, но и действующим, начиная с управления участниками
