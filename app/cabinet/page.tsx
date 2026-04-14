@@ -88,6 +88,24 @@ type AvailableTeamSummary = {
   description?: string | null;
 };
 
+type AvailableRentalSlotSummary = {
+  id: number;
+  startsAt: string;
+  endsAt: string;
+  status: string;
+  availability: string;
+  resource: {
+    id: number;
+    name: string;
+    resourceType: string | null;
+  };
+  facility: {
+    id: number;
+    name: string;
+  };
+  city: CitySummary;
+};
+
 type RentalBookingSummary = {
   id: number;
   status: string;
@@ -139,6 +157,12 @@ type TeamFeedback = {
   message: string;
 };
 
+type RentalFeedback = {
+  scope: 'catalog' | 'bookings';
+  tone: 'success' | 'error';
+  message: string;
+};
+
 const roleLabels: Record<string, string> = {
   USER: 'Пользователь',
   COACH: 'Тренер',
@@ -179,6 +203,9 @@ const statusLabels: Record<string, string> = {
   CANCELLED: 'Отменено',
   PENDING_CONFIRMATION: 'Ждет подтверждения',
   CONFIRMED: 'Подтверждено',
+  AVAILABLE: 'Доступно',
+  BOOKED: 'Забронировано',
+  UNAVAILABLE: 'Недоступно',
 };
 
 const activeTeamApplicationStatuses = new Set(['PENDING', 'IN_REVIEW', 'ACCEPTED']);
@@ -197,20 +224,31 @@ function translateErrorMessage(message: string) {
     'Failed to load trainings': 'Не удалось загрузить список тренировок.',
     'Failed to load teams': 'Не удалось загрузить список команд.',
     'Failed to load team applications': 'Не удалось загрузить ваши заявки в команду.',
+    'Failed to load rental slots': 'Не удалось загрузить список слотов аренды.',
+    'Failed to load rental bookings': 'Не удалось загрузить ваши бронирования аренды.',
     'Failed to fetch current user team applications':
       'Не удалось загрузить ваши заявки в команду.',
+    'Failed to fetch public rental slots': 'Не удалось загрузить список слотов аренды.',
+    'Failed to fetch current user rental bookings':
+      'Не удалось загрузить ваши бронирования аренды.',
     'Failed to save participant': 'Не удалось сохранить участника.',
     'Failed to book training': 'Не удалось оформить запись на тренировку.',
     'Failed to cancel training booking': 'Не удалось отменить запись на тренировку.',
     'Failed to create team application': 'Не удалось отправить заявку в команду.',
     'Failed to cancel team application': 'Не удалось отменить заявку в команду.',
+    'Failed to create rental booking': 'Не удалось оформить бронирование аренды.',
+    'Failed to cancel rental booking': 'Не удалось отменить бронирование аренды.',
     'Current user is not authenticated': 'Пользователь не авторизован.',
     'User not found': 'Пользователь не найден.',
     'Participant not found': 'Участник не найден.',
     'Team not found': 'Команда не найдена.',
+    'Rental slot not found': 'Слот аренды не найден.',
     'Training not found': 'Тренировка не найдена.',
     'Training is not active': 'Запись на эту тренировку сейчас недоступна.',
     'Training is full': 'Свободных мест на тренировку больше нет.',
+    'Rental slot is unavailable': 'Слот аренды сейчас недоступен.',
+    'Rental slot is not available': 'Этот слот аренды сейчас недоступен для бронирования.',
+    'Rental slot is already booked': 'Этот слот аренды уже забронирован.',
     'Already booked': 'Участник уже записан на эту тренировку.',
     'Active team application already exists':
       'Для выбранного участника уже есть активная заявка в эту команду.',
@@ -218,14 +256,20 @@ function translateErrorMessage(message: string) {
     'Training booking is already cancelled': 'Запись на тренировку уже отменена.',
     'Team application not found': 'Заявка в команду не найдена.',
     'Team application is already cancelled': 'Заявка в команду уже отменена.',
+    'Rental booking not found': 'Бронирование аренды не найдено.',
+    'Rental booking is already cancelled': 'Бронирование аренды уже отменено.',
     'Invalid team id': 'Некорректная команда.',
     'Invalid team application id': 'Некорректная заявка в команду.',
+    'Invalid rental slot id': 'Некорректный слот аренды.',
+    'Invalid rental booking id': 'Некорректное бронирование аренды.',
     'training id and participantId must be positive integers':
       'Некорректно указаны тренировка или участник.',
     'participantId must be a positive integer':
-      'Выберите участника для заявки в команду.',
+      'Выберите корректного участника.',
     'commentFromApplicant must be a string':
       'Комментарий к заявке указан некорректно.',
+    'noteFromUser must be a string':
+      'Комментарий к бронированию указан некорректно.',
     'userId and profileType are required':
       'Не удалось создать участника: не хватает обязательных данных.',
     'profileType cannot be empty': 'Тип профиля не может быть пустым.',
@@ -309,6 +353,17 @@ function getTeamApplicationStatusBadgeClass(status: string) {
   }
 }
 
+function getRentalBookingStatusBadgeClass(status: string) {
+  switch (status) {
+    case 'CONFIRMED':
+      return 'bg-emerald-100 text-emerald-700';
+    case 'CANCELLED':
+      return 'bg-stone-200 text-stone-700';
+    default:
+      return 'bg-sky-100 text-sky-700';
+  }
+}
+
 function formatTrainingType(trainingType: string) {
   return trainingTypeLabels[trainingType] ?? trainingType;
 }
@@ -341,6 +396,17 @@ function sortAndFilterAvailableTrainings(trainings: AvailableTrainingSummary[]) 
     .sort(
       (left, right) =>
         new Date(left.startTime).getTime() - new Date(right.startTime).getTime()
+    );
+}
+
+function sortAndFilterAvailableRentalSlots(slots: AvailableRentalSlotSummary[]) {
+  const now = Date.now();
+
+  return [...slots]
+    .filter((slot) => new Date(slot.endsAt).getTime() >= now)
+    .sort(
+      (left, right) =>
+        new Date(left.startsAt).getTime() - new Date(right.startsAt).getTime()
     );
 }
 
@@ -378,6 +444,42 @@ function getTrainingAvailability(training: AvailableTrainingSummary) {
     canBook: true,
     label: `Свободно ${placesLeft} из ${training.capacity}`,
     detail: `Уже записано ${training._count.bookings} из ${training.capacity}.`,
+    badgeClass: 'bg-emerald-100 text-emerald-700',
+  };
+}
+
+function getRentalSlotAvailability(slot: AvailableRentalSlotSummary) {
+  if (new Date(slot.endsAt).getTime() < Date.now()) {
+    return {
+      canBook: false,
+      label: 'Слот завершен',
+      detail: 'Бронирование этого слота уже недоступно.',
+      badgeClass: 'bg-stone-200 text-stone-700',
+    };
+  }
+
+  if (slot.status === 'BOOKED') {
+    return {
+      canBook: false,
+      label: 'Забронировано',
+      detail: 'Этот слот уже занят.',
+      badgeClass: 'bg-amber-100 text-amber-700',
+    };
+  }
+
+  if (slot.status === 'UNAVAILABLE') {
+    return {
+      canBook: false,
+      label: 'Недоступно',
+      detail: 'Этот слот сейчас недоступен для бронирования.',
+      badgeClass: 'bg-stone-200 text-stone-700',
+    };
+  }
+
+  return {
+    canBook: true,
+    label: 'Доступно',
+    detail: 'Слот открыт для бронирования.',
     badgeClass: 'bg-emerald-100 text-emerald-700',
   };
 }
@@ -500,6 +602,30 @@ export default function CabinetPage() {
     number | null
   >(null);
   const [teamFeedback, setTeamFeedback] = useState<TeamFeedback | null>(null);
+  const [publicRentalSlots, setPublicRentalSlots] = useState<
+    AvailableRentalSlotSummary[]
+  >([]);
+  const [rentalSlotsStatus, setRentalSlotsStatus] = useState<
+    'loading' | 'ready' | 'error'
+  >('loading');
+  const [rentalSlotsError, setRentalSlotsError] = useState<string | null>(null);
+  const [rentalBookings, setRentalBookings] = useState<RentalBookingSummary[]>([]);
+  const [rentalBookingsStatus, setRentalBookingsStatus] = useState<
+    'loading' | 'ready' | 'error'
+  >('loading');
+  const [rentalBookingsError, setRentalBookingsError] = useState<string | null>(
+    null
+  );
+  const [selectedRentalParticipantValues, setSelectedRentalParticipantValues] =
+    useState<Record<number, string>>({});
+  const [rentalNotes, setRentalNotes] = useState<Record<number, string>>({});
+  const [bookingRentalSlotId, setBookingRentalSlotId] = useState<number | null>(
+    null
+  );
+  const [cancellingRentalBookingId, setCancellingRentalBookingId] = useState<
+    number | null
+  >(null);
+  const [rentalFeedback, setRentalFeedback] = useState<RentalFeedback | null>(null);
 
   function resetParticipantForm() {
     setParticipantForm(initialParticipantFormState);
@@ -612,6 +738,65 @@ export default function CabinetPage() {
     );
   }
 
+  function handleRentalParticipantChange(slotId: number, participantValue: string) {
+    setSelectedRentalParticipantValues((currentSelections) => ({
+      ...currentSelections,
+      [slotId]: participantValue,
+    }));
+    setRentalFeedback((currentFeedback) =>
+      currentFeedback?.scope === 'catalog' ? null : currentFeedback
+    );
+  }
+
+  function handleRentalNoteChange(slotId: number, note: string) {
+    setRentalNotes((currentNotes) => ({
+      ...currentNotes,
+      [slotId]: note,
+    }));
+    setRentalFeedback((currentFeedback) =>
+      currentFeedback?.scope === 'catalog' ? null : currentFeedback
+    );
+  }
+
+  function getSelectedRentalParticipantValue(slotId: number) {
+    if (!dashboard) {
+      return 'self';
+    }
+
+    const storedValue = selectedRentalParticipantValues[slotId];
+
+    if (storedValue === 'self') {
+      return storedValue;
+    }
+
+    const parsedValue = storedValue ? Number(storedValue) : NaN;
+
+    if (
+      Number.isInteger(parsedValue) &&
+      dashboard.participants.some((participant) => participant.id === parsedValue)
+    ) {
+      return storedValue;
+    }
+
+    return 'self';
+  }
+
+  function getSelectedParticipantIdForRental(slotId: number) {
+    if (!dashboard) {
+      return null;
+    }
+
+    const selectedValue = getSelectedRentalParticipantValue(slotId);
+
+    if (selectedValue === 'self') {
+      return null;
+    }
+
+    const parsedValue = Number(selectedValue);
+
+    return Number.isInteger(parsedValue) ? parsedValue : null;
+  }
+
   async function reloadDashboard(keepContent: boolean) {
     if (!keepContent) {
       setStatus('loading');
@@ -705,6 +890,36 @@ export default function CabinetPage() {
     return true;
   }
 
+  async function reloadPublicRentalSlots(keepContent: boolean) {
+    if (!keepContent) {
+      setRentalSlotsStatus('loading');
+    }
+
+    setRentalSlotsError(null);
+
+    const { response, payload } = await fetchJson('/api/public/rental-slots');
+
+    if (!response.ok) {
+      const message = translateErrorMessage(
+        (payload as { error?: string } | null)?.error ||
+          'Failed to load rental slots'
+      );
+      setRentalSlotsError(message);
+
+      if (!keepContent || publicRentalSlots.length === 0) {
+        setRentalSlotsStatus('error');
+      }
+
+      return false;
+    }
+
+    setPublicRentalSlots(
+      sortAndFilterAvailableRentalSlots(payload as AvailableRentalSlotSummary[])
+    );
+    setRentalSlotsStatus('ready');
+    return true;
+  }
+
   async function reloadTeamApplications(keepContent: boolean) {
     if (!keepContent) {
       setTeamApplicationsStatus('loading');
@@ -735,6 +950,39 @@ export default function CabinetPage() {
 
     setTeamApplications(payload as TeamApplicationSummary[]);
     setTeamApplicationsStatus('ready');
+    return true;
+  }
+
+  async function reloadRentalBookings(keepContent: boolean) {
+    if (!keepContent) {
+      setRentalBookingsStatus('loading');
+    }
+
+    setRentalBookingsError(null);
+
+    const { response, payload } = await fetchJson('/api/my/rental-bookings');
+
+    if (response.status === 401) {
+      router.replace('/dev/login?next=/cabinet');
+      return false;
+    }
+
+    if (!response.ok) {
+      const message = translateErrorMessage(
+        (payload as { error?: string } | null)?.error ||
+          'Failed to load rental bookings'
+      );
+      setRentalBookingsError(message);
+
+      if (!keepContent || rentalBookings.length === 0) {
+        setRentalBookingsStatus('error');
+      }
+
+      return false;
+    }
+
+    setRentalBookings(payload as RentalBookingSummary[]);
+    setRentalBookingsStatus('ready');
     return true;
   }
 
@@ -878,6 +1126,52 @@ export default function CabinetPage() {
   useEffect(() => {
     let isCancelled = false;
 
+    async function loadPublicRentalSlots() {
+      setRentalSlotsStatus('loading');
+      setRentalSlotsError(null);
+
+      try {
+        const { response, payload } = await fetchJson('/api/public/rental-slots');
+
+        if (!response.ok) {
+          throw new Error(
+            translateErrorMessage(
+              (payload as { error?: string } | null)?.error ||
+                'Failed to load rental slots'
+            )
+          );
+        }
+
+        if (!isCancelled) {
+          setPublicRentalSlots(
+            sortAndFilterAvailableRentalSlots(
+              payload as AvailableRentalSlotSummary[]
+            )
+          );
+          setRentalSlotsStatus('ready');
+        }
+      } catch (loadError) {
+        if (!isCancelled) {
+          setRentalSlotsError(
+            loadError instanceof Error
+              ? loadError.message
+              : 'Не удалось загрузить список слотов аренды.'
+          );
+          setRentalSlotsStatus('error');
+        }
+      }
+    }
+
+    void loadPublicRentalSlots();
+
+    return () => {
+      isCancelled = true;
+    };
+  }, []);
+
+  useEffect(() => {
+    let isCancelled = false;
+
     async function loadTeamApplications() {
       setTeamApplicationsStatus('loading');
       setTeamApplicationsError(null);
@@ -922,6 +1216,53 @@ export default function CabinetPage() {
     };
   }, [router]);
 
+  useEffect(() => {
+    let isCancelled = false;
+
+    async function loadRentalBookings() {
+      setRentalBookingsStatus('loading');
+      setRentalBookingsError(null);
+
+      try {
+        const { response, payload } = await fetchJson('/api/my/rental-bookings');
+
+        if (response.status === 401) {
+          router.replace('/dev/login?next=/cabinet');
+          return;
+        }
+
+        if (!response.ok) {
+          throw new Error(
+            translateErrorMessage(
+              (payload as { error?: string } | null)?.error ||
+                'Failed to load rental bookings'
+            )
+          );
+        }
+
+        if (!isCancelled) {
+          setRentalBookings(payload as RentalBookingSummary[]);
+          setRentalBookingsStatus('ready');
+        }
+      } catch (loadError) {
+        if (!isCancelled) {
+          setRentalBookingsError(
+            loadError instanceof Error
+              ? loadError.message
+              : 'Не удалось загрузить ваши бронирования аренды.'
+          );
+          setRentalBookingsStatus('error');
+        }
+      }
+    }
+
+    void loadRentalBookings();
+
+    return () => {
+      isCancelled = true;
+    };
+  }, [router]);
+
   async function refreshTrainingSections() {
     const [dashboardWasReloaded, trainingsWereReloaded] = await Promise.all([
       reloadDashboard(true),
@@ -938,6 +1279,24 @@ export default function CabinetPage() {
     ]);
 
     return teamApplicationsWereReloaded;
+  }
+
+  async function refreshRentalSections() {
+    const [
+      dashboardWasReloaded,
+      rentalSlotsWereReloaded,
+      rentalBookingsWereReloaded,
+    ] = await Promise.all([
+      reloadDashboard(true),
+      reloadPublicRentalSlots(true),
+      reloadRentalBookings(true),
+    ]);
+
+    return (
+      dashboardWasReloaded &&
+      rentalSlotsWereReloaded &&
+      rentalBookingsWereReloaded
+    );
   }
 
   async function handleParticipantSubmit(event: FormEvent<HTMLFormElement>) {
@@ -1349,6 +1708,138 @@ export default function CabinetPage() {
       });
     } finally {
       setCancellingTeamApplicationId(null);
+    }
+  }
+
+  async function handleRentalBooking(slot: AvailableRentalSlotSummary) {
+    if (!dashboard) {
+      setRentalFeedback({
+        scope: 'catalog',
+        tone: 'error',
+        message: 'Кабинет еще не загружен.',
+      });
+      return;
+    }
+
+    const availability = getRentalSlotAvailability(slot);
+
+    if (!availability.canBook) {
+      setRentalFeedback({
+        scope: 'catalog',
+        tone: 'error',
+        message: 'Этот слот аренды сейчас недоступен для бронирования.',
+      });
+      return;
+    }
+
+    setBookingRentalSlotId(slot.id);
+    setRentalFeedback(null);
+
+    try {
+      const participantId = getSelectedParticipantIdForRental(slot.id);
+      const noteFromUser = rentalNotes[slot.id]?.trim() || null;
+      const { response, payload } = await fetchJson(`/api/rental-slots/${slot.id}/book`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          participantId,
+          noteFromUser,
+        }),
+      });
+
+      if (response.status === 401) {
+        router.replace('/dev/login?next=/cabinet');
+        return;
+      }
+
+      if (!response.ok) {
+        throw new Error(
+          translateErrorMessage(
+            (payload as { error?: string } | null)?.error ||
+              'Failed to create rental booking'
+          )
+        );
+      }
+
+      const refreshedSuccessfully = await refreshRentalSections();
+
+      if (!refreshedSuccessfully) {
+        throw new Error('Не удалось обновить кабинет после бронирования аренды.');
+      }
+
+      setRentalNotes((currentNotes) => ({
+        ...currentNotes,
+        [slot.id]: '',
+      }));
+      setRentalFeedback({
+        scope: 'catalog',
+        tone: 'success',
+        message: `Бронирование ресурса «${slot.resource.name}» оформлено.`,
+      });
+    } catch (bookingError) {
+      setRentalFeedback({
+        scope: 'catalog',
+        tone: 'error',
+        message:
+          bookingError instanceof Error
+            ? bookingError.message
+            : 'Не удалось оформить бронирование аренды.',
+      });
+    } finally {
+      setBookingRentalSlotId(null);
+    }
+  }
+
+  async function handleRentalBookingCancel(booking: RentalBookingSummary) {
+    setCancellingRentalBookingId(booking.id);
+    setRentalFeedback(null);
+
+    try {
+      const { response, payload } = await fetchJson(
+        `/api/rental-bookings/${booking.id}/cancel`,
+        {
+          method: 'POST',
+        }
+      );
+
+      if (response.status === 401) {
+        router.replace('/dev/login?next=/cabinet');
+        return;
+      }
+
+      if (!response.ok) {
+        throw new Error(
+          translateErrorMessage(
+            (payload as { error?: string } | null)?.error ||
+              'Failed to cancel rental booking'
+          )
+        );
+      }
+
+      const refreshedSuccessfully = await refreshRentalSections();
+
+      if (!refreshedSuccessfully) {
+        throw new Error('Не удалось обновить кабинет после отмены бронирования.');
+      }
+
+      setRentalFeedback({
+        scope: 'bookings',
+        tone: 'success',
+        message: `Бронирование ресурса «${booking.resource.name}» отменено.`,
+      });
+    } catch (cancelError) {
+      setRentalFeedback({
+        scope: 'bookings',
+        tone: 'error',
+        message:
+          cancelError instanceof Error
+            ? cancelError.message
+            : 'Не удалось отменить бронирование аренды.',
+      });
+    } finally {
+      setCancellingRentalBookingId(null);
     }
   }
 
@@ -2091,36 +2582,235 @@ export default function CabinetPage() {
                 )}
               </SectionCard>
 
-              <SectionCard eyebrow="Аренда" title="Мои бронирования">
-                {dashboard.rentalBookings.length === 0 ? (
+              <SectionCard eyebrow="Аренда" title="Доступная аренда">
+                <div className="space-y-4">
                   <p className="text-sm text-stone-600">
-                    У вас пока нет активных бронирований.
+                    Выберите слот аренды, при необходимости укажите участника или
+                    бронирование на себя, и оформите бронь из кабинета.
+                  </p>
+
+                  {rentalFeedback?.scope === 'catalog' ? (
+                    <p
+                      className={`rounded-2xl border px-4 py-3 text-sm ${
+                        rentalFeedback.tone === 'success'
+                          ? 'border-emerald-200 bg-emerald-50 text-emerald-700'
+                          : 'border-rose-200 bg-rose-50 text-rose-700'
+                      }`}
+                    >
+                      {rentalFeedback.message}
+                    </p>
+                  ) : null}
+
+                  {rentalSlotsStatus === 'loading' ? (
+                    <p className="rounded-2xl border border-dashed border-stone-300 bg-stone-50 p-5 text-sm text-stone-600">
+                      Загружаем слоты аренды...
+                    </p>
+                  ) : rentalSlotsStatus === 'error' && publicRentalSlots.length === 0 ? (
+                    <p className="rounded-2xl border border-rose-200 bg-rose-50 p-5 text-sm text-rose-700">
+                      {rentalSlotsError}
+                    </p>
+                  ) : publicRentalSlots.length === 0 ? (
+                    <p className="rounded-2xl border border-dashed border-stone-300 bg-stone-50 p-5 text-sm text-stone-600">
+                      Сейчас нет слотов аренды для бронирования.
+                    </p>
+                  ) : (
+                    <div className="space-y-3">
+                      {publicRentalSlots.map((slot) => {
+                        const availability = getRentalSlotAvailability(slot);
+                        const selectedParticipantValue =
+                          getSelectedRentalParticipantValue(slot.id);
+                        const selectedParticipantId =
+                          getSelectedParticipantIdForRental(slot.id);
+                        const selectedParticipant =
+                          selectedParticipantId === null
+                            ? null
+                            : dashboard.participants.find(
+                                (participant) => participant.id === selectedParticipantId
+                              ) ?? null;
+                        const isBookingInProgress = bookingRentalSlotId === slot.id;
+                        const isBookingDisabled =
+                          !availability.canBook || isBookingInProgress;
+
+                        return (
+                          <article
+                            key={slot.id}
+                            className="rounded-2xl border border-stone-200 bg-stone-50 p-4"
+                          >
+                            <div className="flex flex-col gap-4">
+                              <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                                <div>
+                                  <p className="font-semibold text-stone-950">
+                                    {slot.resource.name}
+                                  </p>
+                                  <p className="mt-1 text-sm text-stone-600">
+                                    {slot.facility.name} / {slot.city.name}
+                                  </p>
+                                  <p className="mt-2 text-sm text-stone-700">
+                                    {formatDateTime(slot.startsAt)} —{' '}
+                                    {formatTime(slot.endsAt)}
+                                  </p>
+                                </div>
+                                <span
+                                  className={`rounded-full px-3 py-1 text-xs font-medium ${availability.badgeClass}`}
+                                >
+                                  {availability.label}
+                                </span>
+                              </div>
+
+                              <div className="grid gap-1 text-sm text-stone-600">
+                                <p>
+                                  Ресурс:{' '}
+                                  {slot.resource.resourceType
+                                    ? `${slot.resource.name} (${slot.resource.resourceType})`
+                                    : slot.resource.name}
+                                </p>
+                                <p>Статус слота: {formatStatus(slot.status)}</p>
+                                <p>{availability.detail}</p>
+                              </div>
+
+                              <div className="grid gap-3">
+                                <label className="text-sm font-medium text-stone-700">
+                                  Кого бронируем
+                                  <select
+                                    value={selectedParticipantValue}
+                                    onChange={(event) =>
+                                      handleRentalParticipantChange(
+                                        slot.id,
+                                        event.target.value
+                                      )
+                                    }
+                                    disabled={isBookingDisabled}
+                                    className="mt-2 w-full rounded-2xl border border-stone-300 bg-white px-4 py-3 text-base text-stone-950 outline-none transition focus:border-stone-500 disabled:cursor-not-allowed disabled:bg-stone-100"
+                                  >
+                                    <option value="self">На себя</option>
+                                    {dashboard.participants.map((participant) => (
+                                      <option key={participant.id} value={participant.id}>
+                                        {formatPersonName(participant)}
+                                      </option>
+                                    ))}
+                                  </select>
+                                </label>
+
+                                <label className="text-sm font-medium text-stone-700">
+                                  Комментарий к бронированию
+                                  <textarea
+                                    value={rentalNotes[slot.id] ?? ''}
+                                    onChange={(event) =>
+                                      handleRentalNoteChange(slot.id, event.target.value)
+                                    }
+                                    rows={3}
+                                    disabled={isBookingDisabled}
+                                    placeholder="Необязательно"
+                                    className="mt-2 w-full rounded-2xl border border-stone-300 bg-white px-4 py-3 text-base text-stone-950 outline-none transition focus:border-stone-500 disabled:cursor-not-allowed disabled:bg-stone-100"
+                                  />
+                                </label>
+                              </div>
+
+                              <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+                                <p className="text-sm text-stone-600">
+                                  {selectedParticipant
+                                    ? `Бронь будет оформлена на ${formatPersonName(selectedParticipant)}.`
+                                    : 'Бронь будет оформлена на ваш аккаунт.'}
+                                </p>
+                                <button
+                                  type="button"
+                                  onClick={() => handleRentalBooking(slot)}
+                                  disabled={isBookingDisabled}
+                                  className="rounded-full bg-stone-950 px-5 py-3 text-sm font-semibold text-white transition hover:bg-stone-800 disabled:cursor-not-allowed disabled:bg-stone-400"
+                                >
+                                  {isBookingInProgress
+                                    ? 'Оформляем бронь...'
+                                    : 'Забронировать'}
+                                </button>
+                              </div>
+                            </div>
+                          </article>
+                        );
+                      })}
+                    </div>
+                  )}
+                </div>
+              </SectionCard>
+
+              <SectionCard eyebrow="Аренда" title="Мои бронирования аренды">
+                {rentalFeedback?.scope === 'bookings' ? (
+                  <p
+                    className={`mb-4 rounded-2xl border px-4 py-3 text-sm ${
+                      rentalFeedback.tone === 'success'
+                        ? 'border-emerald-200 bg-emerald-50 text-emerald-700'
+                        : 'border-rose-200 bg-rose-50 text-rose-700'
+                    }`}
+                  >
+                    {rentalFeedback.message}
+                  </p>
+                ) : null}
+
+                {rentalBookingsStatus === 'loading' ? (
+                  <p className="rounded-2xl border border-dashed border-stone-300 bg-stone-50 p-5 text-sm text-stone-600">
+                    Загружаем ваши бронирования аренды...
+                  </p>
+                ) : rentalBookingsStatus === 'error' && rentalBookings.length === 0 ? (
+                  <p className="rounded-2xl border border-rose-200 bg-rose-50 p-5 text-sm text-rose-700">
+                    {rentalBookingsError}
+                  </p>
+                ) : rentalBookings.length === 0 ? (
+                  <p className="text-sm text-stone-600">
+                    У вас пока нет бронирований аренды.
                   </p>
                 ) : (
                   <div className="space-y-3">
-                    {dashboard.rentalBookings.map((booking) => (
-                      <article
-                        key={booking.id}
-                        className="rounded-2xl border border-stone-200 bg-stone-50 p-4"
-                      >
-                        <div className="flex items-start justify-between gap-4">
-                          <div>
-                            <p className="font-semibold text-stone-950">
-                              {booking.resource.name}
-                            </p>
-                            <p className="mt-1 text-sm text-stone-600">
-                              {booking.facility.name} / {booking.city.name}
-                            </p>
-                            <p className="mt-2 text-sm text-stone-700">
-                              {formatDateTime(booking.slot.startsAt)}
-                            </p>
+                    {rentalBookings.map((booking) => {
+                      const isCancelling =
+                        cancellingRentalBookingId === booking.id;
+                      const canCancel = booking.status !== 'CANCELLED';
+
+                      return (
+                        <article
+                          key={booking.id}
+                          className="rounded-2xl border border-stone-200 bg-stone-50 p-4"
+                        >
+                          <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+                            <div>
+                              <p className="font-semibold text-stone-950">
+                                {booking.resource.name}
+                              </p>
+                              <p className="mt-1 text-sm text-stone-600">
+                                {booking.facility.name} / {booking.city.name}
+                              </p>
+                              <p className="mt-2 text-sm text-stone-700">
+                                {formatDateTime(booking.slot.startsAt)} —{' '}
+                                {formatTime(booking.slot.endsAt)}
+                              </p>
+                              <p className="mt-2 text-sm text-stone-600">
+                                Бронь оформлена:{' '}
+                                {booking.participant
+                                  ? formatPersonName(booking.participant)
+                                  : 'На себя'}
+                              </p>
+                            </div>
+                            <div className="flex flex-col items-start gap-3 sm:items-end">
+                              <span
+                                className={`rounded-full px-3 py-1 text-xs font-medium ${getRentalBookingStatusBadgeClass(booking.status)}`}
+                              >
+                                {formatStatus(booking.status)}
+                              </span>
+                              {canCancel ? (
+                                <button
+                                  type="button"
+                                  onClick={() => handleRentalBookingCancel(booking)}
+                                  disabled={isCancelling}
+                                  className="rounded-full border border-stone-300 px-4 py-2 text-sm font-medium text-stone-700 transition hover:border-stone-500 hover:text-stone-950 disabled:cursor-not-allowed disabled:opacity-60"
+                                >
+                                  {isCancelling
+                                    ? 'Отменяем бронь...'
+                                    : 'Отменить бронь'}
+                                </button>
+                              ) : null}
+                            </div>
                           </div>
-                          <span className="rounded-full bg-sky-100 px-3 py-1 text-xs font-medium text-sky-700">
-                            {formatStatus(booking.status)}
-                          </span>
-                        </div>
-                      </article>
-                    ))}
+                        </article>
+                      );
+                    })}
                   </div>
                 )}
               </SectionCard>
