@@ -1,6 +1,6 @@
 import type { NextApiRequest, NextApiResponse } from 'next';
 
-import { getCurrentUserId } from '../../../lib/current-user';
+import { requireManagerOrAdmin } from '../../../lib/current-user';
 import prisma from '../../../lib/prisma';
 import { listRentalBookingsForStaff } from '../../../lib/rental-bookings';
 import { HttpError } from '../../../lib/training-bookings';
@@ -13,14 +13,9 @@ export default async function handler(
     return res.status(405).json({ error: 'Method not allowed' });
   }
 
-  const currentUserId = getCurrentUserId(req);
-
-  if (!currentUserId) {
-    return res.status(401).json({ error: 'x-user-id header is required' });
-  }
-
   try {
-    const bookings = await listRentalBookingsForStaff(prisma, currentUserId);
+    const currentUser = await requireManagerOrAdmin(prisma, req);
+    const bookings = await listRentalBookingsForStaff(prisma, currentUser.id);
 
     return res.status(200).json(bookings);
   } catch (error) {

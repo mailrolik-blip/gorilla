@@ -41,8 +41,9 @@ function parsePositiveInteger(value: string | undefined): number | null {
   return parsedValue;
 }
 
-function getCurrentUserIdFromSession(_req: NextApiRequest): number | null {
+function getCurrentUserIdFromSession(req: NextApiRequest): number | null {
   // Reserved for future cookie/session-backed auth providers.
+  void req;
   return null;
 }
 

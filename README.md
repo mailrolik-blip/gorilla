@@ -732,3 +732,45 @@ Backend MVP foundation — завершён (v0.1 stable)
 
 - rental-модуль теперь управляется staff/admin полностью без Prisma Studio
 - следующий этап: auth foundation
+
+## 7.1 Gorilla 0.6.1
+
+Закрыт auth/current-user foundation для MVP v1.
+
+Что сделано:
+
+- добавлен единый слой current user в lib/current-user.ts
+- реализованы helper’ы:
+    - getCurrentUser()
+    - optionalCurrentUser()
+    - requireCurrentUser()
+    - requireStaffUser()
+    - requireManagerOrAdmin()
+- current user теперь проходит через session-ready abstraction с dev fallback на x-user-id
+- вынесена общая staff/coach access логика в lib/staff.ts
+- добавлены safe select’ы для current user
+- добавлен endpoint GET /api/me
+- ключевые authenticated routes переведены на centralized guards вместо прямого чтения x-user-id
+- coach/global-staff access в team-applications переведён на общий helper
+
+Проверка:
+
+- npx prisma validate — ok
+- npx tsc --noEmit — ok
+- npm run lint — ok
+- npm run build — ok
+
+Ручная проверка:
+
+- GET /api/me через x-user-id работает — 200
+- GET /api/me без current user даёт 401
+- user endpoints через новый helper продолжают работать
+- admin endpoints через новый helper продолжают работать
+- coach endpoints через новый helper продолжают работать
+- существующие public/user flows не сломаны
+
+Итог:
+
+- auth foundation готов
+- backend почти собран в единый продуктовый контур
+- следующий этап: browser-ready dev auth + user dashboard foundation

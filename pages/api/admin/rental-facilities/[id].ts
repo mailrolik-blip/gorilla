@@ -1,6 +1,6 @@
 import type { NextApiRequest, NextApiResponse } from 'next';
 
-import { getCurrentUserId } from '../../../../lib/current-user';
+import { requireManagerOrAdmin } from '../../../../lib/current-user';
 import prisma from '../../../../lib/prisma';
 import { updateRentalFacilityByStaff } from '../../../../lib/admin-rental-inventory';
 import { HttpError } from '../../../../lib/training-bookings';
@@ -38,12 +38,6 @@ export default async function handler(
     return res.status(405).json({ error: 'Method not allowed' });
   }
 
-  const currentUserId = getCurrentUserId(req);
-
-  if (!currentUserId) {
-    return res.status(401).json({ error: 'x-user-id header is required' });
-  }
-
   const rawFacilityId = Array.isArray(req.query.id) ? req.query.id[0] : req.query.id;
   const facilityId = toPositiveInt(rawFacilityId);
   const parsedCityId =
@@ -71,9 +65,10 @@ export default async function handler(
   const cityId = req.body.cityId === undefined ? undefined : (parsedCityId as number);
 
   try {
+    const currentUser = await requireManagerOrAdmin(prisma, req);
     const facility = await updateRentalFacilityByStaff(prisma, {
       facilityId,
-      currentUserId,
+      currentUserId: currentUser.id,
       ...(cityId !== undefined ? { cityId } : {}),
       ...(name !== undefined ? { name } : {}),
     });

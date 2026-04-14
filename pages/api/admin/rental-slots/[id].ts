@@ -4,7 +4,7 @@ import {
   type StaffManagedRentalSlotStatus,
   updateRentalSlotByStaff,
 } from '../../../../lib/admin-rental-slots';
-import { getCurrentUserId } from '../../../../lib/current-user';
+import { requireManagerOrAdmin } from '../../../../lib/current-user';
 import prisma from '../../../../lib/prisma';
 import { HttpError } from '../../../../lib/training-bookings';
 
@@ -79,12 +79,6 @@ export default async function handler(
     return res.status(405).json({ error: 'Method not allowed' });
   }
 
-  const currentUserId = getCurrentUserId(req);
-
-  if (!currentUserId) {
-    return res.status(401).json({ error: 'x-user-id header is required' });
-  }
-
   const rawSlotId = Array.isArray(req.query.id) ? req.query.id[0] : req.query.id;
   const slotId = toPositiveInt(rawSlotId);
   const startsAt =
@@ -134,9 +128,10 @@ export default async function handler(
   }
 
   try {
+    const currentUser = await requireManagerOrAdmin(prisma, req);
     const slot = await updateRentalSlotByStaff(prisma, {
       slotId,
-      currentUserId,
+      currentUserId: currentUser.id,
       ...(status !== undefined ? { status } : {}),
       ...(startsAt !== undefined ? { startsAt } : {}),
       ...(endsAt !== undefined ? { endsAt } : {}),

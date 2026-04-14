@@ -5,7 +5,7 @@ import {
   listRentalSlotsForStaff,
   type StaffManagedRentalSlotStatus,
 } from '../../../lib/admin-rental-slots';
-import { getCurrentUserId } from '../../../lib/current-user';
+import { requireManagerOrAdmin } from '../../../lib/current-user';
 import prisma from '../../../lib/prisma';
 import { HttpError } from '../../../lib/training-bookings';
 
@@ -80,15 +80,10 @@ export default async function handler(
     return res.status(405).json({ error: 'Method not allowed' });
   }
 
-  const currentUserId = getCurrentUserId(req);
-
-  if (!currentUserId) {
-    return res.status(401).json({ error: 'x-user-id header is required' });
-  }
-
   if (req.method === 'GET') {
     try {
-      const slots = await listRentalSlotsForStaff(prisma, currentUserId);
+      const currentUser = await requireManagerOrAdmin(prisma, req);
+      const slots = await listRentalSlotsForStaff(prisma, currentUser.id);
 
       return res.status(200).json(slots);
     } catch (error) {
@@ -143,8 +138,9 @@ export default async function handler(
   }
 
   try {
+    const currentUser = await requireManagerOrAdmin(prisma, req);
     const slot = await createRentalSlotByStaff(prisma, {
-      currentUserId,
+      currentUserId: currentUser.id,
       resourceId,
       startsAt,
       endsAt,

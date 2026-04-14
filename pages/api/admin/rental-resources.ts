@@ -4,7 +4,7 @@ import {
   createRentalResourceByStaff,
   listRentalResourcesForStaff,
 } from '../../../lib/admin-rental-inventory';
-import { getCurrentUserId } from '../../../lib/current-user';
+import { requireManagerOrAdmin } from '../../../lib/current-user';
 import prisma from '../../../lib/prisma';
 import { HttpError } from '../../../lib/training-bookings';
 
@@ -35,15 +35,10 @@ export default async function handler(
     return res.status(405).json({ error: 'Method not allowed' });
   }
 
-  const currentUserId = getCurrentUserId(req);
-
-  if (!currentUserId) {
-    return res.status(401).json({ error: 'x-user-id header is required' });
-  }
-
   if (req.method === 'GET') {
     try {
-      const resources = await listRentalResourcesForStaff(prisma, currentUserId);
+      const currentUser = await requireManagerOrAdmin(prisma, req);
+      const resources = await listRentalResourcesForStaff(prisma, currentUser.id);
 
       return res.status(200).json(resources);
     } catch (error) {
@@ -78,8 +73,9 @@ export default async function handler(
   }
 
   try {
+    const currentUser = await requireManagerOrAdmin(prisma, req);
     const resource = await createRentalResourceByStaff(prisma, {
-      currentUserId,
+      currentUserId: currentUser.id,
       facilityId,
       name,
       type,
