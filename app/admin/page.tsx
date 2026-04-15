@@ -255,6 +255,34 @@ type TeamApplicationFeedback = {
   message: string;
 };
 
+type TrainingActivityFilter = 'ALL' | 'ACTIVE' | 'INACTIVE';
+type TrainingFormMode = 'create' | 'edit';
+
+type TrainingCoachOption = {
+  id: number;
+  email: string | null;
+  phone: string | null;
+  telegramId: string | null;
+};
+
+type TrainingEditorState = {
+  name: string;
+  cityId: string;
+  coachId: string;
+  trainingType: string;
+  capacity: string;
+  isActive: boolean;
+  startTime: string;
+  endTime: string;
+  location: string;
+  description: string;
+};
+
+type TrainingFeedback = {
+  tone: 'success' | 'error';
+  message: string;
+};
+
 type FetchResult<T> = {
   payload: T | { error?: string } | null;
   response: Response;
@@ -311,6 +339,15 @@ const staffManagedTeamApplicationStatusOptions: {
   { value: 'IN_REVIEW', label: 'В работе' },
   { value: 'ACCEPTED', label: 'Одобрено' },
   { value: 'REJECTED', label: 'Отклонено' },
+];
+
+const trainingActivityFilterOptions: {
+  value: TrainingActivityFilter;
+  label: string;
+}[] = [
+  { value: 'ALL', label: 'Все тренировки' },
+  { value: 'ACTIVE', label: 'Только активные' },
+  { value: 'INACTIVE', label: 'Только неактивные' },
 ];
 
 function formatRoleList(roles: string[]) {
@@ -383,6 +420,50 @@ function createTeamApplicationEditorState(
   };
 }
 
+function toDateTimeLocalInputValue(date: Date) {
+  const localDate = new Date(date.getTime() - date.getTimezoneOffset() * 60000);
+  return localDate.toISOString().slice(0, 16);
+}
+
+function createTrainingEditorState(
+  training?: AdminTrainingSummary | null
+): TrainingEditorState {
+  if (training) {
+    return {
+      name: training.name,
+      cityId: String(training.city.id),
+      coachId: training.coach ? String(training.coach.id) : '',
+      trainingType: training.trainingType,
+      capacity: String(training.capacity),
+      isActive: training.isActive,
+      startTime: '',
+      endTime: '',
+      location: '',
+      description: '',
+    };
+  }
+
+  const startTime = new Date();
+  startTime.setDate(startTime.getDate() + 1);
+  startTime.setHours(19, 0, 0, 0);
+
+  const endTime = new Date(startTime);
+  endTime.setHours(20, 30, 0, 0);
+
+  return {
+    name: '',
+    cityId: '',
+    coachId: '',
+    trainingType: 'general',
+    capacity: '20',
+    isActive: true,
+    startTime: toDateTimeLocalInputValue(startTime),
+    endTime: toDateTimeLocalInputValue(endTime),
+    location: '',
+    description: '',
+  };
+}
+
 function formatStatus(status: string) {
   return statusLabels[status] ?? status;
 }
@@ -434,6 +515,10 @@ function translateErrorMessage(message: string) {
       'Не удалось сохранить изменения по заявке.',
     'Failed to fetch trainings for staff': 'Не удалось загрузить список тренировок.',
     'Failed to fetch trainings': 'Не удалось загрузить список тренировок.',
+    'Failed to fetch users': 'Не удалось загрузить список пользователей для выбора тренера.',
+    'Error retrieving cities': 'Не удалось загрузить список городов для тренировок.',
+    'Failed to create training': 'Не удалось создать тренировку.',
+    'Failed to update training': 'Не удалось сохранить изменения по тренировке.',
     'Failed to fetch rental bookings for staff':
       'Не удалось загрузить бронирования аренды.',
     'Failed to fetch rental slots for staff': 'Не удалось загрузить слоты аренды.',
@@ -452,6 +537,32 @@ function translateErrorMessage(message: string) {
     'internalNote must be a string or null':
       'Внутренняя заметка должна быть строкой или пустым значением.',
     'Invalid team application id': 'Некорректный идентификатор заявки.',
+    'name, cityId, startTime, endTime and location are required':
+      'Для создания тренировки нужны название, город, время начала, время окончания и место.',
+    'description must be a string or null':
+      'Описание тренировки должно быть строкой или пустым значением.',
+    'trainingType must be a string':
+      'Тип тренировки должен быть строкой.',
+    'coachId must be a positive integer':
+      'Тренер должен быть корректным пользователем.',
+    'coachId must be a positive integer or null':
+      'Тренер должен быть корректным пользователем или пустым значением.',
+    'capacity must be a positive integer':
+      'Вместимость должна быть положительным целым числом.',
+    'isActive must be true or false':
+      'Признак активности должен быть true или false.',
+    'endTime must be later than startTime':
+      'Время окончания должно быть позже времени начала.',
+    'Invalid training id': 'Некорректный идентификатор тренировки.',
+    'name must be a non-empty string':
+      'Название тренировки должно быть непустой строкой.',
+    'cityId must be a positive integer':
+      'Город тренировки указан некорректно.',
+    'At least one of name, cityId, coachId, trainingType, capacity or isActive is required':
+      'Измените хотя бы одно поле тренировки перед сохранением.',
+    'City not found': 'Выбранный город не найден.',
+    'Coach not found': 'Выбранный тренер не найден.',
+    'Training not found': 'Тренировка не найдена.',
     'Method not allowed': 'Метод не поддерживается.',
   };
 
@@ -548,6 +659,648 @@ function SummaryCard({
   );
 }
 
+type TrainingsSectionContentProps = {
+  overview: AdminOverview;
+  trainingActivityFilter: TrainingActivityFilter;
+  setTrainingActivityFilter: React.Dispatch<
+    React.SetStateAction<TrainingActivityFilter>
+  >;
+  trainingCityFilter: string;
+  setTrainingCityFilter: React.Dispatch<React.SetStateAction<string>>;
+  trainingFilterCityOptions: CitySummary[];
+  isTrainingEditable: boolean;
+  isTrainingCreateMode: boolean;
+  handleTrainingCreateStart: () => void;
+  handleTrainingCreateCancel: () => void;
+  filteredTrainings: AdminTrainingSummary[];
+  activeTrainingId: number | null;
+  handleTrainingSelect: (training: AdminTrainingSummary) => void;
+  trainingFeedback: TrainingFeedback | null;
+  activeTrainingEditor: TrainingEditorState | null;
+  trainingCityOptions: CitySummary[];
+  trainingCoachOptions: TrainingCoachOption[];
+  savingTrainingKey: string | null;
+  setTrainingEditorId: React.Dispatch<React.SetStateAction<number | null>>;
+  setTrainingEditor: React.Dispatch<
+    React.SetStateAction<TrainingEditorState | null>
+  >;
+  setTrainingFeedback: React.Dispatch<
+    React.SetStateAction<TrainingFeedback | null>
+  >;
+  handleTrainingSave: () => void;
+  isTrainingCreateReady: boolean;
+  selectedTraining: AdminTrainingSummary | null;
+  isTrainingDirty: boolean;
+};
+
+function TrainingsSectionContent({
+  overview,
+  trainingActivityFilter,
+  setTrainingActivityFilter,
+  trainingCityFilter,
+  setTrainingCityFilter,
+  trainingFilterCityOptions,
+  isTrainingEditable,
+  isTrainingCreateMode,
+  handleTrainingCreateStart,
+  handleTrainingCreateCancel,
+  filteredTrainings,
+  activeTrainingId,
+  handleTrainingSelect,
+  trainingFeedback,
+  activeTrainingEditor,
+  trainingCityOptions,
+  trainingCoachOptions,
+  savingTrainingKey,
+  setTrainingEditorId,
+  setTrainingEditor,
+  setTrainingFeedback,
+  handleTrainingSave,
+  isTrainingCreateReady,
+  selectedTraining,
+  isTrainingDirty,
+}: TrainingsSectionContentProps) {
+  const selectedSavingKey = selectedTraining
+    ? `edit-${selectedTraining.id}`
+    : null;
+
+  function updateCreateEditor(patch: Partial<TrainingEditorState>) {
+    setTrainingEditor((currentEditor) => {
+      const baseEditor = currentEditor ?? activeTrainingEditor;
+      return baseEditor ? { ...baseEditor, ...patch } : currentEditor;
+    });
+    setTrainingFeedback(null);
+  }
+
+  function updateSelectedEditor(patch: Partial<TrainingEditorState>) {
+    if (!selectedTraining) {
+      return;
+    }
+
+    setTrainingEditorId(selectedTraining.id);
+    setTrainingEditor((currentEditor) => {
+      const baseEditor = currentEditor ?? activeTrainingEditor;
+      return baseEditor ? { ...baseEditor, ...patch } : currentEditor;
+    });
+    setTrainingFeedback(null);
+  }
+
+  function renderReadonlyValue(value: string) {
+    return (
+      <div className="mt-2 rounded-2xl border border-stone-300 bg-white px-4 py-3 text-sm text-stone-800">
+        {value}
+      </div>
+    );
+  }
+
+  return (
+    <div className="grid gap-5 xl:grid-cols-[0.92fr_1.08fr]">
+      <div className="space-y-4">
+        <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-1">
+          <label className="text-sm font-medium text-stone-700">
+            Фильтр по активности
+            <select
+              value={trainingActivityFilter}
+              onChange={(event) => {
+                setTrainingActivityFilter(
+                  event.target.value as TrainingActivityFilter
+                );
+                setTrainingFeedback(null);
+              }}
+              className="mt-2 w-full rounded-2xl border border-stone-300 bg-white px-4 py-3 text-base text-stone-950 outline-none transition focus:border-stone-500"
+            >
+              {trainingActivityFilterOptions.map((option) => (
+                <option key={option.value} value={option.value}>
+                  {option.label}
+                </option>
+              ))}
+            </select>
+          </label>
+
+          <label className="text-sm font-medium text-stone-700">
+            Фильтр по городу
+            <select
+              value={trainingCityFilter}
+              onChange={(event) => {
+                setTrainingCityFilter(event.target.value);
+                setTrainingFeedback(null);
+              }}
+              className="mt-2 w-full rounded-2xl border border-stone-300 bg-white px-4 py-3 text-base text-stone-950 outline-none transition focus:border-stone-500"
+            >
+              <option value="ALL">Все города</option>
+              {trainingFilterCityOptions.map((city) => (
+                <option key={city.id} value={city.id}>
+                  {city.name}
+                </option>
+              ))}
+            </select>
+          </label>
+        </div>
+
+        {isTrainingEditable ? (
+          <div className="flex flex-wrap gap-3">
+            <button
+              type="button"
+              onClick={handleTrainingCreateStart}
+              className="rounded-full bg-stone-950 px-5 py-3 text-sm font-semibold text-white transition hover:bg-stone-800"
+            >
+              Новая тренировка
+            </button>
+            {isTrainingCreateMode ? (
+              <button
+                type="button"
+                onClick={handleTrainingCreateCancel}
+                className="rounded-full border border-stone-300 px-5 py-3 text-sm font-semibold text-stone-700 transition hover:border-stone-500 hover:text-stone-950"
+              >
+                Вернуться к списку
+              </button>
+            ) : null}
+          </div>
+        ) : (
+          <p className="rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
+            В этом модуле TRAINER видит только свои тренировки. Глобальное
+            создание и редактирование доступно только MANAGER и ADMIN.
+          </p>
+        )}
+
+        {filteredTrainings.length === 0 ? (
+          <p className="rounded-2xl border border-dashed border-stone-300 bg-stone-50 p-5 text-sm text-stone-600">
+            {overview.trainings.length === 0
+              ? isTrainingEditable
+                ? 'Тренировок пока нет. Создайте первую запись справа.'
+                : 'Тренировок пока нет.'
+              : 'По текущим фильтрам тренировок нет.'}
+          </p>
+        ) : (
+          <div className="space-y-3 xl:max-h-[720px] xl:overflow-y-auto xl:pr-2">
+            {filteredTrainings.map((training) => {
+              const isSelected =
+                !isTrainingCreateMode && training.id === activeTrainingId;
+
+              return (
+                <button
+                  key={training.id}
+                  type="button"
+                  onClick={() => handleTrainingSelect(training)}
+                  className={`w-full rounded-2xl border p-4 text-left transition ${
+                    isSelected
+                      ? 'border-stone-950 bg-stone-950 text-white shadow-[0_18px_45px_-35px_rgba(0,0,0,0.45)]'
+                      : 'border-stone-200 bg-stone-50 hover:border-stone-400 hover:bg-white'
+                  }`}
+                >
+                  <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                    <div>
+                      <p className="font-semibold">{training.name}</p>
+                      <p
+                        className={`mt-1 text-sm ${
+                          isSelected ? 'text-stone-300' : 'text-stone-600'
+                        }`}
+                      >
+                        {training.city.name} /{' '}
+                        {formatTrainingType(training.trainingType)}
+                      </p>
+                      <div
+                        className={`mt-2 grid gap-1 text-sm ${
+                          isSelected ? 'text-stone-300' : 'text-stone-700'
+                        }`}
+                      >
+                        <p>Тренер: {formatUserIdentity(training.coach)}</p>
+                        <p>Вместимость: {training.capacity}</p>
+                      </div>
+                    </div>
+                    <div className="flex flex-col items-start gap-2 sm:items-end">
+                      <span
+                        className={`rounded-full px-3 py-1 text-xs font-medium ${
+                          isSelected
+                            ? 'bg-white/15 text-white'
+                            : training.isActive
+                              ? 'bg-emerald-100 text-emerald-700'
+                              : 'bg-stone-200 text-stone-700'
+                        }`}
+                      >
+                        {training.isActive ? 'Активна' : 'Неактивна'}
+                      </span>
+                      <p
+                        className={`text-xs ${
+                          isSelected ? 'text-stone-400' : 'text-stone-500'
+                        }`}
+                      >
+                        {formatDateTime(training.updatedAt)}
+                      </p>
+                    </div>
+                  </div>
+                </button>
+              );
+            })}
+          </div>
+        )}
+      </div>
+
+      <div className="rounded-[24px] border border-stone-200 bg-stone-50 p-5">
+        {trainingFeedback ? (
+          <p
+            className={`mb-5 rounded-2xl border px-4 py-3 text-sm ${
+              trainingFeedback.tone === 'success'
+                ? 'border-emerald-200 bg-emerald-50 text-emerald-700'
+                : 'border-rose-200 bg-rose-50 text-rose-700'
+            }`}
+          >
+            {trainingFeedback.message}
+          </p>
+        ) : null}
+
+        {isTrainingCreateMode && activeTrainingEditor ? (
+          <div className="space-y-5">
+            <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+              <div>
+                <p className="text-xs font-semibold uppercase tracking-[0.16em] text-stone-500">
+                  Создание тренировки
+                </p>
+                <h3 className="mt-2 text-xl font-semibold text-stone-950">
+                  Новая тренировка
+                </h3>
+                <p className="mt-2 text-sm text-stone-600">
+                  По текущему API при создании нужно сразу задать время начала,
+                  время окончания и место проведения.
+                </p>
+              </div>
+              <span className="rounded-full bg-stone-950 px-3 py-1 text-xs font-semibold uppercase tracking-[0.12em] text-white">
+                Черновик
+              </span>
+            </div>
+
+            <div className="grid gap-4 sm:grid-cols-2">
+              <label className="text-sm font-medium text-stone-700">
+                Название
+                <input
+                  value={activeTrainingEditor.name}
+                  onChange={(event) =>
+                    updateCreateEditor({ name: event.target.value })
+                  }
+                  disabled={savingTrainingKey === 'create'}
+                  className="mt-2 w-full rounded-2xl border border-stone-300 bg-white px-4 py-3 text-base text-stone-950 outline-none transition focus:border-stone-500 disabled:cursor-not-allowed disabled:bg-stone-100"
+                />
+              </label>
+
+              <label className="text-sm font-medium text-stone-700">
+                Город
+                <select
+                  value={activeTrainingEditor.cityId}
+                  onChange={(event) =>
+                    updateCreateEditor({ cityId: event.target.value })
+                  }
+                  disabled={savingTrainingKey === 'create'}
+                  className="mt-2 w-full rounded-2xl border border-stone-300 bg-white px-4 py-3 text-base text-stone-950 outline-none transition focus:border-stone-500 disabled:cursor-not-allowed disabled:bg-stone-100"
+                >
+                  <option value="">Выберите город</option>
+                  {trainingCityOptions.map((city) => (
+                    <option key={city.id} value={city.id}>
+                      {city.name}
+                    </option>
+                  ))}
+                </select>
+              </label>
+
+              <label className="text-sm font-medium text-stone-700">
+                Тренер
+                <select
+                  value={activeTrainingEditor.coachId}
+                  onChange={(event) =>
+                    updateCreateEditor({ coachId: event.target.value })
+                  }
+                  disabled={savingTrainingKey === 'create'}
+                  className="mt-2 w-full rounded-2xl border border-stone-300 bg-white px-4 py-3 text-base text-stone-950 outline-none transition focus:border-stone-500 disabled:cursor-not-allowed disabled:bg-stone-100"
+                >
+                  <option value="">Без закреплённого тренера</option>
+                  {trainingCoachOptions.map((coach) => (
+                    <option key={coach.id} value={coach.id}>
+                      {formatUserIdentity(coach)}
+                    </option>
+                  ))}
+                </select>
+              </label>
+
+              <label className="text-sm font-medium text-stone-700">
+                Тип тренировки
+                <input
+                  value={activeTrainingEditor.trainingType}
+                  onChange={(event) =>
+                    updateCreateEditor({ trainingType: event.target.value })
+                  }
+                  disabled={savingTrainingKey === 'create'}
+                  placeholder="general / group / private"
+                  className="mt-2 w-full rounded-2xl border border-stone-300 bg-white px-4 py-3 text-base text-stone-950 outline-none transition focus:border-stone-500 disabled:cursor-not-allowed disabled:bg-stone-100"
+                />
+              </label>
+
+              <label className="text-sm font-medium text-stone-700">
+                Вместимость
+                <input
+                  type="number"
+                  min={1}
+                  value={activeTrainingEditor.capacity}
+                  onChange={(event) =>
+                    updateCreateEditor({ capacity: event.target.value })
+                  }
+                  disabled={savingTrainingKey === 'create'}
+                  className="mt-2 w-full rounded-2xl border border-stone-300 bg-white px-4 py-3 text-base text-stone-950 outline-none transition focus:border-stone-500 disabled:cursor-not-allowed disabled:bg-stone-100"
+                />
+              </label>
+
+              <label className="flex items-center gap-3 rounded-2xl border border-stone-300 bg-white px-4 py-3 text-sm font-medium text-stone-700">
+                <input
+                  type="checkbox"
+                  checked={activeTrainingEditor.isActive}
+                  onChange={(event) =>
+                    updateCreateEditor({ isActive: event.target.checked })
+                  }
+                  disabled={savingTrainingKey === 'create'}
+                  className="h-4 w-4 rounded border-stone-300 text-stone-950 focus:ring-stone-500"
+                />
+                Активна и доступна для записи
+              </label>
+
+              <label className="text-sm font-medium text-stone-700">
+                Начало
+                <input
+                  type="datetime-local"
+                  value={activeTrainingEditor.startTime}
+                  onChange={(event) =>
+                    updateCreateEditor({ startTime: event.target.value })
+                  }
+                  disabled={savingTrainingKey === 'create'}
+                  className="mt-2 w-full rounded-2xl border border-stone-300 bg-white px-4 py-3 text-base text-stone-950 outline-none transition focus:border-stone-500 disabled:cursor-not-allowed disabled:bg-stone-100"
+                />
+              </label>
+
+              <label className="text-sm font-medium text-stone-700">
+                Окончание
+                <input
+                  type="datetime-local"
+                  value={activeTrainingEditor.endTime}
+                  onChange={(event) =>
+                    updateCreateEditor({ endTime: event.target.value })
+                  }
+                  disabled={savingTrainingKey === 'create'}
+                  className="mt-2 w-full rounded-2xl border border-stone-300 bg-white px-4 py-3 text-base text-stone-950 outline-none transition focus:border-stone-500 disabled:cursor-not-allowed disabled:bg-stone-100"
+                />
+              </label>
+
+              <label className="text-sm font-medium text-stone-700 sm:col-span-2">
+                Место проведения
+                <input
+                  value={activeTrainingEditor.location}
+                  onChange={(event) =>
+                    updateCreateEditor({ location: event.target.value })
+                  }
+                  disabled={savingTrainingKey === 'create'}
+                  placeholder="Ледовая арена / зал / адрес"
+                  className="mt-2 w-full rounded-2xl border border-stone-300 bg-white px-4 py-3 text-base text-stone-950 outline-none transition focus:border-stone-500 disabled:cursor-not-allowed disabled:bg-stone-100"
+                />
+              </label>
+
+              <label className="text-sm font-medium text-stone-700 sm:col-span-2">
+                Описание
+                <textarea
+                  value={activeTrainingEditor.description}
+                  onChange={(event) =>
+                    updateCreateEditor({ description: event.target.value })
+                  }
+                  rows={4}
+                  disabled={savingTrainingKey === 'create'}
+                  placeholder="Необязательное описание тренировки"
+                  className="mt-2 w-full rounded-2xl border border-stone-300 bg-white px-4 py-3 text-base text-stone-950 outline-none transition focus:border-stone-500 disabled:cursor-not-allowed disabled:bg-stone-100"
+                />
+              </label>
+            </div>
+
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+              <p className="text-sm text-stone-600">
+                После сохранения новая тренировка сразу попадёт в общий список
+                слева без ручной перезагрузки.
+              </p>
+              <button
+                type="button"
+                onClick={handleTrainingSave}
+                disabled={
+                  !isTrainingCreateReady || savingTrainingKey === 'create'
+                }
+                className="rounded-full bg-stone-950 px-5 py-3 text-sm font-semibold text-white transition hover:bg-stone-800 disabled:cursor-not-allowed disabled:bg-stone-400"
+              >
+                {savingTrainingKey === 'create'
+                  ? 'Создаём...'
+                  : 'Создать тренировку'}
+              </button>
+            </div>
+          </div>
+        ) : selectedTraining && activeTrainingEditor ? (
+          <div className="space-y-5">
+            {!isTrainingEditable ? (
+              <p className="rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
+                Доступен только просмотр своих тренировок. Глобальное
+                staff-редактирование здесь открыто только для MANAGER и ADMIN.
+              </p>
+            ) : null}
+
+            <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+              <div>
+                <p className="text-xs font-semibold uppercase tracking-[0.16em] text-stone-500">
+                  Тренировка #{selectedTraining.id}
+                </p>
+                <h3 className="mt-2 text-xl font-semibold text-stone-950">
+                  {selectedTraining.name}
+                </h3>
+                <p className="mt-2 text-sm text-stone-600">
+                  {selectedTraining.city.name} /{' '}
+                  {formatUserIdentity(selectedTraining.coach)}
+                </p>
+              </div>
+              <span
+                className={`rounded-full px-3 py-1 text-xs font-medium ${
+                  selectedTraining.isActive
+                    ? 'bg-emerald-100 text-emerald-700'
+                    : 'bg-stone-200 text-stone-700'
+                }`}
+              >
+                {selectedTraining.isActive ? 'Активна' : 'Неактивна'}
+              </span>
+            </div>
+
+            <div className="grid gap-3 sm:grid-cols-2">
+              <div className="rounded-2xl bg-white p-4">
+                <p className="text-xs font-semibold uppercase tracking-[0.14em] text-stone-500">
+                  Создана
+                </p>
+                <p className="mt-2 text-sm text-stone-800">
+                  {formatDateTime(selectedTraining.createdAt)}
+                </p>
+              </div>
+              <div className="rounded-2xl bg-white p-4">
+                <p className="text-xs font-semibold uppercase tracking-[0.14em] text-stone-500">
+                  Обновлена
+                </p>
+                <p className="mt-2 text-sm text-stone-800">
+                  {formatDateTime(selectedTraining.updatedAt)}
+                </p>
+              </div>
+            </div>
+
+            <div className="grid gap-4 sm:grid-cols-2">
+              <label className="text-sm font-medium text-stone-700">
+                Название
+                {isTrainingEditable ? (
+                  <input
+                    value={activeTrainingEditor.name}
+                    onChange={(event) =>
+                      updateSelectedEditor({ name: event.target.value })
+                    }
+                    disabled={savingTrainingKey === selectedSavingKey}
+                    className="mt-2 w-full rounded-2xl border border-stone-300 bg-white px-4 py-3 text-base text-stone-950 outline-none transition focus:border-stone-500 disabled:cursor-not-allowed disabled:bg-stone-100"
+                  />
+                ) : (
+                  renderReadonlyValue(selectedTraining.name)
+                )}
+              </label>
+
+              <label className="text-sm font-medium text-stone-700">
+                Город
+                {isTrainingEditable ? (
+                  <select
+                    value={activeTrainingEditor.cityId}
+                    onChange={(event) =>
+                      updateSelectedEditor({ cityId: event.target.value })
+                    }
+                    disabled={savingTrainingKey === selectedSavingKey}
+                    className="mt-2 w-full rounded-2xl border border-stone-300 bg-white px-4 py-3 text-base text-stone-950 outline-none transition focus:border-stone-500 disabled:cursor-not-allowed disabled:bg-stone-100"
+                  >
+                    <option value="">Выберите город</option>
+                    {trainingCityOptions.map((city) => (
+                      <option key={city.id} value={city.id}>
+                        {city.name}
+                      </option>
+                    ))}
+                  </select>
+                ) : (
+                  renderReadonlyValue(selectedTraining.city.name)
+                )}
+              </label>
+
+              <label className="text-sm font-medium text-stone-700">
+                Тренер
+                {isTrainingEditable ? (
+                  <select
+                    value={activeTrainingEditor.coachId}
+                    onChange={(event) =>
+                      updateSelectedEditor({ coachId: event.target.value })
+                    }
+                    disabled={savingTrainingKey === selectedSavingKey}
+                    className="mt-2 w-full rounded-2xl border border-stone-300 bg-white px-4 py-3 text-base text-stone-950 outline-none transition focus:border-stone-500 disabled:cursor-not-allowed disabled:bg-stone-100"
+                  >
+                    <option value="">Без закреплённого тренера</option>
+                    {trainingCoachOptions.map((coach) => (
+                      <option key={coach.id} value={coach.id}>
+                        {formatUserIdentity(coach)}
+                      </option>
+                    ))}
+                  </select>
+                ) : (
+                  renderReadonlyValue(formatUserIdentity(selectedTraining.coach))
+                )}
+              </label>
+
+              <label className="text-sm font-medium text-stone-700">
+                Тип тренировки
+                {isTrainingEditable ? (
+                  <input
+                    value={activeTrainingEditor.trainingType}
+                    onChange={(event) =>
+                      updateSelectedEditor({ trainingType: event.target.value })
+                    }
+                    disabled={savingTrainingKey === selectedSavingKey}
+                    placeholder="general / group / private"
+                    className="mt-2 w-full rounded-2xl border border-stone-300 bg-white px-4 py-3 text-base text-stone-950 outline-none transition focus:border-stone-500 disabled:cursor-not-allowed disabled:bg-stone-100"
+                  />
+                ) : (
+                  renderReadonlyValue(
+                    formatTrainingType(selectedTraining.trainingType)
+                  )
+                )}
+              </label>
+
+              <label className="text-sm font-medium text-stone-700">
+                Вместимость
+                {isTrainingEditable ? (
+                  <input
+                    type="number"
+                    min={1}
+                    value={activeTrainingEditor.capacity}
+                    onChange={(event) =>
+                      updateSelectedEditor({ capacity: event.target.value })
+                    }
+                    disabled={savingTrainingKey === selectedSavingKey}
+                    className="mt-2 w-full rounded-2xl border border-stone-300 bg-white px-4 py-3 text-base text-stone-950 outline-none transition focus:border-stone-500 disabled:cursor-not-allowed disabled:bg-stone-100"
+                  />
+                ) : (
+                  renderReadonlyValue(String(selectedTraining.capacity))
+                )}
+              </label>
+
+              {isTrainingEditable ? (
+                <label className="flex items-center gap-3 rounded-2xl border border-stone-300 bg-white px-4 py-3 text-sm font-medium text-stone-700">
+                  <input
+                    type="checkbox"
+                    checked={activeTrainingEditor.isActive}
+                    onChange={(event) =>
+                      updateSelectedEditor({ isActive: event.target.checked })
+                    }
+                    disabled={savingTrainingKey === selectedSavingKey}
+                    className="h-4 w-4 rounded border-stone-300 text-stone-950 focus:ring-stone-500"
+                  />
+                  Активна и доступна для записи
+                </label>
+              ) : (
+                <div className="rounded-2xl border border-stone-300 bg-white px-4 py-3 text-sm text-stone-800">
+                  {selectedTraining.isActive
+                    ? 'Активна и доступна для записи'
+                    : 'Неактивна и скрыта из активного потока'}
+                </div>
+              )}
+            </div>
+
+            {isTrainingEditable ? (
+              <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                <p className="text-sm text-stone-600">
+                  В этом модуле PATCH меняет название, город, тренера, тип,
+                  вместимость и активность. Изменения сразу отражаются в списке
+                  слева.
+                </p>
+                <button
+                  type="button"
+                  onClick={handleTrainingSave}
+                  disabled={
+                    !isTrainingDirty || savingTrainingKey === selectedSavingKey
+                  }
+                  className="rounded-full bg-stone-950 px-5 py-3 text-sm font-semibold text-white transition hover:bg-stone-800 disabled:cursor-not-allowed disabled:bg-stone-400"
+                >
+                  {savingTrainingKey === selectedSavingKey
+                    ? 'Сохраняем...'
+                    : 'Сохранить тренировку'}
+                </button>
+              </div>
+            ) : null}
+          </div>
+        ) : (
+          <p className="rounded-2xl border border-dashed border-stone-300 bg-white p-5 text-sm text-stone-600">
+            {isTrainingEditable
+              ? 'Выберите тренировку слева или создайте новую запись.'
+              : 'Выберите тренировку слева, чтобы открыть её данные.'}
+          </p>
+        )}
+      </div>
+    </div>
+  );
+}
+
 export default function AdminPage() {
   const router = useRouter();
   const [status, setStatus] = useState<PageStatus>('loading');
@@ -571,6 +1324,27 @@ export default function AdminPage() {
   const [savingTeamApplicationId, setSavingTeamApplicationId] = useState<
     number | null
   >(null);
+  const [trainingCityOptions, setTrainingCityOptions] = useState<CitySummary[]>(
+    []
+  );
+  const [trainingCoachOptions, setTrainingCoachOptions] = useState<
+    TrainingCoachOption[]
+  >([]);
+  const [trainingActivityFilter, setTrainingActivityFilter] =
+    useState<TrainingActivityFilter>('ALL');
+  const [trainingCityFilter, setTrainingCityFilter] = useState<string>('ALL');
+  const [selectedTrainingId, setSelectedTrainingId] = useState<number | null>(
+    null
+  );
+  const [trainingEditorMode, setTrainingEditorMode] =
+    useState<TrainingFormMode>('edit');
+  const [trainingEditorId, setTrainingEditorId] = useState<number | null>(null);
+  const [trainingEditor, setTrainingEditor] = useState<TrainingEditorState | null>(
+    null
+  );
+  const [trainingFeedback, setTrainingFeedback] =
+    useState<TrainingFeedback | null>(null);
+  const [savingTrainingKey, setSavingTrainingKey] = useState<string | null>(null);
 
   useEffect(() => {
     let isCancelled = false;
@@ -644,6 +1418,8 @@ export default function AdminPage() {
         }
 
         if (!isCancelled) {
+          setTrainingCityOptions([]);
+          setTrainingCoachOptions([]);
           setOverview({
             teams: [],
             teamApplications: (
@@ -667,6 +1443,8 @@ export default function AdminPage() {
         teamsResult,
         teamApplicationsResult,
         trainingsResult,
+        citiesResult,
+        usersResult,
         rentalBookingsResult,
         rentalSlotsResult,
         rentalFacilitiesResult,
@@ -675,6 +1453,8 @@ export default function AdminPage() {
         fetchJson<AdminTeamSummary[]>('/api/admin/teams'),
         fetchJson<AdminTeamApplicationSummary[]>('/api/admin/team-applications'),
         fetchJson<AdminTrainingSummary[]>('/api/admin/trainings'),
+        fetchJson<CitySummary[]>('/api/city'),
+        fetchJson<TrainingCoachOption[]>('/api/users'),
         fetchJson<AdminRentalBookingSummary[]>('/api/admin/rental-bookings'),
         fetchJson<AdminRentalSlotSummary[]>('/api/admin/rental-slots'),
         fetchJson<AdminRentalFacilitySummary[]>('/api/admin/rental-facilities'),
@@ -685,6 +1465,8 @@ export default function AdminPage() {
         teamsResult,
         teamApplicationsResult,
         trainingsResult,
+        citiesResult,
+        usersResult,
         rentalBookingsResult,
         rentalSlotsResult,
         rentalFacilitiesResult,
@@ -714,6 +1496,8 @@ export default function AdminPage() {
       }
 
       if (!isCancelled) {
+        setTrainingCityOptions(citiesResult.payload as CitySummary[]);
+        setTrainingCoachOptions(usersResult.payload as TrainingCoachOption[]);
         setOverview({
           teams: teamsResult.payload as AdminTeamSummary[],
           teamApplications:
@@ -763,19 +1547,6 @@ export default function AdminPage() {
           .filter((cityName): cityName is string => Boolean(cityName))
       ).size
     : 0;
-  const recentTrainings =
-    overview?.trainings
-      .slice()
-      .sort((left, right) => {
-        if (left.isActive !== right.isActive) {
-          return Number(right.isActive) - Number(left.isActive);
-        }
-
-        return (
-          new Date(right.updatedAt).getTime() - new Date(left.updatedAt).getTime()
-        );
-      })
-      .slice(0, 5) ?? [];
   const latestRentalSlots = overview?.rentalSlots.slice(0, 4) ?? [];
   const summaryCards = [
     visibleAdminSectionIds.has('teams')
@@ -888,6 +1659,99 @@ export default function AdminPage() {
     activeTeamApplicationEditor !== null &&
     (selectedTeamApplication.status !== activeTeamApplicationEditor.status ||
       normalizedSelectedTeamApplicationNote !== normalizedEditorTeamApplicationNote);
+  const isTrainingEditable =
+    currentUserCapabilities.isAdmin || currentUserCapabilities.isManager;
+  const trainingFilterCityOptions = Array.from(
+    new Map(
+      (overview?.trainings ?? []).map((training) => [
+        training.city.id,
+        training.city,
+      ])
+    ).values()
+  ).sort((left, right) => left.name.localeCompare(right.name, 'ru'));
+  const filteredTrainings = (overview?.trainings ?? [])
+    .filter((training) => {
+      if (trainingActivityFilter === 'ACTIVE' && !training.isActive) {
+        return false;
+      }
+
+      if (trainingActivityFilter === 'INACTIVE' && training.isActive) {
+        return false;
+      }
+
+      if (
+        trainingCityFilter !== 'ALL' &&
+        String(training.city.id) !== trainingCityFilter
+      ) {
+        return false;
+      }
+
+      return true;
+    })
+    .sort((left, right) => {
+      if (left.isActive !== right.isActive) {
+        return Number(right.isActive) - Number(left.isActive);
+      }
+
+      return (
+        new Date(right.updatedAt).getTime() - new Date(left.updatedAt).getTime()
+      );
+    });
+  const selectedTraining =
+    trainingEditorMode === 'create'
+      ? null
+      : filteredTrainings.find((training) => training.id === selectedTrainingId) ??
+        filteredTrainings[0] ??
+        null;
+  const activeTrainingId = selectedTraining?.id ?? null;
+  const isTrainingCreateMode = trainingEditorMode === 'create';
+  const activeTrainingEditor = isTrainingCreateMode
+    ? trainingEditor
+    : selectedTraining &&
+        trainingEditor !== null &&
+          trainingEditorId === selectedTraining.id
+      ? trainingEditor
+      : selectedTraining
+        ? createTrainingEditorState(selectedTraining)
+        : null;
+  const normalizedSelectedTrainingName = selectedTraining?.name.trim() ?? '';
+  const normalizedSelectedTrainingType =
+    selectedTraining?.trainingType.trim() ?? '';
+  const normalizedSelectedTrainingCapacity = selectedTraining
+    ? String(selectedTraining.capacity)
+    : '';
+  const normalizedSelectedTrainingCoachId = selectedTraining?.coach
+    ? String(selectedTraining.coach.id)
+    : '';
+  const normalizedEditorTrainingName = activeTrainingEditor?.name.trim() ?? '';
+  const normalizedEditorTrainingType =
+    activeTrainingEditor?.trainingType.trim() ?? '';
+  const normalizedEditorTrainingCapacity =
+    activeTrainingEditor?.capacity.trim() ?? '';
+  const normalizedEditorTrainingCoachId =
+    activeTrainingEditor?.coachId.trim() ?? '';
+  const normalizedEditorTrainingLocation =
+    activeTrainingEditor?.location.trim() ?? '';
+  const isTrainingDirty =
+    !isTrainingCreateMode &&
+    selectedTraining !== null &&
+    activeTrainingEditor !== null &&
+    (normalizedSelectedTrainingName !== normalizedEditorTrainingName ||
+      String(selectedTraining.city.id) !== activeTrainingEditor.cityId ||
+      normalizedSelectedTrainingCoachId !== normalizedEditorTrainingCoachId ||
+      normalizedSelectedTrainingType !== normalizedEditorTrainingType ||
+      normalizedSelectedTrainingCapacity !== normalizedEditorTrainingCapacity ||
+      selectedTraining.isActive !== activeTrainingEditor.isActive);
+  const isTrainingCreateReady =
+    isTrainingCreateMode &&
+    activeTrainingEditor !== null &&
+    normalizedEditorTrainingName.length > 0 &&
+    activeTrainingEditor.cityId.length > 0 &&
+    normalizedEditorTrainingType.length > 0 &&
+    normalizedEditorTrainingCapacity.length > 0 &&
+    activeTrainingEditor.startTime.length > 0 &&
+    activeTrainingEditor.endTime.length > 0 &&
+    normalizedEditorTrainingLocation.length > 0;
 
   function handleTeamApplicationSelect(
     application: AdminTeamApplicationSummary
@@ -990,6 +1854,292 @@ export default function AdminPage() {
     setTeamApplicationFeedback({
       tone: 'success',
       message: 'Заявка сохранена. Изменения уже отражены в списке.',
+    });
+  }
+
+  function handleTrainingSelect(training: AdminTrainingSummary) {
+    setSelectedTrainingId(training.id);
+    setTrainingEditorMode('edit');
+    setTrainingEditorId(training.id);
+    setTrainingEditor(createTrainingEditorState(training));
+    setTrainingFeedback(null);
+  }
+
+  function handleTrainingCreateStart() {
+    setTrainingEditorMode('create');
+    setTrainingEditorId(null);
+    setTrainingEditor(createTrainingEditorState());
+    setTrainingFeedback(null);
+  }
+
+  function handleTrainingCreateCancel() {
+    setTrainingEditorMode('edit');
+    setTrainingEditorId(selectedTraining?.id ?? null);
+    setTrainingEditor(
+      selectedTraining ? createTrainingEditorState(selectedTraining) : null
+    );
+    setTrainingFeedback(null);
+  }
+
+  async function handleTrainingSave() {
+    if (!activeTrainingEditor || !isTrainingEditable) {
+      return;
+    }
+
+    const name = activeTrainingEditor.name.trim();
+    const cityId = Number(activeTrainingEditor.cityId);
+    const coachId =
+      activeTrainingEditor.coachId.trim().length > 0
+        ? Number(activeTrainingEditor.coachId)
+        : null;
+    const trainingType = activeTrainingEditor.trainingType.trim();
+    const capacity = Number(activeTrainingEditor.capacity);
+
+    if (!name) {
+      setTrainingFeedback({
+        tone: 'error',
+        message: 'Укажите название тренировки.',
+      });
+      return;
+    }
+
+    if (!Number.isInteger(cityId) || cityId <= 0) {
+      setTrainingFeedback({
+        tone: 'error',
+        message: 'Выберите город тренировки.',
+      });
+      return;
+    }
+
+    if (
+      coachId !== null &&
+      (!Number.isInteger(coachId) || coachId <= 0)
+    ) {
+      setTrainingFeedback({
+        tone: 'error',
+        message: 'Выберите корректного тренера.',
+      });
+      return;
+    }
+
+    if (!trainingType) {
+      setTrainingFeedback({
+        tone: 'error',
+        message: 'Укажите тип тренировки.',
+      });
+      return;
+    }
+
+    if (!Number.isInteger(capacity) || capacity <= 0) {
+      setTrainingFeedback({
+        tone: 'error',
+        message: 'Вместимость должна быть положительным целым числом.',
+      });
+      return;
+    }
+
+    if (isTrainingCreateMode) {
+      const location = activeTrainingEditor.location.trim();
+      const description =
+        activeTrainingEditor.description.trim().length > 0
+          ? activeTrainingEditor.description.trim()
+          : null;
+      const startTime = new Date(activeTrainingEditor.startTime);
+      const endTime = new Date(activeTrainingEditor.endTime);
+
+      if (!location) {
+        setTrainingFeedback({
+          tone: 'error',
+          message: 'Укажите место проведения тренировки.',
+        });
+        return;
+      }
+
+      if (
+        Number.isNaN(startTime.valueOf()) ||
+        Number.isNaN(endTime.valueOf())
+      ) {
+        setTrainingFeedback({
+          tone: 'error',
+          message: 'Укажите корректные дату и время начала и окончания.',
+        });
+        return;
+      }
+
+      if (endTime <= startTime) {
+        setTrainingFeedback({
+          tone: 'error',
+          message: 'Время окончания должно быть позже времени начала.',
+        });
+        return;
+      }
+
+      setSavingTrainingKey('create');
+      setTrainingFeedback(null);
+
+      const createResult = await fetchJson<AdminTrainingSummary>(
+        '/api/admin/trainings',
+        {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            name,
+            cityId,
+            coachId,
+            trainingType,
+            capacity,
+            isActive: activeTrainingEditor.isActive,
+            startTime: startTime.toISOString(),
+            endTime: endTime.toISOString(),
+            location,
+            description,
+          }),
+        }
+      );
+
+      if (createResult.response.status === 401) {
+        router.replace('/dev/login?next=/admin');
+        return;
+      }
+
+      if (!createResult.response.ok) {
+        setSavingTrainingKey(null);
+        setTrainingFeedback({
+          tone: 'error',
+          message: translateErrorMessage(
+            (createResult.payload as { error?: string } | null)?.error ||
+              'Failed to create training'
+          ),
+        });
+        return;
+      }
+
+      const createdTraining = createResult.payload as AdminTrainingSummary;
+
+      setOverview((currentOverview) => {
+        if (!currentOverview) {
+          return currentOverview;
+        }
+
+        return {
+          ...currentOverview,
+          trainings: [createdTraining, ...currentOverview.trainings],
+        };
+      });
+      setSelectedTrainingId(createdTraining.id);
+      setTrainingEditorMode('edit');
+      setTrainingEditorId(createdTraining.id);
+      setTrainingEditor(createTrainingEditorState(createdTraining));
+      setSavingTrainingKey(null);
+      setTrainingFeedback({
+        tone: 'success',
+        message:
+          'Тренировка создана. Новая запись уже появилась в списке без ручной перезагрузки.',
+      });
+      return;
+    }
+
+    if (!selectedTraining) {
+      return;
+    }
+
+    const payload: {
+      name?: string;
+      cityId?: number;
+      coachId?: number | null;
+      trainingType?: string;
+      capacity?: number;
+      isActive?: boolean;
+    } = {};
+
+    if (normalizedSelectedTrainingName !== name) {
+      payload.name = name;
+    }
+
+    if (String(selectedTraining.city.id) !== activeTrainingEditor.cityId) {
+      payload.cityId = cityId;
+    }
+
+    if (normalizedSelectedTrainingCoachId !== activeTrainingEditor.coachId.trim()) {
+      payload.coachId = coachId;
+    }
+
+    if (normalizedSelectedTrainingType !== trainingType) {
+      payload.trainingType = trainingType;
+    }
+
+    if (normalizedSelectedTrainingCapacity !== activeTrainingEditor.capacity.trim()) {
+      payload.capacity = capacity;
+    }
+
+    if (selectedTraining.isActive !== activeTrainingEditor.isActive) {
+      payload.isActive = activeTrainingEditor.isActive;
+    }
+
+    if (Object.keys(payload).length === 0) {
+      setTrainingFeedback({
+        tone: 'success',
+        message: 'Изменений для сохранения нет.',
+      });
+      return;
+    }
+
+    setSavingTrainingKey(`edit-${selectedTraining.id}`);
+    setTrainingFeedback(null);
+
+    const updateResult = await fetchJson<AdminTrainingSummary>(
+      `/api/admin/trainings/${selectedTraining.id}`,
+      {
+        method: 'PATCH',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(payload),
+      }
+    );
+
+    if (updateResult.response.status === 401) {
+      router.replace('/dev/login?next=/admin');
+      return;
+    }
+
+    if (!updateResult.response.ok) {
+      setSavingTrainingKey(null);
+      setTrainingFeedback({
+        tone: 'error',
+        message: translateErrorMessage(
+          (updateResult.payload as { error?: string } | null)?.error ||
+            'Failed to update training'
+        ),
+      });
+      return;
+    }
+
+    const updatedTraining = updateResult.payload as AdminTrainingSummary;
+
+    setOverview((currentOverview) => {
+      if (!currentOverview) {
+        return currentOverview;
+      }
+
+      return {
+        ...currentOverview,
+        trainings: currentOverview.trainings.map((training) =>
+          training.id === updatedTraining.id ? updatedTraining : training
+        ),
+      };
+    });
+    setSelectedTrainingId(updatedTraining.id);
+    setTrainingEditorMode('edit');
+    setTrainingEditorId(updatedTraining.id);
+    setTrainingEditor(createTrainingEditorState(updatedTraining));
+    setSavingTrainingKey(null);
+    setTrainingFeedback({
+      tone: 'success',
+      message:
+        'Тренировка сохранена. Изменения уже отражены в списке без ручной перезагрузки.',
     });
   }
 
@@ -1506,54 +2656,37 @@ export default function AdminPage() {
                   title="Тренировки"
                   description={
                     currentUserCapabilities.trainingManagementScope === 'own'
-                      ? 'Список ваших тренировок и их текущая активность.'
-                      : 'Список тренировок без CRUD: активность, тип, тренер и ёмкость.'
+                      ? 'Список ваших тренировок в ограниченном staff-контуре. Глобальное обновление в этом модуле не открыто для TRAINER.'
+                      : 'Рабочий staff-модуль: список тренировок, создание и обновление основных полей без ручной перезагрузки.'
                   }
                 >
-                  {recentTrainings.length === 0 ? (
-                    <p className="rounded-2xl border border-dashed border-stone-300 bg-stone-50 p-5 text-sm text-stone-600">
-                      Тренировок пока нет.
-                    </p>
-                  ) : (
-                    <div className="space-y-3">
-                      {recentTrainings.map((training) => (
-                        <article
-                          key={training.id}
-                          className="rounded-2xl border border-stone-200 bg-stone-50 p-4"
-                        >
-                          <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
-                            <div>
-                              <p className="font-semibold text-stone-950">
-                                {training.name}
-                              </p>
-                              <p className="mt-1 text-sm text-stone-600">
-                                {training.city.name} /{' '}
-                                {formatTrainingType(training.trainingType)}
-                              </p>
-                              <div className="mt-2 grid gap-1 text-sm text-stone-700">
-                                <p>Тренер: {formatUserIdentity(training.coach)}</p>
-                                <p>Вместимость: {training.capacity}</p>
-                              </div>
-                            </div>
-                            <div className="flex flex-col items-start gap-3 sm:items-end">
-                              <span
-                                className={`rounded-full px-3 py-1 text-xs font-medium ${
-                                  training.isActive
-                                    ? 'bg-emerald-100 text-emerald-700'
-                                    : 'bg-stone-200 text-stone-700'
-                                }`}
-                              >
-                                {training.isActive ? 'Активна' : 'Неактивна'}
-                              </span>
-                              <p className="text-xs text-stone-500">
-                                {formatDate(training.updatedAt)}
-                              </p>
-                            </div>
-                          </div>
-                        </article>
-                      ))}
-                    </div>
-                  )}
+                  <TrainingsSectionContent
+                    overview={overview}
+                    trainingActivityFilter={trainingActivityFilter}
+                    setTrainingActivityFilter={setTrainingActivityFilter}
+                    trainingCityFilter={trainingCityFilter}
+                    setTrainingCityFilter={setTrainingCityFilter}
+                    trainingFilterCityOptions={trainingFilterCityOptions}
+                    isTrainingEditable={isTrainingEditable}
+                    isTrainingCreateMode={isTrainingCreateMode}
+                    handleTrainingCreateStart={handleTrainingCreateStart}
+                    handleTrainingCreateCancel={handleTrainingCreateCancel}
+                    filteredTrainings={filteredTrainings}
+                    activeTrainingId={activeTrainingId}
+                    handleTrainingSelect={handleTrainingSelect}
+                    trainingFeedback={trainingFeedback}
+                    activeTrainingEditor={activeTrainingEditor}
+                    trainingCityOptions={trainingCityOptions}
+                    trainingCoachOptions={trainingCoachOptions}
+                    savingTrainingKey={savingTrainingKey}
+                    setTrainingEditorId={setTrainingEditorId}
+                    setTrainingEditor={setTrainingEditor}
+                    setTrainingFeedback={setTrainingFeedback}
+                    handleTrainingSave={handleTrainingSave}
+                    isTrainingCreateReady={isTrainingCreateReady}
+                    selectedTraining={selectedTraining}
+                    isTrainingDirty={isTrainingDirty}
+                  />
                 </SectionCard>
               ) : null}
 
