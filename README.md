@@ -1073,3 +1073,63 @@ Backend MVP foundation — завершён (v0.1 stable)
 - USER логинится в /cabinet
 - MANAGER логинится в /admin
 - ADMIN логинится в /admin
+
+## 8.1 Gorilla 0.7.1
+
+Собран новый dev-блок после предыдущего коммита.
+
+Что сделано:
+
+- добавлен управляемый dev seed и команда npm run db:seed
+- seed работает только для локальной dev-базы hockey_platform
+- seed идемпотентный и не плодит дубли при повторном запуске
+- dev-база теперь автоматически заполняется тестовыми данными:
+    - города
+    - команды
+    - роли ADMIN / MANAGER / USER
+    - participant
+    - тренировки
+    - team application
+    - rental facility / resource / slots / booking
+- исправлен role-based entry flow
+    - USER -> /cabinet
+    - MANAGER -> /admin
+    - ADMIN -> /admin
+- параметр next теперь учитывается только если маршрут реально разрешён роли
+- обычный пользователь больше не попадает в pseudo-admin сценарий
+- /cabinet перестал быть основным landing для staff
+- /admin стал основным staff workspace для manager/admin
+- добавлена общая foundation-логика ролей и capabilities
+    - USER
+    - TRAINER
+    - MANAGER
+    - ADMIN
+- роли и доступы теперь нормализованы через общий helper
+- /admin и /cabinet используют общую capability-модель
+- для TRAINER добавлен ограниченный staff workspace foundation на существующих API
+- подготовлена основа дальнейшего разграничения:
+    - что роль видит
+    - чем управляет
+    - что запрещено
+- упрощён верхний блок /admin
+- убран большой перегруженный capability foundation UI-блок
+- вместо него оставлен компактный role / access summary:
+    - текущая роль
+    - уровень доступа
+    - рабочий маршрут
+    - краткое описание зоны ответственности
+- backend, routing и seed этим последним шагом не менялись
+
+Проверка:
+
+- npx prisma validate — ok
+- npx tsc --noEmit — ok
+- npm run lint — ok
+- npm run build — ok
+
+Итог:
+
+- dev-база теперь поднимается в управляемом виде
+- роли и точки входа стали логичными
+- staff workspace перестал быть сырым фундаментом без маршрутизации
+- подготовлена основа для следующего шага: реальные действия из staff-интерфейса, а не только просмотр данных

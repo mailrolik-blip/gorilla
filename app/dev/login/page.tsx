@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 
 import {
+  getRoleCapabilities,
   getPrimaryAppPath,
   resolveAuthorizedAppPath,
   sanitizeRequestedAppPath,
@@ -218,6 +219,10 @@ export default function DevLoginPage() {
     }
   }
 
+  const currentUserCapabilities = currentUser
+    ? getRoleCapabilities(currentUser)
+    : null;
+
   return (
     <main className="min-h-screen bg-[linear-gradient(180deg,#f6f3ed_0%,#ece6db_100%)] px-4 py-10 text-stone-900">
       <div className="mx-auto flex w-full max-w-4xl flex-col gap-6">
@@ -259,12 +264,13 @@ export default function DevLoginPage() {
               </h2>
               <p className="mt-2 text-sm text-stone-600">
                 Укажите числовой <code>userId</code>. После успешного входа
-                браузер сохранит dev-cookie и откроет кабинет.
+                браузер сохранит dev-cookie и откроет основной маршрут роли.
               </p>
               <p className="mt-2 text-sm text-stone-600">
-                USER открывается в <code>/cabinet</code>, а MANAGER и ADMIN по
-                умолчанию переходят в <code>/admin</code>. Параметр <code>next</code>{' '}
-                используется только для маршрута, который разрешён этой роли.
+                USER открывается в <code>/cabinet</code>, а TRAINER, MANAGER и
+                ADMIN по умолчанию переходят в <code>/admin</code>. Параметр{' '}
+                <code>next</code> используется только для маршрута, который
+                разрешён capability-матрицей этой роли.
               </p>
 
               <form className="mt-6 flex flex-col gap-4" onSubmit={handleLogin}>
@@ -325,6 +331,10 @@ export default function DevLoginPage() {
                     <div>
                       <dt className="text-stone-400">Роли</dt>
                       <dd>{formatRoleList(currentUser.roles)}</dd>
+                    </div>
+                    <div>
+                      <dt className="text-stone-400">Платформенная роль</dt>
+                      <dd>{currentUserCapabilities?.roleLabel || 'Не определена'}</dd>
                     </div>
                     <div>
                       <dt className="text-stone-400">Основной маршрут</dt>

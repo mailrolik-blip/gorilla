@@ -7,12 +7,8 @@ import { useEffect, useState } from 'react';
 import {
   canAccessAppPath,
   getRoleCapabilities,
-  type RoleCapabilities,
+  getVisibleAdminSections,
 } from '@/lib/app-access';
-import {
-  globalStaffRoleLabels,
-  hasGlobalStaffRole,
-} from '@/lib/global-staff-role';
 
 type CitySummary = {
   id: number;
@@ -73,6 +69,24 @@ type AdminTeamApplicationSummary = {
   } | null;
 };
 
+type TrainerTeamApplicationSummary = {
+  id: number;
+  status: string;
+  commentFromApplicant: string | null;
+  internalNote: string | null;
+  createdAt: string;
+  updatedAt: string;
+  participant: (PersonSummary & {
+    birthDate: string | null;
+    city: CitySummary | null;
+  }) | null;
+  team: {
+    id: number;
+    name: string;
+    city: CitySummary | null;
+  };
+};
+
 type AdminTrainingSummary = {
   id: number;
   name: string;
@@ -88,6 +102,30 @@ type AdminTrainingSummary = {
   } | null;
   createdAt: string;
   updatedAt: string;
+};
+
+type TrainerTrainingSummary = {
+  trainingId: number;
+  name: string;
+  description: string | null;
+  trainingType: string;
+  startTime: string;
+  endTime: string;
+  location: string;
+  capacity: number;
+  isActive: boolean;
+  city: CitySummary;
+  trainer: {
+    id: number;
+    email: string | null;
+    phone: string | null;
+    telegramId: string | null;
+  } | null;
+  createdAt: string;
+  updatedAt: string;
+  _count: {
+    bookings: number;
+  };
 };
 
 type AdminRentalBookingSummary = {
@@ -333,7 +371,10 @@ function translateErrorMessage(message: string) {
     'Failed to fetch teams for staff': 'Не удалось загрузить список команд.',
     'Failed to fetch team applications for admin':
       'Не удалось загрузить заявки в команду.',
+    'Failed to fetch team applications for staff':
+      'Не удалось загрузить заявки в команду по тренерскому контуру.',
     'Failed to fetch trainings for staff': 'Не удалось загрузить список тренировок.',
+    'Failed to fetch trainings': 'Не удалось загрузить список тренировок.',
     'Failed to fetch rental bookings for staff':
       'Не удалось загрузить бронирования аренды.',
     'Failed to fetch rental slots for staff': 'Не удалось загрузить слоты аренды.',
@@ -342,6 +383,7 @@ function translateErrorMessage(message: string) {
     'Failed to fetch rental resources for staff':
       'Не удалось загрузить ресурсы аренды.',
     'Current user is not authenticated': 'Пользователь не авторизован.',
+    'Staff access required': 'Нужны staff-права для рабочего кабинета.',
     'Manager or admin access required':
       'Нужны права manager/admin для staff кабинета.',
     'Method not allowed': 'Метод не поддерживается.',
@@ -363,6 +405,36 @@ async function fetchJson<T>(url: string): Promise<FetchResult<T>> {
   return {
     response,
     payload,
+  };
+}
+
+function normalizeTrainerApplication(
+  application: TrainerTeamApplicationSummary
+): AdminTeamApplicationSummary {
+  return {
+    ...application,
+    team: {
+      ...application.team,
+      slug: null,
+      description: null,
+    },
+    reviewedBy: null,
+  };
+}
+
+function normalizeTrainerTraining(
+  training: TrainerTrainingSummary
+): AdminTrainingSummary {
+  return {
+    id: training.trainingId,
+    name: training.name,
+    trainingType: training.trainingType,
+    capacity: training.capacity,
+    isActive: training.isActive,
+    city: training.city,
+    coach: training.trainer,
+    createdAt: training.createdAt,
+    updatedAt: training.updatedAt,
   };
 }
 
@@ -406,48 +478,6 @@ function SummaryCard({
   );
 }
 
-function getWorkspaceDefinition(capabilities: RoleCapabilities) {
-  if (capabilities.adminAccessLevel === 'admin') {
-    return {
-      accessBadge: 'ADMIN',
-      accessLabel: 'Полный staff/admin доступ',
-      summary:
-        'ADMIN использует /admin как основной рабочий кабинет и видит весь текущий operational overview по командам, заявкам, тренировкам и аренде.',
-      availableActions: [
-        'Полный обзор staff-модулей и подготовка к будущим admin CRUD-сценариям.',
-        'Контроль manager-контура и всей оперативной сводки из единой рабочей зоны.',
-        'Переход в пользовательский кабинет только как вторичный сценарий проверки user-flow.',
-      ],
-      limitations: [],
-    };
-  }
-
-  if (capabilities.adminAccessLevel === 'manager') {
-    return {
-      accessBadge: 'MANAGER',
-      accessLabel: 'Ограниченный staff-доступ',
-      summary:
-        'MANAGER использует /admin как основной рабочий кабинет, но работает в ограниченном staff-контуре без полного admin-контроля.',
-      availableActions: [
-        'Операционный обзор команд, заявок, тренировок и аренды в текущем staff workspace.',
-        'Работа с manager-level сводкой без перехода через пользовательский landing.',
-        'Переход в пользовательский кабинет только когда нужно проверить user-side сценарий.',
-      ],
-      limitations: [
-        'Системные admin-настройки и будущие полные CRUD-права резервируются для роли ADMIN.',
-      ],
-    };
-  }
-
-  return {
-    accessBadge: 'STAFF',
-    accessLabel: 'Доступ не определён',
-    summary: 'Рабочая зона staff доступна только после проверки разрешённой роли.',
-    availableActions: [],
-    limitations: [],
-  };
-}
-
 export default function AdminPage() {
   const router = useRouter();
   const [status, setStatus] = useState<PageStatus>('loading');
@@ -483,6 +513,7 @@ export default function AdminPage() {
       }
 
       const nextCurrentUser = currentUserResult.payload as CurrentUserSummary;
+      const nextCurrentUserCapabilities = getRoleCapabilities(nextCurrentUser);
 
       if (!isCancelled) {
         setCurrentUser(nextCurrentUser);
@@ -490,6 +521,58 @@ export default function AdminPage() {
 
       if (!canAccessAppPath(nextCurrentUser, '/admin')) {
         router.replace('/cabinet');
+        return;
+      }
+
+      if (nextCurrentUserCapabilities.isTrainer) {
+        const [teamApplicationsResult, trainingsResult] = await Promise.all([
+          fetchJson<TrainerTeamApplicationSummary[]>('/api/coach/team-applications'),
+          fetchJson<TrainerTrainingSummary[]>(
+            `/api/trainings?trainerId=${nextCurrentUser.id}&isActive=true`
+          ),
+        ]);
+
+        const results = [teamApplicationsResult, trainingsResult];
+
+        if (results.some((result) => result.response.status === 401)) {
+          router.replace('/dev/login?next=/admin');
+          return;
+        }
+
+        const failedResult = results.find((result) => !result.response.ok);
+
+        if (failedResult) {
+          const failedMessage = translateErrorMessage(
+            (failedResult.payload as { error?: string } | null)?.error ||
+              'Не удалось загрузить staff кабинет.'
+          );
+
+          if (!isCancelled) {
+            setOverview(null);
+            setStatus('error');
+            setError(failedMessage);
+          }
+
+          return;
+        }
+
+        if (!isCancelled) {
+          setOverview({
+            teams: [],
+            teamApplications: (
+              teamApplicationsResult.payload as TrainerTeamApplicationSummary[]
+            ).map(normalizeTrainerApplication),
+            trainings: (trainingsResult.payload as TrainerTrainingSummary[]).map(
+              normalizeTrainerTraining
+            ),
+            rentalBookings: [],
+            rentalSlots: [],
+            rentalFacilities: [],
+            rentalResources: [],
+          });
+          setStatus('ready');
+        }
+
         return;
       }
 
@@ -536,7 +619,6 @@ export default function AdminPage() {
 
         if (!isCancelled) {
           setOverview(null);
-
           setStatus('error');
           setError(failedMessage);
         }
@@ -583,7 +665,10 @@ export default function AdminPage() {
       (booking) => booking.status === 'PENDING_CONFIRMATION'
     ).length ?? 0;
   const currentUserCapabilities = getRoleCapabilities(currentUser);
-  const workspaceDefinition = getWorkspaceDefinition(currentUserCapabilities);
+  const visibleAdminSections = getVisibleAdminSections(currentUserCapabilities);
+  const visibleAdminSectionIds = new Set(
+    visibleAdminSections.map((section) => section.id)
+  );
   const teamCityCount = overview
     ? new Set(
         overview.teams
@@ -605,6 +690,56 @@ export default function AdminPage() {
       })
       .slice(0, 5) ?? [];
   const latestRentalSlots = overview?.rentalSlots.slice(0, 4) ?? [];
+  const summaryCards = [
+    visibleAdminSectionIds.has('teams')
+      ? {
+          title: 'Команды',
+          value: String(overview?.teams.length ?? 0),
+          detail: `Городов в командах: ${teamCityCount}. Последнее обновление по данным staff API.`,
+        }
+      : null,
+    visibleAdminSectionIds.has('teamApplications')
+      ? {
+          title: 'Заявки в команду',
+          value: String(overview?.teamApplications.length ?? 0),
+          detail:
+            currentUserCapabilities.teamApplicationReviewScope === 'own'
+              ? `По вашим командам новых и в работе: ${pendingApplicationsCount}.`
+              : `Новых и в работе: ${pendingApplicationsCount}.`,
+        }
+      : null,
+    visibleAdminSectionIds.has('trainings')
+      ? {
+          title: 'Тренировки',
+          value: String(overview?.trainings.length ?? 0),
+          detail:
+            currentUserCapabilities.trainingManagementScope === 'own'
+              ? `Активных ваших тренировок: ${activeTrainingsCount}.`
+              : `Активных тренировок: ${activeTrainingsCount}.`,
+        }
+      : null,
+    visibleAdminSectionIds.has('rentals')
+      ? {
+          title: 'Аренда',
+          value: String(overview?.rentalBookings.length ?? 0),
+          detail: `Ожидают подтверждения: ${pendingRentalBookingsCount}. Публичных доступных слотов: ${availablePublicSlotsCount}.`,
+        }
+      : null,
+  ].filter(
+    (
+      card
+    ): card is {
+      title: string;
+      value: string;
+      detail: string;
+    } => Boolean(card)
+  );
+  const responsibilitySummary =
+    currentUserCapabilities.role === 'TRAINER'
+      ? 'Отвечает только за свои тренировки и заявки по закреплённым командам.'
+      : currentUserCapabilities.role === 'MANAGER'
+        ? 'Отвечает за операционный staff-контур: команды, заявки, тренировки и аренду.'
+        : 'Отвечает за полный staff/admin контур платформы и foundation под управление ролями.';
 
   return (
     <main className="min-h-screen bg-[radial-gradient(circle_at_top,#f4efe4_0%,#ede6d8_45%,#e4ddcf_100%)] px-4 py-8 text-stone-900">
@@ -619,16 +754,16 @@ export default function AdminPage() {
                 Staff/admin кабинет
               </h1>
               <p className="mt-2 max-w-2xl text-sm leading-6 text-stone-300">
-                Минимальный обзор команд, заявок, тренировок и аренды без CRUD.
+                Рабочая зона staff с role-aware доступом к командам, заявкам,
+                тренировкам и аренде.
               </p>
               {currentUser ? (
                 <p className="mt-3 text-sm text-stone-300">
                   Текущий пользователь: {formatPersonName(currentUser.profile)}. Роли:{' '}
-                  {formatRoleList(currentUser.roles)}.
-                  {currentUserCapabilities.canAccessAdminWorkspace &&
-                  hasGlobalStaffRole(currentUser.staffRole)
-                    ? ` Уровень доступа: ${globalStaffRoleLabels[currentUser.staffRole]}. Основной рабочий маршрут: /admin.`
-                    : ' Staff/admin доступ не выдан.'}
+                  {formatRoleList(currentUser.roles)}. Платформенная роль:{' '}
+                  {currentUserCapabilities.roleLabel}. Уровень доступа:{' '}
+                  {currentUserCapabilities.adminAccessLabel}. Основной рабочий маршрут:{' '}
+                  {currentUserCapabilities.primaryEntryPath}.
                 </p>
               ) : null}
             </div>
@@ -670,320 +805,350 @@ export default function AdminPage() {
                 </p>
                 <div className="mt-4 flex flex-wrap items-center gap-3">
                   <span className="rounded-full bg-stone-950 px-3 py-1 text-xs font-semibold uppercase tracking-[0.16em] text-white">
-                    {workspaceDefinition.accessBadge}
+                    {currentUserCapabilities.accessBadge}
                   </span>
                   <span className="text-sm font-medium text-stone-600">
-                    {workspaceDefinition.accessLabel}
+                    {currentUserCapabilities.adminAccessLabel}
                   </span>
                 </div>
                 <h2 className="mt-4 text-2xl font-semibold tracking-tight text-stone-950">
-                  /admin является основной рабочей зоной для роли{' '}
-                  {currentUserCapabilities.canAccessAdminWorkspace &&
-                  hasGlobalStaffRole(currentUser.staffRole)
-                    ? globalStaffRoleLabels[currentUser.staffRole]
-                    : 'staff'}
+                  /admin является рабочей зоной роли{' '}
+                  {currentUserCapabilities.roleLabel}
                 </h2>
                 <p className="mt-3 max-w-3xl text-sm leading-6 text-stone-700">
-                  {workspaceDefinition.summary}
+                  {currentUserCapabilities.adminDescription}
                 </p>
               </article>
 
               <article className="rounded-[28px] border border-stone-300/70 bg-white p-6 shadow-[0_24px_70px_-40px_rgba(0,0,0,0.35)]">
                 <p className="text-sm font-medium text-stone-500">
-                  Что доступно в текущем MVP
+                  Role / access summary
                 </p>
-                <ul className="mt-4 space-y-2 text-sm leading-6 text-stone-700">
-                  {workspaceDefinition.availableActions.map((item) => (
-                    <li key={item}>• {item}</li>
-                  ))}
-                </ul>
-                {workspaceDefinition.limitations.length > 0 ? (
-                  <>
-                    <p className="mt-5 text-sm font-medium text-stone-500">
-                      Ограничения уровня доступа
+                <div className="mt-4 grid gap-3 sm:grid-cols-3">
+                  <div className="rounded-2xl bg-stone-100 p-4">
+                    <p className="text-xs font-semibold uppercase tracking-[0.14em] text-stone-500">
+                      Текущая роль
                     </p>
-                    <ul className="mt-3 space-y-2 text-sm leading-6 text-stone-700">
-                      {workspaceDefinition.limitations.map((item) => (
-                        <li key={item}>• {item}</li>
-                      ))}
-                    </ul>
-                  </>
+                    <p className="mt-2 text-base font-semibold text-stone-950">
+                      {currentUserCapabilities.roleLabel}
+                    </p>
+                  </div>
+                  <div className="rounded-2xl bg-stone-100 p-4">
+                    <p className="text-xs font-semibold uppercase tracking-[0.14em] text-stone-500">
+                      Уровень доступа
+                    </p>
+                    <p className="mt-2 text-base font-semibold text-stone-950">
+                      {currentUserCapabilities.adminAccessLabel}
+                    </p>
+                  </div>
+                  <div className="rounded-2xl bg-stone-100 p-4">
+                    <p className="text-xs font-semibold uppercase tracking-[0.14em] text-stone-500">
+                      Рабочий маршрут
+                    </p>
+                    <p className="mt-2 text-base font-semibold text-stone-950">
+                      {currentUserCapabilities.primaryEntryPath}
+                    </p>
+                  </div>
+                </div>
+                <p className="mt-4 text-sm leading-6 text-stone-700">
+                  {responsibilitySummary}
+                </p>
+                {visibleAdminSections.length > 0 ? (
+                  <div className="mt-4 flex flex-wrap gap-2">
+                    {visibleAdminSections.map((section) => (
+                      <span
+                        key={section.id}
+                        className="rounded-full bg-stone-100 px-3 py-1 text-xs font-semibold uppercase tracking-[0.12em] text-stone-700"
+                      >
+                        {section.label}
+                      </span>
+                    ))}
+                  </div>
                 ) : null}
               </article>
             </section>
 
-            <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
-              <SummaryCard
-                title="Команды"
-                value={String(overview.teams.length)}
-                detail={`Городов в командах: ${teamCityCount}. Последнее обновление по данным staff API.`}
-              />
-              <SummaryCard
-                title="Заявки в команду"
-                value={String(overview.teamApplications.length)}
-                detail={`Новых и в работе: ${pendingApplicationsCount}.`}
-              />
-              <SummaryCard
-                title="Тренировки"
-                value={String(overview.trainings.length)}
-                detail={`Активных тренировок: ${activeTrainingsCount}.`}
-              />
-              <SummaryCard
-                title="Аренда"
-                value={String(overview.rentalBookings.length)}
-                detail={`Ожидают подтверждения: ${pendingRentalBookingsCount}. Публичных доступных слотов: ${availablePublicSlotsCount}.`}
-              />
-            </section>
+            {summaryCards.length > 0 ? (
+              <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+                {summaryCards.map((card) => (
+                  <SummaryCard
+                    key={card.title}
+                    title={card.title}
+                    value={card.value}
+                    detail={card.detail}
+                  />
+                ))}
+              </section>
+            ) : null}
 
             <div className="grid gap-6 xl:grid-cols-2">
-              <SectionCard
-                title="Команды"
-                description="Короткий обзор всех команд, доступных staff/admin через текущий backend."
-              >
-                {overview.teams.length === 0 ? (
-                  <p className="rounded-2xl border border-dashed border-stone-300 bg-stone-50 p-5 text-sm text-stone-600">
-                    Команд пока нет.
-                  </p>
-                ) : (
-                  <div className="space-y-3">
-                    {overview.teams.slice(0, 5).map((team) => (
-                      <article
-                        key={team.id}
-                        className="rounded-2xl border border-stone-200 bg-stone-50 p-4"
-                      >
-                        <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
-                          <div>
-                            <p className="font-semibold text-stone-950">{team.name}</p>
-                            <p className="mt-1 text-sm text-stone-600">
-                              {team.city?.name || 'Город не указан'}
-                              {team.slug ? ` / ${team.slug}` : ''}
+              {visibleAdminSectionIds.has('teams') ? (
+                <SectionCard
+                  title="Команды"
+                  description="Короткий обзор всех команд, доступных staff/admin через текущий backend."
+                >
+                  {overview.teams.length === 0 ? (
+                    <p className="rounded-2xl border border-dashed border-stone-300 bg-stone-50 p-5 text-sm text-stone-600">
+                      Команд пока нет.
+                    </p>
+                  ) : (
+                    <div className="space-y-3">
+                      {overview.teams.slice(0, 5).map((team) => (
+                        <article
+                          key={team.id}
+                          className="rounded-2xl border border-stone-200 bg-stone-50 p-4"
+                        >
+                          <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
+                            <div>
+                              <p className="font-semibold text-stone-950">
+                                {team.name}
+                              </p>
+                              <p className="mt-1 text-sm text-stone-600">
+                                {team.city?.name || 'Город не указан'}
+                                {team.slug ? ` / ${team.slug}` : ''}
+                              </p>
+                            </div>
+                            <p className="text-xs font-medium uppercase tracking-[0.18em] text-stone-500">
+                              {formatDate(team.updatedAt)}
                             </p>
                           </div>
-                          <p className="text-xs font-medium uppercase tracking-[0.18em] text-stone-500">
-                            {formatDate(team.updatedAt)}
+                          <p className="mt-3 text-sm leading-6 text-stone-700">
+                            {team.description || 'Описание не заполнено.'}
                           </p>
-                        </div>
-                        <p className="mt-3 text-sm leading-6 text-stone-700">
-                          {team.description || 'Описание не заполнено.'}
-                        </p>
-                      </article>
-                    ))}
-                  </div>
-                )}
-              </SectionCard>
+                        </article>
+                      ))}
+                    </div>
+                  )}
+                </SectionCard>
+              ) : null}
 
-              <SectionCard
-                title="Заявки в команду"
-                description="Последние заявки и их текущие статусы по admin API."
-              >
-                {overview.teamApplications.length === 0 ? (
-                  <p className="rounded-2xl border border-dashed border-stone-300 bg-stone-50 p-5 text-sm text-stone-600">
-                    Заявок пока нет.
-                  </p>
-                ) : (
-                  <div className="space-y-3">
-                    {overview.teamApplications.slice(0, 5).map((application) => (
-                      <article
-                        key={application.id}
-                        className="rounded-2xl border border-stone-200 bg-stone-50 p-4"
-                      >
-                        <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
-                          <div>
-                            <p className="font-semibold text-stone-950">
-                              {application.team.name}
-                            </p>
-                            <p className="mt-1 text-sm text-stone-600">
-                              {formatPersonName(application.participant)} /{' '}
-                              {application.team.city?.name || 'Город не указан'}
-                            </p>
-                            <p className="mt-2 text-sm text-stone-700">
-                              {application.commentFromApplicant ||
-                                'Комментарий от заявителя не указан.'}
-                            </p>
-                          </div>
-                          <div className="flex flex-col items-start gap-3 sm:items-end">
-                            <span
-                              className={`rounded-full px-3 py-1 text-xs font-medium ${getStatusBadgeClass(application.status)}`}
-                            >
-                              {formatStatus(application.status)}
-                            </span>
-                            <p className="text-xs text-stone-500">
-                              {formatDateTime(application.createdAt)}
-                            </p>
-                          </div>
-                        </div>
-                      </article>
-                    ))}
-                  </div>
-                )}
-              </SectionCard>
-
-              <SectionCard
-                title="Тренировки"
-                description="Список тренировок без CRUD: активность, тип, тренер и ёмкость."
-              >
-                {recentTrainings.length === 0 ? (
-                  <p className="rounded-2xl border border-dashed border-stone-300 bg-stone-50 p-5 text-sm text-stone-600">
-                    Тренировок пока нет.
-                  </p>
-                ) : (
-                  <div className="space-y-3">
-                    {recentTrainings.map((training) => (
-                      <article
-                        key={training.id}
-                        className="rounded-2xl border border-stone-200 bg-stone-50 p-4"
-                      >
-                        <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
-                          <div>
-                            <p className="font-semibold text-stone-950">
-                              {training.name}
-                            </p>
-                            <p className="mt-1 text-sm text-stone-600">
-                              {training.city.name} / {formatTrainingType(training.trainingType)}
-                            </p>
-                            <div className="mt-2 grid gap-1 text-sm text-stone-700">
-                              <p>Тренер: {formatUserIdentity(training.coach)}</p>
-                              <p>Вместимость: {training.capacity}</p>
+              {visibleAdminSectionIds.has('teamApplications') ? (
+                <SectionCard
+                  title="Заявки в команду"
+                  description={
+                    currentUserCapabilities.teamApplicationReviewScope === 'own'
+                      ? 'Только заявки по вашим coached teams.'
+                      : 'Последние заявки и их текущие статусы по staff/admin API.'
+                  }
+                >
+                  {overview.teamApplications.length === 0 ? (
+                    <p className="rounded-2xl border border-dashed border-stone-300 bg-stone-50 p-5 text-sm text-stone-600">
+                      Заявок пока нет.
+                    </p>
+                  ) : (
+                    <div className="space-y-3">
+                      {overview.teamApplications.slice(0, 5).map((application) => (
+                        <article
+                          key={application.id}
+                          className="rounded-2xl border border-stone-200 bg-stone-50 p-4"
+                        >
+                          <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+                            <div>
+                              <p className="font-semibold text-stone-950">
+                                {application.team.name}
+                              </p>
+                              <p className="mt-1 text-sm text-stone-600">
+                                {formatPersonName(application.participant)} /{' '}
+                                {application.team.city?.name || 'Город не указан'}
+                              </p>
+                              <p className="mt-2 text-sm text-stone-700">
+                                {application.commentFromApplicant ||
+                                  'Комментарий от заявителя не указан.'}
+                              </p>
+                            </div>
+                            <div className="flex flex-col items-start gap-3 sm:items-end">
+                              <span
+                                className={`rounded-full px-3 py-1 text-xs font-medium ${getStatusBadgeClass(application.status)}`}
+                              >
+                                {formatStatus(application.status)}
+                              </span>
+                              <p className="text-xs text-stone-500">
+                                {formatDateTime(application.createdAt)}
+                              </p>
                             </div>
                           </div>
-                          <div className="flex flex-col items-start gap-3 sm:items-end">
+                        </article>
+                      ))}
+                    </div>
+                  )}
+                </SectionCard>
+              ) : null}
+
+              {visibleAdminSectionIds.has('trainings') ? (
+                <SectionCard
+                  title="Тренировки"
+                  description={
+                    currentUserCapabilities.trainingManagementScope === 'own'
+                      ? 'Список ваших тренировок и их текущая активность.'
+                      : 'Список тренировок без CRUD: активность, тип, тренер и ёмкость.'
+                  }
+                >
+                  {recentTrainings.length === 0 ? (
+                    <p className="rounded-2xl border border-dashed border-stone-300 bg-stone-50 p-5 text-sm text-stone-600">
+                      Тренировок пока нет.
+                    </p>
+                  ) : (
+                    <div className="space-y-3">
+                      {recentTrainings.map((training) => (
+                        <article
+                          key={training.id}
+                          className="rounded-2xl border border-stone-200 bg-stone-50 p-4"
+                        >
+                          <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+                            <div>
+                              <p className="font-semibold text-stone-950">
+                                {training.name}
+                              </p>
+                              <p className="mt-1 text-sm text-stone-600">
+                                {training.city.name} /{' '}
+                                {formatTrainingType(training.trainingType)}
+                              </p>
+                              <div className="mt-2 grid gap-1 text-sm text-stone-700">
+                                <p>Тренер: {formatUserIdentity(training.coach)}</p>
+                                <p>Вместимость: {training.capacity}</p>
+                              </div>
+                            </div>
+                            <div className="flex flex-col items-start gap-3 sm:items-end">
+                              <span
+                                className={`rounded-full px-3 py-1 text-xs font-medium ${
+                                  training.isActive
+                                    ? 'bg-emerald-100 text-emerald-700'
+                                    : 'bg-stone-200 text-stone-700'
+                                }`}
+                              >
+                                {training.isActive ? 'Активна' : 'Неактивна'}
+                              </span>
+                              <p className="text-xs text-stone-500">
+                                {formatDate(training.updatedAt)}
+                              </p>
+                            </div>
+                          </div>
+                        </article>
+                      ))}
+                    </div>
+                  )}
+                </SectionCard>
+              ) : null}
+
+              {visibleAdminSectionIds.has('rentals') ? (
+                <SectionCard
+                  title="Аренда"
+                  description="Сводка по бронированиям и инвентарю аренды в текущем staff/admin контуре."
+                >
+                  <div className="grid gap-3 md:grid-cols-2">
+                    <div className="rounded-2xl bg-stone-100 p-4">
+                      <p className="text-sm font-medium text-stone-500">
+                        Инвентарь аренды
+                      </p>
+                      <div className="mt-3 grid gap-1 text-sm text-stone-700">
+                        <p>Площадок: {overview.rentalFacilities.length}</p>
+                        <p>Ресурсов: {overview.rentalResources.length}</p>
+                        <p>Слотов: {overview.rentalSlots.length}</p>
+                        <p>Публично доступных: {availablePublicSlotsCount}</p>
+                      </div>
+                    </div>
+                    <div className="rounded-2xl bg-stone-100 p-4">
+                      <p className="text-sm font-medium text-stone-500">
+                        Бронирования аренды
+                      </p>
+                      <div className="mt-3 grid gap-1 text-sm text-stone-700">
+                        <p>Всего бронирований: {overview.rentalBookings.length}</p>
+                        <p>Ждут подтверждения: {pendingRentalBookingsCount}</p>
+                        <p>
+                          Подтверждено:{' '}
+                          {
+                            overview.rentalBookings.filter(
+                              (booking) => booking.status === 'CONFIRMED'
+                            ).length
+                          }
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="mt-5 grid gap-4 lg:grid-cols-2">
+                    <div className="space-y-3">
+                      <h3 className="text-base font-semibold text-stone-950">
+                        Последние бронирования
+                      </h3>
+                      {overview.rentalBookings.slice(0, 4).map((booking) => (
+                        <article
+                          key={booking.id}
+                          className="rounded-2xl border border-stone-200 bg-stone-50 p-4"
+                        >
+                          <div className="flex items-start justify-between gap-3">
+                            <div>
+                              <p className="font-semibold text-stone-950">
+                                {booking.resource.name}
+                              </p>
+                              <p className="mt-1 text-sm text-stone-600">
+                                {booking.facility.name} / {booking.city.name}
+                              </p>
+                              <p className="mt-2 text-sm text-stone-700">
+                                {formatDateTime(booking.rentalSlot.startsAt)}
+                              </p>
+                              <p className="mt-2 text-sm text-stone-600">
+                                Заказчик: {formatUserIdentity(booking.user)}
+                              </p>
+                            </div>
                             <span
-                              className={`rounded-full px-3 py-1 text-xs font-medium ${
-                                training.isActive
-                                  ? 'bg-emerald-100 text-emerald-700'
-                                  : 'bg-stone-200 text-stone-700'
-                              }`}
+                              className={`rounded-full px-3 py-1 text-xs font-medium ${getStatusBadgeClass(booking.status)}`}
                             >
-                              {training.isActive ? 'Активна' : 'Неактивна'}
+                              {formatStatus(booking.status)}
                             </span>
-                            <p className="text-xs text-stone-500">
-                              {formatDate(training.updatedAt)}
-                            </p>
                           </div>
-                        </div>
-                      </article>
-                    ))}
-                  </div>
-                )}
-              </SectionCard>
+                        </article>
+                      ))}
+                      {overview.rentalBookings.length === 0 ? (
+                        <p className="rounded-2xl border border-dashed border-stone-300 bg-stone-50 p-5 text-sm text-stone-600">
+                          Бронирований пока нет.
+                        </p>
+                      ) : null}
+                    </div>
 
-              <SectionCard
-                title="Аренда"
-                description="Сводка по бронированиям и инвентарю аренды в текущем staff/admin контуре."
-              >
-                <div className="grid gap-3 md:grid-cols-2">
-                  <div className="rounded-2xl bg-stone-100 p-4">
-                    <p className="text-sm font-medium text-stone-500">
-                      Инвентарь аренды
-                    </p>
-                    <div className="mt-3 grid gap-1 text-sm text-stone-700">
-                      <p>Площадок: {overview.rentalFacilities.length}</p>
-                      <p>Ресурсов: {overview.rentalResources.length}</p>
-                      <p>Слотов: {overview.rentalSlots.length}</p>
-                      <p>Публично доступных: {availablePublicSlotsCount}</p>
+                    <div className="space-y-3">
+                      <h3 className="text-base font-semibold text-stone-950">
+                        Ближайшие слоты
+                      </h3>
+                      {latestRentalSlots.map((slot) => (
+                        <article
+                          key={slot.id}
+                          className="rounded-2xl border border-stone-200 bg-stone-50 p-4"
+                        >
+                          <div className="flex items-start justify-between gap-3">
+                            <div>
+                              <p className="font-semibold text-stone-950">
+                                {slot.resource.name}
+                              </p>
+                              <p className="mt-1 text-sm text-stone-600">
+                                {slot.facility.name} / {slot.city.name}
+                              </p>
+                              <p className="mt-2 text-sm text-stone-700">
+                                {formatDateTime(slot.startsAt)}
+                              </p>
+                              <p className="mt-2 text-sm text-stone-600">
+                                {slot.visibleToPublic
+                                  ? 'Виден в публичной аренде'
+                                  : 'Скрыт из публичной аренды'}
+                              </p>
+                            </div>
+                            <span
+                              className={`rounded-full px-3 py-1 text-xs font-medium ${getStatusBadgeClass(slot.status)}`}
+                            >
+                              {formatStatus(slot.status)}
+                            </span>
+                          </div>
+                        </article>
+                      ))}
+                      {latestRentalSlots.length === 0 ? (
+                        <p className="rounded-2xl border border-dashed border-stone-300 bg-stone-50 p-5 text-sm text-stone-600">
+                          Слотов аренды пока нет.
+                        </p>
+                      ) : null}
                     </div>
                   </div>
-                  <div className="rounded-2xl bg-stone-100 p-4">
-                    <p className="text-sm font-medium text-stone-500">
-                      Бронирования аренды
-                    </p>
-                    <div className="mt-3 grid gap-1 text-sm text-stone-700">
-                      <p>Всего бронирований: {overview.rentalBookings.length}</p>
-                      <p>Ждут подтверждения: {pendingRentalBookingsCount}</p>
-                      <p>
-                        Подтверждено:{' '}
-                        {
-                          overview.rentalBookings.filter(
-                            (booking) => booking.status === 'CONFIRMED'
-                          ).length
-                        }
-                      </p>
-                    </div>
-                  </div>
-                </div>
-
-                <div className="mt-5 grid gap-4 lg:grid-cols-2">
-                  <div className="space-y-3">
-                    <h3 className="text-base font-semibold text-stone-950">
-                      Последние бронирования
-                    </h3>
-                    {overview.rentalBookings.slice(0, 4).map((booking) => (
-                      <article
-                        key={booking.id}
-                        className="rounded-2xl border border-stone-200 bg-stone-50 p-4"
-                      >
-                        <div className="flex items-start justify-between gap-3">
-                          <div>
-                            <p className="font-semibold text-stone-950">
-                              {booking.resource.name}
-                            </p>
-                            <p className="mt-1 text-sm text-stone-600">
-                              {booking.facility.name} / {booking.city.name}
-                            </p>
-                            <p className="mt-2 text-sm text-stone-700">
-                              {formatDateTime(booking.rentalSlot.startsAt)}
-                            </p>
-                            <p className="mt-2 text-sm text-stone-600">
-                              Заказчик: {formatUserIdentity(booking.user)}
-                            </p>
-                          </div>
-                          <span
-                            className={`rounded-full px-3 py-1 text-xs font-medium ${getStatusBadgeClass(booking.status)}`}
-                          >
-                            {formatStatus(booking.status)}
-                          </span>
-                        </div>
-                      </article>
-                    ))}
-                    {overview.rentalBookings.length === 0 ? (
-                      <p className="rounded-2xl border border-dashed border-stone-300 bg-stone-50 p-5 text-sm text-stone-600">
-                        Бронирований пока нет.
-                      </p>
-                    ) : null}
-                  </div>
-
-                  <div className="space-y-3">
-                    <h3 className="text-base font-semibold text-stone-950">
-                      Ближайшие слоты
-                    </h3>
-                    {latestRentalSlots.map((slot) => (
-                      <article
-                        key={slot.id}
-                        className="rounded-2xl border border-stone-200 bg-stone-50 p-4"
-                      >
-                        <div className="flex items-start justify-between gap-3">
-                          <div>
-                            <p className="font-semibold text-stone-950">
-                              {slot.resource.name}
-                            </p>
-                            <p className="mt-1 text-sm text-stone-600">
-                              {slot.facility.name} / {slot.city.name}
-                            </p>
-                            <p className="mt-2 text-sm text-stone-700">
-                              {formatDateTime(slot.startsAt)}
-                            </p>
-                            <p className="mt-2 text-sm text-stone-600">
-                              {slot.visibleToPublic
-                                ? 'Виден в публичной аренде'
-                                : 'Скрыт из публичной аренды'}
-                            </p>
-                          </div>
-                          <span
-                            className={`rounded-full px-3 py-1 text-xs font-medium ${getStatusBadgeClass(slot.status)}`}
-                          >
-                            {formatStatus(slot.status)}
-                          </span>
-                        </div>
-                      </article>
-                    ))}
-                    {latestRentalSlots.length === 0 ? (
-                      <p className="rounded-2xl border border-dashed border-stone-300 bg-stone-50 p-5 text-sm text-stone-600">
-                        Слотов аренды пока нет.
-                      </p>
-                    ) : null}
-                  </div>
-                </div>
-              </SectionCard>
+                </SectionCard>
+              ) : null}
             </div>
           </>
         ) : null}

@@ -1850,6 +1850,9 @@ export default function CabinetPage() {
     : null;
   const isStaffSecondaryView =
     currentUserCapabilities?.cabinetViewMode === 'secondary';
+  const cabinetDescription =
+    currentUserCapabilities?.cabinetDescription ??
+    'Единая точка входа для ваших участников, записей на тренировки, заявок в команду и бронирований.';
 
   return (
     <main className="min-h-screen bg-[radial-gradient(circle_at_top,#f4efe4_0%,#ede6d8_45%,#e4ddcf_100%)] px-4 py-8 text-stone-900">
@@ -1864,9 +1867,7 @@ export default function CabinetPage() {
                 {isStaffSecondaryView ? 'Пользовательский кабинет' : 'Ваш кабинет'}
               </h1>
               <p className="mt-2 max-w-2xl text-sm leading-6 text-stone-300">
-                {isStaffSecondaryView
-                  ? 'Здесь остаётся пользовательский контур: участники, записи на тренировки, заявки в команду и бронирования. Для staff это вторичный экран, а основная рабочая зона находится в /admin.'
-                  : 'Единая точка входа для ваших участников, записей на тренировки, заявок в команду и бронирований.'}
+                {cabinetDescription}
               </p>
             </div>
             <div className="flex gap-3">
@@ -1902,12 +1903,14 @@ export default function CabinetPage() {
                       Staff note
                     </p>
                     <h2 className="mt-2 text-xl font-semibold text-sky-950">
-                      Основной рабочий вход для staff находится в /admin
+                      Основной рабочий вход для роли{' '}
+                      {currentUserCapabilities?.roleLabel || 'staff'} находится в
+                      /admin
                     </h2>
                     <p className="mt-2 max-w-3xl text-sm leading-6 text-sky-900">
-                      Этот экран остаётся доступным как вторичный пользовательский вид.
-                      Здесь можно проверить user-flow, но основной staff workspace для
-                      MANAGER и ADMIN находится в admin-контуре.
+                      Этот экран остаётся доступным как вторичный пользовательский
+                      вид. Здесь можно проверить user-flow, но staff-capabilities и
+                      role-aware workspace находятся в admin-контуре.
                     </p>
                   </div>
                   <Link
