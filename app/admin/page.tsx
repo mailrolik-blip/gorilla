@@ -283,6 +283,43 @@ type TrainingFeedback = {
   message: string;
 };
 
+type RentalBookingStatusFilter =
+  | 'ALL'
+  | 'PENDING_CONFIRMATION'
+  | 'CONFIRMED'
+  | 'CANCELLED';
+type StaffManagedRentalBookingStatus =
+  | 'PENDING_CONFIRMATION'
+  | 'CONFIRMED'
+  | 'CANCELLED';
+
+type RentalBookingEditorState = {
+  status: StaffManagedRentalBookingStatus;
+  managerNote: string;
+};
+
+type RentalBookingFeedback = {
+  tone: 'success' | 'error';
+  message: string;
+};
+
+type RentalSlotStatusFilter = 'ALL' | 'AVAILABLE' | 'BOOKED' | 'UNAVAILABLE';
+type StaffManagedRentalSlotStatus = 'AVAILABLE' | 'BOOKED' | 'UNAVAILABLE';
+type RentalSlotFormMode = 'create' | 'edit';
+
+type RentalSlotEditorState = {
+  resourceId: string;
+  startsAt: string;
+  endsAt: string;
+  status: StaffManagedRentalSlotStatus;
+  visibleToPublic: boolean;
+};
+
+type RentalSlotFeedback = {
+  tone: 'success' | 'error';
+  message: string;
+};
+
 type FetchResult<T> = {
   payload: T | { error?: string } | null;
   response: Response;
@@ -348,6 +385,51 @@ const trainingActivityFilterOptions: {
   { value: 'ALL', label: 'Все тренировки' },
   { value: 'ACTIVE', label: 'Только активные' },
   { value: 'INACTIVE', label: 'Только неактивные' },
+];
+
+const rentalBookingFilterOptions: {
+  value: RentalBookingStatusFilter;
+  label: string;
+}[] = [
+  { value: 'ALL', label: 'Все брони' },
+  { value: 'PENDING_CONFIRMATION', label: 'Ждут подтверждения' },
+  { value: 'CONFIRMED', label: 'Подтверждены' },
+  { value: 'CANCELLED', label: 'Отменены' },
+];
+
+const staffManagedRentalBookingStatusOptions: {
+  value: StaffManagedRentalBookingStatus;
+  label: string;
+}[] = [
+  { value: 'PENDING_CONFIRMATION', label: 'Ждёт подтверждения' },
+  { value: 'CONFIRMED', label: 'Подтверждено' },
+  { value: 'CANCELLED', label: 'Отменено' },
+];
+
+const rentalSlotFilterOptions: {
+  value: RentalSlotStatusFilter;
+  label: string;
+}[] = [
+  { value: 'ALL', label: 'Все слоты' },
+  { value: 'AVAILABLE', label: 'Доступные' },
+  { value: 'BOOKED', label: 'Забронированные' },
+  { value: 'UNAVAILABLE', label: 'Недоступные' },
+];
+
+const createRentalSlotStatusOptions: {
+  value: Extract<StaffManagedRentalSlotStatus, 'AVAILABLE' | 'UNAVAILABLE'>;
+  label: string;
+}[] = [
+  { value: 'AVAILABLE', label: 'Доступно' },
+  { value: 'UNAVAILABLE', label: 'Недоступно' },
+];
+
+const editableRentalSlotStatusOptions: {
+  value: Extract<StaffManagedRentalSlotStatus, 'AVAILABLE' | 'UNAVAILABLE'>;
+  label: string;
+}[] = [
+  { value: 'AVAILABLE', label: 'Доступно' },
+  { value: 'UNAVAILABLE', label: 'Недоступно' },
 ];
 
 function formatRoleList(roles: string[]) {
@@ -464,6 +546,50 @@ function createTrainingEditorState(
   };
 }
 
+function createRentalBookingEditorState(
+  booking: AdminRentalBookingSummary
+): RentalBookingEditorState {
+  return {
+    status: ['PENDING_CONFIRMATION', 'CONFIRMED', 'CANCELLED'].includes(
+      booking.status
+    )
+      ? (booking.status as StaffManagedRentalBookingStatus)
+      : 'PENDING_CONFIRMATION',
+    managerNote: booking.managerNote ?? '',
+  };
+}
+
+function createRentalSlotEditorState(
+  slot?: AdminRentalSlotSummary | null
+): RentalSlotEditorState {
+  if (slot) {
+    return {
+      resourceId: String(slot.resource.id),
+      startsAt: toDateTimeLocalInputValue(new Date(slot.startsAt)),
+      endsAt: toDateTimeLocalInputValue(new Date(slot.endsAt)),
+      status: ['AVAILABLE', 'BOOKED', 'UNAVAILABLE'].includes(slot.status)
+        ? (slot.status as StaffManagedRentalSlotStatus)
+        : 'AVAILABLE',
+      visibleToPublic: slot.visibleToPublic,
+    };
+  }
+
+  const startsAt = new Date();
+  startsAt.setDate(startsAt.getDate() + 1);
+  startsAt.setHours(10, 0, 0, 0);
+
+  const endsAt = new Date(startsAt);
+  endsAt.setHours(11, 0, 0, 0);
+
+  return {
+    resourceId: '',
+    startsAt: toDateTimeLocalInputValue(startsAt),
+    endsAt: toDateTimeLocalInputValue(endsAt),
+    status: 'AVAILABLE',
+    visibleToPublic: true,
+  };
+}
+
 function formatStatus(status: string) {
   return statusLabels[status] ?? status;
 }
@@ -526,6 +652,11 @@ function translateErrorMessage(message: string) {
       'Не удалось загрузить площадки аренды.',
     'Failed to fetch rental resources for staff':
       'Не удалось загрузить ресурсы аренды.',
+    'Failed to update rental booking':
+      'Не удалось сохранить изменения по бронированию аренды.',
+    'Failed to create rental slot': 'Не удалось создать слот аренды.',
+    'Failed to update rental slot':
+      'Не удалось сохранить изменения по слоту аренды.',
     'Current user is not authenticated': 'Пользователь не авторизован.',
     'Staff access required': 'Нужны staff-права для рабочего кабинета.',
     'Manager or admin access required':
@@ -537,6 +668,41 @@ function translateErrorMessage(message: string) {
     'internalNote must be a string or null':
       'Внутренняя заметка должна быть строкой или пустым значением.',
     'Invalid team application id': 'Некорректный идентификатор заявки.',
+    'status must be one of PENDING_CONFIRMATION, CONFIRMED, CANCELLED':
+      'Статус брони должен быть одним из: PENDING_CONFIRMATION, CONFIRMED, CANCELLED.',
+    'managerNote must be a string or null':
+      'Manager note должен быть строкой или пустым значением.',
+    'At least one of status or managerNote is required':
+      'Измените статус брони или manager note перед сохранением.',
+    'Invalid rental booking id':
+      'Некорректный идентификатор бронирования аренды.',
+    'Rental booking not found': 'Бронирование аренды не найдено.',
+    'Rental booking is already cancelled': 'Это бронирование уже отменено.',
+    'resourceId must be a positive integer':
+      'Ресурс слота указан некорректно.',
+    'startsAt must be a valid date': 'Время начала слота указано некорректно.',
+    'endsAt must be a valid date': 'Время окончания слота указано некорректно.',
+    'status must be one of AVAILABLE, BOOKED, UNAVAILABLE':
+      'Статус слота должен быть одним из: AVAILABLE, BOOKED, UNAVAILABLE.',
+    'visibleToPublic must be true or false':
+      'Признак публичности слота должен быть true или false.',
+    'resourceId, startsAt, endsAt, status and visibleToPublic are required':
+      'Для создания слота нужны ресурс, время начала, время окончания, статус и признак публичности.',
+    'Invalid rental slot id': 'Некорректный идентификатор слота аренды.',
+    'At least one of status, startsAt, endsAt or visibleToPublic is required':
+      'Измените хотя бы одно поле слота перед сохранением.',
+    'Rental slot not found': 'Слот аренды не найден.',
+    'Rental resource not found': 'Ресурс аренды не найден.',
+    'Rental slot overlaps with an existing slot':
+      'Слот пересекается с уже существующим интервалом для этого ресурса.',
+    'Rental slot cannot be created as BOOKED without an active booking':
+      'Нельзя создать слот со статусом BOOKED без активного бронирования.',
+    'Rental slot cannot be set to BOOKED without an active booking':
+      'Нельзя установить слоту статус BOOKED без активного бронирования.',
+    'Rental slot with an active booking must stay BOOKED':
+      'Слот с активным бронированием должен оставаться BOOKED.',
+    'Rental slot is unavailable': 'Слот аренды сейчас недоступен.',
+    'Rental slot is already booked': 'Слот аренды уже занят.',
     'name, cityId, startTime, endTime and location are required':
       'Для создания тренировки нужны название, город, время начала, время окончания и место.',
     'description must be a string or null':
@@ -691,6 +857,61 @@ type TrainingsSectionContentProps = {
   isTrainingCreateReady: boolean;
   selectedTraining: AdminTrainingSummary | null;
   isTrainingDirty: boolean;
+};
+
+type RentalsSectionContentProps = {
+  overview: AdminOverview;
+  isRentalOperationalEditable: boolean;
+  pendingRentalBookingsCount: number;
+  availablePublicSlotsCount: number;
+  rentalBookingStatusFilter: RentalBookingStatusFilter;
+  setRentalBookingStatusFilter: React.Dispatch<
+    React.SetStateAction<RentalBookingStatusFilter>
+  >;
+  filteredRentalBookings: AdminRentalBookingSummary[];
+  activeSelectedRentalBookingId: number | null;
+  handleRentalBookingSelect: (booking: AdminRentalBookingSummary) => void;
+  rentalBookingFeedback: RentalBookingFeedback | null;
+  activeRentalBookingEditor: RentalBookingEditorState | null;
+  selectedRentalBooking: AdminRentalBookingSummary | null;
+  setRentalBookingEditorId: React.Dispatch<
+    React.SetStateAction<number | null>
+  >;
+  setRentalBookingEditor: React.Dispatch<
+    React.SetStateAction<RentalBookingEditorState | null>
+  >;
+  setRentalBookingFeedback: React.Dispatch<
+    React.SetStateAction<RentalBookingFeedback | null>
+  >;
+  savingRentalBookingId: number | null;
+  handleRentalBookingSave: () => void;
+  isRentalBookingDirty: boolean;
+  rentalSlotStatusFilter: RentalSlotStatusFilter;
+  setRentalSlotStatusFilter: React.Dispatch<
+    React.SetStateAction<RentalSlotStatusFilter>
+  >;
+  filteredRentalSlots: AdminRentalSlotSummary[];
+  activeRentalSlotId: number | null;
+  handleRentalSlotSelect: (slot: AdminRentalSlotSummary) => void;
+  rentalSlotFeedback: RentalSlotFeedback | null;
+  isRentalSlotCreateMode: boolean;
+  handleRentalSlotCreateStart: () => void;
+  handleRentalSlotCreateCancel: () => void;
+  activeRentalSlotEditor: RentalSlotEditorState | null;
+  rentalSlotResourceOptions: AdminRentalResourceSummary[];
+  setRentalSlotEditorId: React.Dispatch<React.SetStateAction<number | null>>;
+  setRentalSlotEditor: React.Dispatch<
+    React.SetStateAction<RentalSlotEditorState | null>
+  >;
+  setRentalSlotFeedback: React.Dispatch<
+    React.SetStateAction<RentalSlotFeedback | null>
+  >;
+  savingRentalSlotKey: string | null;
+  handleRentalSlotSave: () => void;
+  isRentalSlotCreateReady: boolean;
+  selectedRentalSlot: AdminRentalSlotSummary | null;
+  selectedRentalSlotHasActiveBooking: boolean;
+  isRentalSlotDirty: boolean;
 };
 
 function TrainingsSectionContent({
@@ -1301,6 +1522,905 @@ function TrainingsSectionContent({
   );
 }
 
+function RentalsSectionContent({
+  overview,
+  isRentalOperationalEditable,
+  pendingRentalBookingsCount,
+  availablePublicSlotsCount,
+  rentalBookingStatusFilter,
+  setRentalBookingStatusFilter,
+  filteredRentalBookings,
+  activeSelectedRentalBookingId,
+  handleRentalBookingSelect,
+  rentalBookingFeedback,
+  activeRentalBookingEditor,
+  selectedRentalBooking,
+  setRentalBookingEditorId,
+  setRentalBookingEditor,
+  setRentalBookingFeedback,
+  savingRentalBookingId,
+  handleRentalBookingSave,
+  isRentalBookingDirty,
+  rentalSlotStatusFilter,
+  setRentalSlotStatusFilter,
+  filteredRentalSlots,
+  activeRentalSlotId,
+  handleRentalSlotSelect,
+  rentalSlotFeedback,
+  isRentalSlotCreateMode,
+  handleRentalSlotCreateStart,
+  handleRentalSlotCreateCancel,
+  activeRentalSlotEditor,
+  rentalSlotResourceOptions,
+  setRentalSlotEditorId,
+  setRentalSlotEditor,
+  setRentalSlotFeedback,
+  savingRentalSlotKey,
+  handleRentalSlotSave,
+  isRentalSlotCreateReady,
+  selectedRentalSlot,
+  selectedRentalSlotHasActiveBooking,
+  isRentalSlotDirty,
+}: RentalsSectionContentProps) {
+  const selectedRentalSlotSavingKey = selectedRentalSlot
+    ? `edit-${selectedRentalSlot.id}`
+    : null;
+
+  function updateSelectedRentalBookingEditor(
+    patch: Partial<RentalBookingEditorState>
+  ) {
+    if (!selectedRentalBooking) {
+      return;
+    }
+
+    setRentalBookingEditorId(selectedRentalBooking.id);
+    setRentalBookingEditor((currentEditor) => {
+      const baseEditor = currentEditor ?? activeRentalBookingEditor;
+      return baseEditor ? { ...baseEditor, ...patch } : currentEditor;
+    });
+    setRentalBookingFeedback(null);
+  }
+
+  function updateCreateRentalSlotEditor(patch: Partial<RentalSlotEditorState>) {
+    setRentalSlotEditor((currentEditor) => {
+      const baseEditor = currentEditor ?? activeRentalSlotEditor;
+      return baseEditor ? { ...baseEditor, ...patch } : currentEditor;
+    });
+    setRentalSlotFeedback(null);
+  }
+
+  function updateSelectedRentalSlotEditor(
+    patch: Partial<RentalSlotEditorState>
+  ) {
+    if (!selectedRentalSlot) {
+      return;
+    }
+
+    setRentalSlotEditorId(selectedRentalSlot.id);
+    setRentalSlotEditor((currentEditor) => {
+      const baseEditor = currentEditor ?? activeRentalSlotEditor;
+      return baseEditor ? { ...baseEditor, ...patch } : currentEditor;
+    });
+    setRentalSlotFeedback(null);
+  }
+
+  function renderReadonlyValue(value: string) {
+    return (
+      <div className="mt-2 rounded-2xl border border-stone-300 bg-white px-4 py-3 text-sm text-stone-800">
+        {value}
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-6">
+      <div className="grid gap-3 md:grid-cols-3">
+        <div className="rounded-2xl bg-stone-100 p-4">
+          <p className="text-sm font-medium text-stone-500">Бронирования аренды</p>
+          <div className="mt-3 grid gap-1 text-sm text-stone-700">
+            <p>Всего: {overview!.rentalBookings.length}</p>
+            <p>Ждут подтверждения: {pendingRentalBookingsCount}</p>
+            <p>
+              Подтверждено:{' '}
+              {
+                overview!.rentalBookings.filter(
+                  (booking) => booking.status === 'CONFIRMED'
+                ).length
+              }
+            </p>
+          </div>
+        </div>
+        <div className="rounded-2xl bg-stone-100 p-4">
+          <p className="text-sm font-medium text-stone-500">Слоты аренды</p>
+          <div className="mt-3 grid gap-1 text-sm text-stone-700">
+            <p>Всего: {overview!.rentalSlots.length}</p>
+            <p>Публично доступны: {availablePublicSlotsCount}</p>
+            <p>
+              С активной бронью:{' '}
+              {
+                overview.rentalSlots.filter((slot) => slot.activeBookingSummary)
+                  .length
+              }
+            </p>
+          </div>
+        </div>
+        <div className="rounded-2xl bg-stone-100 p-4">
+          <p className="text-sm font-medium text-stone-500">Инвентарь</p>
+          <div className="mt-3 grid gap-1 text-sm text-stone-700">
+            <p>Площадок: {overview!.rentalFacilities.length}</p>
+            <p>Ресурсов: {overview!.rentalResources.length}</p>
+            <p>
+              Городов в аренде:{' '}
+              {
+                new Set(
+                  overview!.rentalFacilities.map((facility) => facility.city.id)
+                ).size
+              }
+            </p>
+          </div>
+        </div>
+      </div>
+
+      {!isRentalOperationalEditable ? (
+        <p className="rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
+          В этом модуле TRAINER не получает глобальное управление арендой.
+          Операционные действия по броням и слотам доступны только MANAGER и
+          ADMIN.
+        </p>
+      ) : null}
+
+      <div className="grid gap-5 xl:grid-cols-[0.92fr_1.08fr]">
+        <div className="space-y-4">
+          <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-1">
+            <label className="text-sm font-medium text-stone-700">
+              Фильтр бронирований
+              <select
+                value={rentalBookingStatusFilter}
+                onChange={(event) => {
+                  setRentalBookingStatusFilter(
+                    event.target.value as RentalBookingStatusFilter
+                  );
+                  setRentalBookingFeedback(null);
+                }}
+                className="mt-2 w-full rounded-2xl border border-stone-300 bg-white px-4 py-3 text-base text-stone-950 outline-none transition focus:border-stone-500"
+              >
+                {rentalBookingFilterOptions.map((option) => (
+                  <option key={option.value} value={option.value}>
+                    {option.label}
+                  </option>
+                ))}
+              </select>
+            </label>
+          </div>
+
+          {filteredRentalBookings.length === 0 ? (
+            <p className="rounded-2xl border border-dashed border-stone-300 bg-stone-50 p-5 text-sm text-stone-600">
+              {overview!.rentalBookings.length === 0
+                ? 'Бронирований аренды пока нет.'
+                : 'По текущему фильтру бронирований нет.'}
+            </p>
+          ) : (
+            <div className="space-y-3 xl:max-h-[660px] xl:overflow-y-auto xl:pr-2">
+              {filteredRentalBookings.map((booking) => {
+                const isSelected =
+                  booking.id === activeSelectedRentalBookingId;
+
+                return (
+                  <button
+                    key={booking.id}
+                    type="button"
+                    onClick={() => handleRentalBookingSelect(booking)}
+                    className={`w-full rounded-2xl border p-4 text-left transition ${
+                      isSelected
+                        ? 'border-stone-950 bg-stone-950 text-white shadow-[0_18px_45px_-35px_rgba(0,0,0,0.45)]'
+                        : 'border-stone-200 bg-stone-50 hover:border-stone-400 hover:bg-white'
+                    }`}
+                  >
+                    <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                      <div>
+                        <p className="font-semibold">
+                          {booking.resource.name} / {booking.facility.name}
+                        </p>
+                        <p
+                          className={`mt-1 text-sm ${
+                            isSelected ? 'text-stone-300' : 'text-stone-600'
+                          }`}
+                        >
+                          {booking.city.name}
+                        </p>
+                        <div
+                          className={`mt-2 grid gap-1 text-sm ${
+                            isSelected ? 'text-stone-300' : 'text-stone-700'
+                          }`}
+                        >
+                          <p>{formatDateTime(booking.rentalSlot.startsAt)}</p>
+                          <p>Заказчик: {formatUserIdentity(booking.user)}</p>
+                          <p>
+                            Формат:{' '}
+                            {booking.bookingType === 'PARTICIPANT'
+                              ? 'От лица участника'
+                              : 'Самостоятельная аренда'}
+                          </p>
+                        </div>
+                      </div>
+                      <span
+                        className={`rounded-full px-3 py-1 text-xs font-medium ${
+                          isSelected
+                            ? 'bg-white/15 text-white'
+                            : getStatusBadgeClass(booking.status)
+                        }`}
+                      >
+                        {formatStatus(booking.status)}
+                      </span>
+                    </div>
+                  </button>
+                );
+              })}
+            </div>
+          )}
+        </div>
+
+        <div className="rounded-[26px] border border-stone-200 bg-stone-50 p-5">
+          <div className="flex flex-col gap-2">
+            <p className="text-xs font-semibold uppercase tracking-[0.18em] text-stone-500">
+              Бронирование
+            </p>
+            <h3 className="text-xl font-semibold text-stone-950">
+              {selectedRentalBooking
+                ? `Бронь #${selectedRentalBooking.id}`
+                : 'Выберите бронирование слева'}
+            </h3>
+            <p className="text-sm leading-6 text-stone-600">
+              Staff работает со статусом брони и manager note без ручного
+              обновления страницы.
+            </p>
+          </div>
+
+          {rentalBookingFeedback ? (
+            <div
+              className={`mt-4 rounded-2xl border px-4 py-3 text-sm ${
+                rentalBookingFeedback.tone === 'success'
+                  ? 'border-emerald-200 bg-emerald-50 text-emerald-700'
+                  : 'border-rose-200 bg-rose-50 text-rose-700'
+              }`}
+            >
+              {rentalBookingFeedback.message}
+            </div>
+          ) : null}
+
+          {selectedRentalBooking && activeRentalBookingEditor ? (
+            <div className="mt-5 space-y-5">
+              <div className="grid gap-4 md:grid-cols-2">
+                <div className="rounded-2xl border border-stone-200 bg-white p-4 text-sm text-stone-700">
+                  <p className="font-semibold text-stone-950">
+                    {selectedRentalBooking.resource.name}
+                  </p>
+                  <p className="mt-1">
+                    {selectedRentalBooking.facility.name} /{' '}
+                    {selectedRentalBooking.city.name}
+                  </p>
+                  <p className="mt-2">
+                    Слот: {formatDateTime(selectedRentalBooking.rentalSlot.startsAt)}{' '}
+                    - {formatDateTime(selectedRentalBooking.rentalSlot.endsAt)}
+                  </p>
+                  <p className="mt-2">
+                    Публичность:{' '}
+                    {selectedRentalBooking.rentalSlot.isPublic
+                      ? 'Видна в публичной аренде'
+                      : 'Скрыта из публичной аренды'}
+                  </p>
+                </div>
+
+                <div className="rounded-2xl border border-stone-200 bg-white p-4 text-sm text-stone-700">
+                  <p className="font-semibold text-stone-950">
+                    Заказчик: {formatUserIdentity(selectedRentalBooking.user)}
+                  </p>
+                  <p className="mt-2">
+                    Формат:{' '}
+                    {selectedRentalBooking.bookingType === 'PARTICIPANT'
+                      ? 'От лица участника'
+                      : 'Самостоятельная аренда'}
+                  </p>
+                  <p className="mt-2">
+                    Участник:{' '}
+                    {selectedRentalBooking.participant
+                      ? formatPersonName(selectedRentalBooking.participant)
+                      : 'Не привязан'}
+                  </p>
+                  <p className="mt-2">
+                    Обновлено: {formatDateTime(selectedRentalBooking.updatedAt)}
+                  </p>
+                </div>
+              </div>
+
+              <div className="grid gap-4 md:grid-cols-2">
+                <div className="rounded-2xl border border-stone-200 bg-white p-4">
+                  <p className="text-sm font-medium text-stone-700">
+                    Комментарий пользователя
+                  </p>
+                  <p className="mt-2 text-sm leading-6 text-stone-700">
+                    {selectedRentalBooking.noteFromUser?.trim() ||
+                      'Пользователь не оставил комментарий.'}
+                  </p>
+                </div>
+
+                <div className="rounded-2xl border border-stone-200 bg-white p-4 text-sm text-stone-700">
+                  <p className="font-medium text-stone-950">Таймлайн</p>
+                  <p className="mt-2">
+                    Создано: {formatDateTime(selectedRentalBooking.createdAt)}
+                  </p>
+                  <p className="mt-2">
+                    Обновлено: {formatDateTime(selectedRentalBooking.updatedAt)}
+                  </p>
+                </div>
+              </div>
+
+              <div className="grid gap-4">
+                <label className="text-sm font-medium text-stone-700">
+                  Статус брони
+                  {isRentalOperationalEditable ? (
+                    <select
+                      value={activeRentalBookingEditor.status}
+                      onChange={(event) =>
+                        updateSelectedRentalBookingEditor({
+                          status: event.target
+                            .value as StaffManagedRentalBookingStatus,
+                        })
+                      }
+                      disabled={savingRentalBookingId === selectedRentalBooking.id}
+                      className="mt-2 w-full rounded-2xl border border-stone-300 bg-white px-4 py-3 text-base text-stone-950 outline-none transition focus:border-stone-500 disabled:cursor-not-allowed disabled:bg-stone-100"
+                    >
+                      {staffManagedRentalBookingStatusOptions.map((option) => (
+                        <option key={option.value} value={option.value}>
+                          {option.label}
+                        </option>
+                      ))}
+                    </select>
+                  ) : (
+                    renderReadonlyValue(formatStatus(selectedRentalBooking.status))
+                  )}
+                </label>
+
+                <label className="text-sm font-medium text-stone-700">
+                  Manager note
+                  {isRentalOperationalEditable ? (
+                    <textarea
+                      value={activeRentalBookingEditor.managerNote}
+                      onChange={(event) =>
+                        updateSelectedRentalBookingEditor({
+                          managerNote: event.target.value,
+                        })
+                      }
+                      rows={4}
+                      disabled={savingRentalBookingId === selectedRentalBooking.id}
+                      placeholder="Внутренняя заметка по бронированию"
+                      className="mt-2 w-full rounded-2xl border border-stone-300 bg-white px-4 py-3 text-base text-stone-950 outline-none transition focus:border-stone-500 disabled:cursor-not-allowed disabled:bg-stone-100"
+                    />
+                  ) : (
+                    renderReadonlyValue(
+                      selectedRentalBooking.managerNote?.trim() ||
+                        'Внутренняя заметка пока не указана.'
+                    )
+                  )}
+                </label>
+              </div>
+
+              {isRentalOperationalEditable ? (
+                <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                  <p className="text-sm text-stone-600">
+                    PATCH меняет статус и manager note. После сохранения список и
+                    detail-часть синхронизируются без ручной перезагрузки.
+                  </p>
+                  <button
+                    type="button"
+                    onClick={handleRentalBookingSave}
+                    disabled={
+                      !isRentalBookingDirty ||
+                      savingRentalBookingId === selectedRentalBooking.id
+                    }
+                    className="rounded-full bg-stone-950 px-5 py-3 text-sm font-semibold text-white transition hover:bg-stone-800 disabled:cursor-not-allowed disabled:bg-stone-400"
+                  >
+                    {savingRentalBookingId === selectedRentalBooking.id
+                      ? 'Сохраняем...'
+                      : 'Сохранить бронирование'}
+                  </button>
+                </div>
+              ) : null}
+            </div>
+          ) : (
+            <p className="mt-5 rounded-2xl border border-dashed border-stone-300 bg-white p-5 text-sm text-stone-600">
+              Выберите бронирование слева, чтобы открыть данные и рабочие
+              действия staff.
+            </p>
+          )}
+        </div>
+      </div>
+
+      <div className="grid gap-5 xl:grid-cols-[0.92fr_1.08fr]">
+        <div className="space-y-4">
+          <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-1">
+            <label className="text-sm font-medium text-stone-700">
+              Фильтр слотов
+              <select
+                value={rentalSlotStatusFilter}
+                onChange={(event) => {
+                  setRentalSlotStatusFilter(
+                    event.target.value as RentalSlotStatusFilter
+                  );
+                  setRentalSlotFeedback(null);
+                }}
+                className="mt-2 w-full rounded-2xl border border-stone-300 bg-white px-4 py-3 text-base text-stone-950 outline-none transition focus:border-stone-500"
+              >
+                {rentalSlotFilterOptions.map((option) => (
+                  <option key={option.value} value={option.value}>
+                    {option.label}
+                  </option>
+                ))}
+              </select>
+            </label>
+          </div>
+
+          {isRentalOperationalEditable ? (
+            <div className="flex flex-wrap gap-3">
+              <button
+                type="button"
+                onClick={handleRentalSlotCreateStart}
+                className="rounded-full bg-stone-950 px-5 py-3 text-sm font-semibold text-white transition hover:bg-stone-800"
+              >
+                Новый слот аренды
+              </button>
+              {isRentalSlotCreateMode ? (
+                <button
+                  type="button"
+                  onClick={handleRentalSlotCreateCancel}
+                  className="rounded-full border border-stone-300 px-5 py-3 text-sm font-semibold text-stone-700 transition hover:border-stone-500 hover:text-stone-950"
+                >
+                  Вернуться к слотам
+                </button>
+              ) : null}
+            </div>
+          ) : null}
+
+          {filteredRentalSlots.length === 0 ? (
+            <p className="rounded-2xl border border-dashed border-stone-300 bg-stone-50 p-5 text-sm text-stone-600">
+              {overview!.rentalSlots.length === 0
+                ? 'Слотов аренды пока нет.'
+                : 'По текущему фильтру слотов нет.'}
+            </p>
+          ) : (
+            <div className="space-y-3 xl:max-h-[720px] xl:overflow-y-auto xl:pr-2">
+              {filteredRentalSlots.map((slot) => {
+                const isSelected =
+                  !isRentalSlotCreateMode && slot.id === activeRentalSlotId;
+
+                return (
+                  <button
+                    key={slot.id}
+                    type="button"
+                    onClick={() => handleRentalSlotSelect(slot)}
+                    className={`w-full rounded-2xl border p-4 text-left transition ${
+                      isSelected
+                        ? 'border-stone-950 bg-stone-950 text-white shadow-[0_18px_45px_-35px_rgba(0,0,0,0.45)]'
+                        : 'border-stone-200 bg-stone-50 hover:border-stone-400 hover:bg-white'
+                    }`}
+                  >
+                    <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                      <div>
+                        <p className="font-semibold">
+                          {slot.resource.name} / {slot.facility.name}
+                        </p>
+                        <p
+                          className={`mt-1 text-sm ${
+                            isSelected ? 'text-stone-300' : 'text-stone-600'
+                          }`}
+                        >
+                          {slot.city.name}
+                        </p>
+                        <div
+                          className={`mt-2 grid gap-1 text-sm ${
+                            isSelected ? 'text-stone-300' : 'text-stone-700'
+                          }`}
+                        >
+                          <p>
+                            {formatDateTime(slot.startsAt)} -{' '}
+                            {formatDateTime(slot.endsAt)}
+                          </p>
+                          <p>
+                            {slot.visibleToPublic
+                              ? 'Виден в публичной аренде'
+                              : 'Скрыт из публичной аренды'}
+                          </p>
+                          <p>
+                            {slot.activeBookingSummary
+                              ? `Активная бронь #${slot.activeBookingSummary.id}`
+                              : 'Активной брони нет'}
+                          </p>
+                        </div>
+                      </div>
+                      <span
+                        className={`rounded-full px-3 py-1 text-xs font-medium ${
+                          isSelected
+                            ? 'bg-white/15 text-white'
+                            : getStatusBadgeClass(slot.status)
+                        }`}
+                      >
+                        {formatStatus(slot.status)}
+                      </span>
+                    </div>
+                  </button>
+                );
+              })}
+            </div>
+          )}
+        </div>
+
+        <div className="rounded-[26px] border border-stone-200 bg-stone-50 p-5">
+          <div className="flex flex-col gap-2">
+            <p className="text-xs font-semibold uppercase tracking-[0.18em] text-stone-500">
+              Слот аренды
+            </p>
+            <h3 className="text-xl font-semibold text-stone-950">
+              {isRentalSlotCreateMode
+                ? 'Создание нового слота'
+                : selectedRentalSlot
+                  ? `Слот #${selectedRentalSlot.id}`
+                  : 'Выберите слот слева'}
+            </h3>
+            <p className="text-sm leading-6 text-stone-600">
+              Staff управляет слотами через GET / POST / PATCH. Ресурс
+              выбирается при создании, а дальше редактируются время, статус и
+              публичность.
+            </p>
+          </div>
+
+          {rentalSlotFeedback ? (
+            <div
+              className={`mt-4 rounded-2xl border px-4 py-3 text-sm ${
+                rentalSlotFeedback.tone === 'success'
+                  ? 'border-emerald-200 bg-emerald-50 text-emerald-700'
+                  : 'border-rose-200 bg-rose-50 text-rose-700'
+              }`}
+            >
+              {rentalSlotFeedback.message}
+            </div>
+          ) : null}
+
+          {activeRentalSlotEditor &&
+          (isRentalSlotCreateMode || selectedRentalSlot) ? (
+            <div className="mt-5 space-y-5">
+              {!isRentalSlotCreateMode && selectedRentalSlot ? (
+                <div className="grid gap-4 md:grid-cols-2">
+                  <div className="rounded-2xl border border-stone-200 bg-white p-4 text-sm text-stone-700">
+                    <p className="font-semibold text-stone-950">
+                      {selectedRentalSlot.resource.name}
+                    </p>
+                    <p className="mt-1">
+                      {selectedRentalSlot.facility.name} /{' '}
+                      {selectedRentalSlot.city.name}
+                    </p>
+                    <p className="mt-2">
+                      Тип ресурса:{' '}
+                      {selectedRentalSlot.resource.resourceType || 'Не указан'}
+                    </p>
+                    <p className="mt-2">
+                      Окно слота: {formatDateTime(selectedRentalSlot.startsAt)} -{' '}
+                      {formatDateTime(selectedRentalSlot.endsAt)}
+                    </p>
+                  </div>
+
+                  <div className="rounded-2xl border border-stone-200 bg-white p-4 text-sm text-stone-700">
+                    <p className="font-semibold text-stone-950">
+                      Активная бронь
+                    </p>
+                    {selectedRentalSlot.activeBookingSummary ? (
+                      <div className="mt-2 space-y-2">
+                        <p>
+                          #{selectedRentalSlot.activeBookingSummary.id} /{' '}
+                          {formatStatus(
+                            selectedRentalSlot.activeBookingSummary.status
+                          )}
+                        </p>
+                        <p>
+                          Заказчик:{' '}
+                          {formatUserIdentity(
+                            selectedRentalSlot.activeBookingSummary.user
+                          )}
+                        </p>
+                        <p>
+                          Участник:{' '}
+                          {selectedRentalSlot.activeBookingSummary.participant
+                            ? formatPersonName(
+                                selectedRentalSlot.activeBookingSummary
+                                  .participant
+                              )
+                            : 'Не привязан'}
+                        </p>
+                      </div>
+                    ) : (
+                      <p className="mt-2">Сейчас активной брони нет.</p>
+                    )}
+                  </div>
+                </div>
+              ) : null}
+
+              <div className="grid gap-4 md:grid-cols-2">
+                <label className="text-sm font-medium text-stone-700">
+                  Ресурс аренды
+                  {isRentalSlotCreateMode ? (
+                    <select
+                      value={activeRentalSlotEditor.resourceId}
+                      onChange={(event) =>
+                        updateCreateRentalSlotEditor({
+                          resourceId: event.target.value,
+                        })
+                      }
+                      disabled={savingRentalSlotKey === 'create'}
+                      className="mt-2 w-full rounded-2xl border border-stone-300 bg-white px-4 py-3 text-base text-stone-950 outline-none transition focus:border-stone-500 disabled:cursor-not-allowed disabled:bg-stone-100"
+                    >
+                      <option value="">Выберите ресурс</option>
+                      {rentalSlotResourceOptions.map((resource) => (
+                        <option key={resource.id} value={resource.id}>
+                          {resource.name} / {resource.facility.name} /{' '}
+                          {resource.facility.city.name}
+                        </option>
+                      ))}
+                    </select>
+                  ) : (
+                    renderReadonlyValue(
+                      selectedRentalSlot
+                        ? `${selectedRentalSlot.resource.name} / ${selectedRentalSlot.facility.name} / ${selectedRentalSlot.city.name}`
+                        : 'Ресурс не выбран'
+                    )
+                  )}
+                </label>
+
+                <label className="text-sm font-medium text-stone-700">
+                  Статус слота
+                  {isRentalOperationalEditable ? (
+                    isRentalSlotCreateMode ? (
+                      <select
+                        value={activeRentalSlotEditor.status}
+                        onChange={(event) =>
+                          updateCreateRentalSlotEditor({
+                            status: event.target
+                              .value as StaffManagedRentalSlotStatus,
+                          })
+                        }
+                        disabled={savingRentalSlotKey === 'create'}
+                        className="mt-2 w-full rounded-2xl border border-stone-300 bg-white px-4 py-3 text-base text-stone-950 outline-none transition focus:border-stone-500 disabled:cursor-not-allowed disabled:bg-stone-100"
+                      >
+                        {createRentalSlotStatusOptions.map((option) => (
+                          <option key={option.value} value={option.value}>
+                            {option.label}
+                          </option>
+                        ))}
+                      </select>
+                    ) : selectedRentalSlotHasActiveBooking ? (
+                      <div className="mt-2 rounded-2xl border border-sky-200 bg-sky-50 px-4 py-3 text-sm text-sky-800">
+                        У слота есть активная бронь, поэтому статус фиксирован
+                        как BOOKED.
+                      </div>
+                    ) : (
+                      <select
+                        value={activeRentalSlotEditor.status}
+                        onChange={(event) =>
+                          updateSelectedRentalSlotEditor({
+                            status: event.target
+                              .value as StaffManagedRentalSlotStatus,
+                          })
+                        }
+                        disabled={savingRentalSlotKey === selectedRentalSlotSavingKey}
+                        className="mt-2 w-full rounded-2xl border border-stone-300 bg-white px-4 py-3 text-base text-stone-950 outline-none transition focus:border-stone-500 disabled:cursor-not-allowed disabled:bg-stone-100"
+                      >
+                        {editableRentalSlotStatusOptions.map((option) => (
+                          <option key={option.value} value={option.value}>
+                            {option.label}
+                          </option>
+                        ))}
+                      </select>
+                    )
+                  ) : (
+                    renderReadonlyValue(
+                      selectedRentalSlot
+                        ? formatStatus(selectedRentalSlot.status)
+                        : formatStatus(activeRentalSlotEditor.status)
+                    )
+                  )}
+                </label>
+
+                <label className="text-sm font-medium text-stone-700">
+                  Время начала
+                  <input
+                    type="datetime-local"
+                    value={activeRentalSlotEditor.startsAt}
+                    onChange={(event) =>
+                      isRentalSlotCreateMode
+                        ? updateCreateRentalSlotEditor({
+                            startsAt: event.target.value,
+                          })
+                        : updateSelectedRentalSlotEditor({
+                            startsAt: event.target.value,
+                          })
+                    }
+                    disabled={
+                      savingRentalSlotKey === 'create' ||
+                      savingRentalSlotKey === selectedRentalSlotSavingKey
+                    }
+                    className="mt-2 w-full rounded-2xl border border-stone-300 bg-white px-4 py-3 text-base text-stone-950 outline-none transition focus:border-stone-500 disabled:cursor-not-allowed disabled:bg-stone-100"
+                  />
+                </label>
+
+                <label className="text-sm font-medium text-stone-700">
+                  Время окончания
+                  <input
+                    type="datetime-local"
+                    value={activeRentalSlotEditor.endsAt}
+                    onChange={(event) =>
+                      isRentalSlotCreateMode
+                        ? updateCreateRentalSlotEditor({
+                            endsAt: event.target.value,
+                          })
+                        : updateSelectedRentalSlotEditor({
+                            endsAt: event.target.value,
+                          })
+                    }
+                    disabled={
+                      savingRentalSlotKey === 'create' ||
+                      savingRentalSlotKey === selectedRentalSlotSavingKey
+                    }
+                    className="mt-2 w-full rounded-2xl border border-stone-300 bg-white px-4 py-3 text-base text-stone-950 outline-none transition focus:border-stone-500 disabled:cursor-not-allowed disabled:bg-stone-100"
+                  />
+                </label>
+              </div>
+
+              <label className="flex items-center gap-3 rounded-2xl border border-stone-300 bg-white px-4 py-3 text-sm font-medium text-stone-700">
+                <input
+                  type="checkbox"
+                  checked={activeRentalSlotEditor.visibleToPublic}
+                  onChange={(event) =>
+                    isRentalSlotCreateMode
+                      ? updateCreateRentalSlotEditor({
+                          visibleToPublic: event.target.checked,
+                        })
+                      : updateSelectedRentalSlotEditor({
+                          visibleToPublic: event.target.checked,
+                        })
+                  }
+                  disabled={
+                    savingRentalSlotKey === 'create' ||
+                    savingRentalSlotKey === selectedRentalSlotSavingKey
+                  }
+                  className="h-4 w-4 rounded border-stone-300 text-stone-950 focus:ring-stone-500"
+                />
+                Показать слот в публичной аренде
+              </label>
+
+              {isRentalOperationalEditable ? (
+                <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                  <p className="text-sm text-stone-600">
+                    {isRentalSlotCreateMode
+                      ? 'POST создаёт слот и сразу добавляет его в список слева.'
+                      : 'PATCH обновляет время, статус и публичность слота без ручной перезагрузки.'}
+                  </p>
+                  <button
+                    type="button"
+                    onClick={handleRentalSlotSave}
+                    disabled={
+                      isRentalSlotCreateMode
+                        ? !isRentalSlotCreateReady ||
+                          savingRentalSlotKey === 'create'
+                        : !isRentalSlotDirty ||
+                          savingRentalSlotKey === selectedRentalSlotSavingKey
+                    }
+                    className="rounded-full bg-stone-950 px-5 py-3 text-sm font-semibold text-white transition hover:bg-stone-800 disabled:cursor-not-allowed disabled:bg-stone-400"
+                  >
+                    {isRentalSlotCreateMode
+                      ? savingRentalSlotKey === 'create'
+                        ? 'Создаём...'
+                        : 'Создать слот'
+                      : savingRentalSlotKey === selectedRentalSlotSavingKey
+                        ? 'Сохраняем...'
+                        : 'Сохранить слот'}
+                  </button>
+                </div>
+              ) : null}
+            </div>
+          ) : (
+            <p className="mt-5 rounded-2xl border border-dashed border-stone-300 bg-white p-5 text-sm text-stone-600">
+              {isRentalOperationalEditable
+                ? 'Выберите слот слева или создайте новый, чтобы открыть рабочую форму.'
+                : 'Выберите слот слева, чтобы открыть его данные.'}
+            </p>
+          )}
+        </div>
+      </div>
+
+      <div className="grid gap-4 lg:grid-cols-2">
+        <div className="rounded-2xl border border-stone-200 bg-stone-50 p-5">
+          <h3 className="text-base font-semibold text-stone-950">
+            Площадки аренды
+          </h3>
+          <p className="mt-2 text-sm leading-6 text-stone-600">
+            В этой итерации staff видит инвентарь и использует его как контекст
+            для слотов и бронирований.
+          </p>
+          <div className="mt-4 space-y-3">
+            {overview!.rentalFacilities.map((facility) => {
+              const resourcesCount = overview.rentalResources.filter(
+                (resource) => resource.facility.id === facility.id
+              ).length;
+              const slotsCount = overview.rentalSlots.filter(
+                (slot) => slot.facility.id === facility.id
+              ).length;
+
+              return (
+                <div
+                  key={facility.id}
+                  className="rounded-2xl border border-stone-200 bg-white p-4 text-sm text-stone-700"
+                >
+                  <p className="font-semibold text-stone-950">{facility.name}</p>
+                  <p className="mt-1">{facility.city.name}</p>
+                  <p className="mt-2">
+                    Ресурсов: {resourcesCount} / Слотов: {slotsCount}
+                  </p>
+                  <p className="mt-2 text-stone-500">
+                    Обновлено: {formatDateTime(facility.updatedAt)}
+                  </p>
+                </div>
+              );
+            })}
+            {overview!.rentalFacilities.length === 0 ? (
+              <p className="rounded-2xl border border-dashed border-stone-300 bg-white p-5 text-sm text-stone-600">
+                Площадок аренды пока нет.
+              </p>
+            ) : null}
+          </div>
+        </div>
+
+        <div className="rounded-2xl border border-stone-200 bg-stone-50 p-5">
+          <h3 className="text-base font-semibold text-stone-950">
+            Ресурсы аренды
+          </h3>
+          <p className="mt-2 text-sm leading-6 text-stone-600">
+            Ресурсы используются в качестве опорных сущностей для создания и
+            редактирования слотов.
+          </p>
+          <div className="mt-4 space-y-3">
+            {overview!.rentalResources.map((resource) => {
+              const slotsCount = overview.rentalSlots.filter(
+                (slot) => slot.resource.id === resource.id
+              ).length;
+
+              return (
+                <div
+                  key={resource.id}
+                  className="rounded-2xl border border-stone-200 bg-white p-4 text-sm text-stone-700"
+                >
+                  <p className="font-semibold text-stone-950">{resource.name}</p>
+                  <p className="mt-1">
+                    {resource.facility.name} / {resource.facility.city.name}
+                  </p>
+                  <p className="mt-2">
+                    Тип: {resource.type || 'Не указан'} / Слотов: {slotsCount}
+                  </p>
+                  <p className="mt-2 text-stone-500">
+                    Обновлено: {formatDateTime(resource.updatedAt)}
+                  </p>
+                </div>
+              );
+            })}
+            {overview!.rentalResources.length === 0 ? (
+              <p className="rounded-2xl border border-dashed border-stone-300 bg-white p-5 text-sm text-stone-600">
+                Ресурсов аренды пока нет.
+              </p>
+            ) : null}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export default function AdminPage() {
   const router = useRouter();
   const [status, setStatus] = useState<PageStatus>('loading');
@@ -1345,6 +2465,38 @@ export default function AdminPage() {
   const [trainingFeedback, setTrainingFeedback] =
     useState<TrainingFeedback | null>(null);
   const [savingTrainingKey, setSavingTrainingKey] = useState<string | null>(null);
+  const [rentalBookingStatusFilter, setRentalBookingStatusFilter] =
+    useState<RentalBookingStatusFilter>('ALL');
+  const [selectedRentalBookingId, setSelectedRentalBookingId] = useState<
+    number | null
+  >(null);
+  const [rentalBookingEditorId, setRentalBookingEditorId] = useState<
+    number | null
+  >(null);
+  const [rentalBookingEditor, setRentalBookingEditor] =
+    useState<RentalBookingEditorState | null>(null);
+  const [rentalBookingFeedback, setRentalBookingFeedback] =
+    useState<RentalBookingFeedback | null>(null);
+  const [savingRentalBookingId, setSavingRentalBookingId] = useState<
+    number | null
+  >(null);
+  const [rentalSlotStatusFilter, setRentalSlotStatusFilter] =
+    useState<RentalSlotStatusFilter>('ALL');
+  const [selectedRentalSlotId, setSelectedRentalSlotId] = useState<number | null>(
+    null
+  );
+  const [rentalSlotEditorMode, setRentalSlotEditorMode] =
+    useState<RentalSlotFormMode>('edit');
+  const [rentalSlotEditorId, setRentalSlotEditorId] = useState<number | null>(
+    null
+  );
+  const [rentalSlotEditor, setRentalSlotEditor] =
+    useState<RentalSlotEditorState | null>(null);
+  const [rentalSlotFeedback, setRentalSlotFeedback] =
+    useState<RentalSlotFeedback | null>(null);
+  const [savingRentalSlotKey, setSavingRentalSlotKey] = useState<string | null>(
+    null
+  );
 
   useEffect(() => {
     let isCancelled = false;
@@ -1547,7 +2699,6 @@ export default function AdminPage() {
           .filter((cityName): cityName is string => Boolean(cityName))
       ).size
     : 0;
-  const latestRentalSlots = overview?.rentalSlots.slice(0, 4) ?? [];
   const summaryCards = [
     visibleAdminSectionIds.has('teams')
       ? {
@@ -1752,6 +2903,104 @@ export default function AdminPage() {
     activeTrainingEditor.startTime.length > 0 &&
     activeTrainingEditor.endTime.length > 0 &&
     normalizedEditorTrainingLocation.length > 0;
+  const isRentalOperationalEditable =
+    currentUserCapabilities.isAdmin || currentUserCapabilities.isManager;
+  const filteredRentalBookings = (overview?.rentalBookings ?? [])
+    .filter((booking) => {
+      if (
+        rentalBookingStatusFilter !== 'ALL' &&
+        booking.status !== rentalBookingStatusFilter
+      ) {
+        return false;
+      }
+
+      return true;
+    })
+    .sort(
+      (left, right) =>
+        new Date(right.updatedAt).getTime() - new Date(left.updatedAt).getTime()
+    );
+  const selectedRentalBooking =
+    filteredRentalBookings.find((booking) => booking.id === selectedRentalBookingId) ??
+    filteredRentalBookings[0] ??
+    null;
+  const activeSelectedRentalBookingId = selectedRentalBooking?.id ?? null;
+  const activeRentalBookingEditor =
+    selectedRentalBooking &&
+    rentalBookingEditor !== null &&
+    rentalBookingEditorId === selectedRentalBooking.id
+      ? rentalBookingEditor
+      : selectedRentalBooking
+        ? createRentalBookingEditorState(selectedRentalBooking)
+        : null;
+  const normalizedSelectedRentalManagerNote =
+    selectedRentalBooking?.managerNote ?? '';
+  const normalizedEditorRentalManagerNote =
+    activeRentalBookingEditor?.managerNote.trim() ?? '';
+  const isRentalBookingDirty =
+    selectedRentalBooking !== null &&
+    activeRentalBookingEditor !== null &&
+    (selectedRentalBooking.status !== activeRentalBookingEditor.status ||
+      normalizedSelectedRentalManagerNote !== normalizedEditorRentalManagerNote);
+  const rentalSlotResourceOptions = (overview?.rentalResources ?? [])
+    .slice()
+    .sort((left, right) => {
+      const leftLabel = `${left.name} ${left.facility.name} ${left.facility.city.name}`;
+      const rightLabel = `${right.name} ${right.facility.name} ${right.facility.city.name}`;
+      return leftLabel.localeCompare(rightLabel, 'ru');
+    });
+  const filteredRentalSlots = (overview?.rentalSlots ?? [])
+    .filter((slot) => {
+      if (rentalSlotStatusFilter !== 'ALL' && slot.status !== rentalSlotStatusFilter) {
+        return false;
+      }
+
+      return true;
+    })
+    .sort(
+      (left, right) =>
+        new Date(left.startsAt).getTime() - new Date(right.startsAt).getTime()
+    );
+  const selectedRentalSlot =
+    rentalSlotEditorMode === 'create'
+      ? null
+      : filteredRentalSlots.find((slot) => slot.id === selectedRentalSlotId) ??
+        filteredRentalSlots[0] ??
+        null;
+  const activeRentalSlotId = selectedRentalSlot?.id ?? null;
+  const isRentalSlotCreateMode = rentalSlotEditorMode === 'create';
+  const activeRentalSlotEditor = isRentalSlotCreateMode
+    ? rentalSlotEditor
+    : selectedRentalSlot &&
+        rentalSlotEditor !== null &&
+          rentalSlotEditorId === selectedRentalSlot.id
+      ? rentalSlotEditor
+      : selectedRentalSlot
+        ? createRentalSlotEditorState(selectedRentalSlot)
+        : null;
+  const selectedRentalSlotHasActiveBooking =
+    selectedRentalSlot?.activeBookingSummary !== null &&
+    selectedRentalSlot?.activeBookingSummary !== undefined;
+  const normalizedSelectedRentalSlotStartsAt = selectedRentalSlot
+    ? toDateTimeLocalInputValue(new Date(selectedRentalSlot.startsAt))
+    : '';
+  const normalizedSelectedRentalSlotEndsAt = selectedRentalSlot
+    ? toDateTimeLocalInputValue(new Date(selectedRentalSlot.endsAt))
+    : '';
+  const isRentalSlotDirty =
+    !isRentalSlotCreateMode &&
+    selectedRentalSlot !== null &&
+    activeRentalSlotEditor !== null &&
+    (normalizedSelectedRentalSlotStartsAt !== activeRentalSlotEditor.startsAt ||
+      normalizedSelectedRentalSlotEndsAt !== activeRentalSlotEditor.endsAt ||
+      selectedRentalSlot.status !== activeRentalSlotEditor.status ||
+      selectedRentalSlot.visibleToPublic !== activeRentalSlotEditor.visibleToPublic);
+  const isRentalSlotCreateReady =
+    isRentalSlotCreateMode &&
+    activeRentalSlotEditor !== null &&
+    activeRentalSlotEditor.resourceId.length > 0 &&
+    activeRentalSlotEditor.startsAt.length > 0 &&
+    activeRentalSlotEditor.endsAt.length > 0;
 
   function handleTeamApplicationSelect(
     application: AdminTeamApplicationSummary
@@ -2140,6 +3389,347 @@ export default function AdminPage() {
       tone: 'success',
       message:
         'Тренировка сохранена. Изменения уже отражены в списке без ручной перезагрузки.',
+    });
+  }
+
+  function handleRentalBookingSelect(booking: AdminRentalBookingSummary) {
+    setSelectedRentalBookingId(booking.id);
+    setRentalBookingEditorId(booking.id);
+    setRentalBookingEditor(createRentalBookingEditorState(booking));
+    setRentalBookingFeedback(null);
+  }
+
+  async function handleRentalBookingSave() {
+    if (
+      !selectedRentalBooking ||
+      !activeRentalBookingEditor ||
+      !isRentalOperationalEditable
+    ) {
+      return;
+    }
+
+    const nextManagerNote =
+      activeRentalBookingEditor.managerNote.trim().length > 0
+        ? activeRentalBookingEditor.managerNote.trim()
+        : null;
+    const payload: {
+      status?: StaffManagedRentalBookingStatus;
+      managerNote?: string | null;
+    } = {};
+
+    if (selectedRentalBooking.status !== activeRentalBookingEditor.status) {
+      payload.status = activeRentalBookingEditor.status;
+    }
+
+    if ((selectedRentalBooking.managerNote ?? null) !== nextManagerNote) {
+      payload.managerNote = nextManagerNote;
+    }
+
+    if (Object.keys(payload).length === 0) {
+      setRentalBookingFeedback({
+        tone: 'success',
+        message: 'Изменений для сохранения нет.',
+      });
+      return;
+    }
+
+    setSavingRentalBookingId(selectedRentalBooking.id);
+    setRentalBookingFeedback(null);
+
+    const updateResult = await fetchJson<AdminRentalBookingSummary>(
+      `/api/admin/rental-bookings/${selectedRentalBooking.id}`,
+      {
+        method: 'PATCH',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(payload),
+      }
+    );
+
+    if (updateResult.response.status === 401) {
+      router.replace('/dev/login?next=/admin');
+      return;
+    }
+
+    if (!updateResult.response.ok) {
+      setSavingRentalBookingId(null);
+      setRentalBookingFeedback({
+        tone: 'error',
+        message: translateErrorMessage(
+          (updateResult.payload as { error?: string } | null)?.error ||
+            'Failed to update rental booking'
+        ),
+      });
+      return;
+    }
+
+    const updatedBooking = updateResult.payload as AdminRentalBookingSummary;
+
+    setOverview((currentOverview) => {
+      if (!currentOverview) {
+        return currentOverview;
+      }
+
+      return {
+        ...currentOverview,
+        rentalBookings: currentOverview.rentalBookings.map((booking) =>
+          booking.id === updatedBooking.id ? updatedBooking : booking
+        ),
+        rentalSlots: currentOverview.rentalSlots.map((slot) =>
+          slot.id === updatedBooking.rentalSlot.id
+            ? {
+                ...slot,
+                status: updatedBooking.rentalSlot.status,
+                activeBookingSummary:
+                  updatedBooking.status === 'CANCELLED'
+                    ? null
+                    : {
+                        id: updatedBooking.id,
+                        status: updatedBooking.status,
+                        bookingType: updatedBooking.bookingType,
+                        createdAt: updatedBooking.createdAt,
+                        updatedAt: updatedBooking.updatedAt,
+                        user: updatedBooking.user,
+                        participant: updatedBooking.participant,
+                      },
+              }
+            : slot
+        ),
+      };
+    });
+    setSelectedRentalBookingId(updatedBooking.id);
+    setRentalBookingEditorId(updatedBooking.id);
+    setRentalBookingEditor(createRentalBookingEditorState(updatedBooking));
+    setSavingRentalBookingId(null);
+    setRentalBookingFeedback({
+      tone: 'success',
+      message:
+        'Бронирование сохранено. Статус и manager note уже отражены в интерфейсе.',
+    });
+  }
+
+  function handleRentalSlotSelect(slot: AdminRentalSlotSummary) {
+    setSelectedRentalSlotId(slot.id);
+    setRentalSlotEditorMode('edit');
+    setRentalSlotEditorId(slot.id);
+    setRentalSlotEditor(createRentalSlotEditorState(slot));
+    setRentalSlotFeedback(null);
+  }
+
+  function handleRentalSlotCreateStart() {
+    setRentalSlotEditorMode('create');
+    setRentalSlotEditorId(null);
+    setRentalSlotEditor(createRentalSlotEditorState());
+    setRentalSlotFeedback(null);
+  }
+
+  function handleRentalSlotCreateCancel() {
+    setRentalSlotEditorMode('edit');
+    setRentalSlotEditorId(selectedRentalSlot?.id ?? null);
+    setRentalSlotEditor(
+      selectedRentalSlot ? createRentalSlotEditorState(selectedRentalSlot) : null
+    );
+    setRentalSlotFeedback(null);
+  }
+
+  async function handleRentalSlotSave() {
+    if (!activeRentalSlotEditor || !isRentalOperationalEditable) {
+      return;
+    }
+
+    const startsAt = new Date(activeRentalSlotEditor.startsAt);
+    const endsAt = new Date(activeRentalSlotEditor.endsAt);
+
+    if (
+      Number.isNaN(startsAt.valueOf()) ||
+      Number.isNaN(endsAt.valueOf())
+    ) {
+      setRentalSlotFeedback({
+        tone: 'error',
+        message: 'Укажите корректные время начала и окончания слота.',
+      });
+      return;
+    }
+
+    if (endsAt <= startsAt) {
+      setRentalSlotFeedback({
+        tone: 'error',
+        message: 'Время окончания должно быть позже времени начала.',
+      });
+      return;
+    }
+
+    if (isRentalSlotCreateMode) {
+      const resourceId = Number(activeRentalSlotEditor.resourceId);
+
+      if (!Number.isInteger(resourceId) || resourceId <= 0) {
+        setRentalSlotFeedback({
+          tone: 'error',
+          message: 'Выберите ресурс аренды для нового слота.',
+        });
+        return;
+      }
+
+      setSavingRentalSlotKey('create');
+      setRentalSlotFeedback(null);
+
+      const createResult = await fetchJson<AdminRentalSlotSummary>(
+        '/api/admin/rental-slots',
+        {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            resourceId,
+            startsAt: startsAt.toISOString(),
+            endsAt: endsAt.toISOString(),
+            status:
+              activeRentalSlotEditor.status === 'BOOKED'
+                ? 'AVAILABLE'
+                : activeRentalSlotEditor.status,
+            visibleToPublic: activeRentalSlotEditor.visibleToPublic,
+          }),
+        }
+      );
+
+      if (createResult.response.status === 401) {
+        router.replace('/dev/login?next=/admin');
+        return;
+      }
+
+      if (!createResult.response.ok) {
+        setSavingRentalSlotKey(null);
+        setRentalSlotFeedback({
+          tone: 'error',
+          message: translateErrorMessage(
+            (createResult.payload as { error?: string } | null)?.error ||
+              'Failed to create rental slot'
+          ),
+        });
+        return;
+      }
+
+      const createdSlot = createResult.payload as AdminRentalSlotSummary;
+
+      setOverview((currentOverview) => {
+        if (!currentOverview) {
+          return currentOverview;
+        }
+
+        return {
+          ...currentOverview,
+          rentalSlots: [createdSlot, ...currentOverview.rentalSlots],
+        };
+      });
+      setSelectedRentalSlotId(createdSlot.id);
+      setRentalSlotEditorMode('edit');
+      setRentalSlotEditorId(createdSlot.id);
+      setRentalSlotEditor(createRentalSlotEditorState(createdSlot));
+      setSavingRentalSlotKey(null);
+      setRentalSlotFeedback({
+        tone: 'success',
+        message:
+          'Слот создан. Новая запись уже появилась в списке без ручной перезагрузки.',
+      });
+      return;
+    }
+
+    if (!selectedRentalSlot) {
+      return;
+    }
+
+    const payload: {
+      status?: StaffManagedRentalSlotStatus;
+      startsAt?: string;
+      endsAt?: string;
+      visibleToPublic?: boolean;
+    } = {};
+
+    if (
+      !selectedRentalSlotHasActiveBooking &&
+      selectedRentalSlot.status !== activeRentalSlotEditor.status
+    ) {
+      payload.status = activeRentalSlotEditor.status;
+    }
+
+    if (normalizedSelectedRentalSlotStartsAt !== activeRentalSlotEditor.startsAt) {
+      payload.startsAt = startsAt.toISOString();
+    }
+
+    if (normalizedSelectedRentalSlotEndsAt !== activeRentalSlotEditor.endsAt) {
+      payload.endsAt = endsAt.toISOString();
+    }
+
+    if (
+      selectedRentalSlot.visibleToPublic !== activeRentalSlotEditor.visibleToPublic
+    ) {
+      payload.visibleToPublic = activeRentalSlotEditor.visibleToPublic;
+    }
+
+    if (Object.keys(payload).length === 0) {
+      setRentalSlotFeedback({
+        tone: 'success',
+        message: 'Изменений для сохранения нет.',
+      });
+      return;
+    }
+
+    setSavingRentalSlotKey(`edit-${selectedRentalSlot.id}`);
+    setRentalSlotFeedback(null);
+
+    const updateResult = await fetchJson<AdminRentalSlotSummary>(
+      `/api/admin/rental-slots/${selectedRentalSlot.id}`,
+      {
+        method: 'PATCH',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(payload),
+      }
+    );
+
+    if (updateResult.response.status === 401) {
+      router.replace('/dev/login?next=/admin');
+      return;
+    }
+
+    if (!updateResult.response.ok) {
+      setSavingRentalSlotKey(null);
+      setRentalSlotFeedback({
+        tone: 'error',
+        message: translateErrorMessage(
+          (updateResult.payload as { error?: string } | null)?.error ||
+            'Failed to update rental slot'
+        ),
+      });
+      return;
+    }
+
+    const updatedSlot = updateResult.payload as AdminRentalSlotSummary;
+
+    setOverview((currentOverview) => {
+      if (!currentOverview) {
+        return currentOverview;
+      }
+
+      return {
+        ...currentOverview,
+        rentalSlots: currentOverview.rentalSlots.map((slot) =>
+          slot.id === updatedSlot.id ? updatedSlot : slot
+        ),
+      };
+    });
+    setSelectedRentalSlotId(updatedSlot.id);
+    setRentalSlotEditorMode('edit');
+    setRentalSlotEditorId(updatedSlot.id);
+    setRentalSlotEditor(createRentalSlotEditorState(updatedSlot));
+    setSavingRentalSlotKey(null);
+    setRentalSlotFeedback({
+      tone: 'success',
+      message:
+        'Слот сохранён. Изменения уже отражены в списке без ручной перезагрузки.',
     });
   }
 
@@ -2695,118 +4285,48 @@ export default function AdminPage() {
                   title="Аренда"
                   description="Сводка по бронированиям и инвентарю аренды в текущем staff/admin контуре."
                 >
-                  <div className="grid gap-3 md:grid-cols-2">
-                    <div className="rounded-2xl bg-stone-100 p-4">
-                      <p className="text-sm font-medium text-stone-500">
-                        Инвентарь аренды
-                      </p>
-                      <div className="mt-3 grid gap-1 text-sm text-stone-700">
-                        <p>Площадок: {overview.rentalFacilities.length}</p>
-                        <p>Ресурсов: {overview.rentalResources.length}</p>
-                        <p>Слотов: {overview.rentalSlots.length}</p>
-                        <p>Публично доступных: {availablePublicSlotsCount}</p>
-                      </div>
-                    </div>
-                    <div className="rounded-2xl bg-stone-100 p-4">
-                      <p className="text-sm font-medium text-stone-500">
-                        Бронирования аренды
-                      </p>
-                      <div className="mt-3 grid gap-1 text-sm text-stone-700">
-                        <p>Всего бронирований: {overview.rentalBookings.length}</p>
-                        <p>Ждут подтверждения: {pendingRentalBookingsCount}</p>
-                        <p>
-                          Подтверждено:{' '}
-                          {
-                            overview.rentalBookings.filter(
-                              (booking) => booking.status === 'CONFIRMED'
-                            ).length
-                          }
-                        </p>
-                      </div>
-                    </div>
-                  </div>
-
-                  <div className="mt-5 grid gap-4 lg:grid-cols-2">
-                    <div className="space-y-3">
-                      <h3 className="text-base font-semibold text-stone-950">
-                        Последние бронирования
-                      </h3>
-                      {overview.rentalBookings.slice(0, 4).map((booking) => (
-                        <article
-                          key={booking.id}
-                          className="rounded-2xl border border-stone-200 bg-stone-50 p-4"
-                        >
-                          <div className="flex items-start justify-between gap-3">
-                            <div>
-                              <p className="font-semibold text-stone-950">
-                                {booking.resource.name}
-                              </p>
-                              <p className="mt-1 text-sm text-stone-600">
-                                {booking.facility.name} / {booking.city.name}
-                              </p>
-                              <p className="mt-2 text-sm text-stone-700">
-                                {formatDateTime(booking.rentalSlot.startsAt)}
-                              </p>
-                              <p className="mt-2 text-sm text-stone-600">
-                                Заказчик: {formatUserIdentity(booking.user)}
-                              </p>
-                            </div>
-                            <span
-                              className={`rounded-full px-3 py-1 text-xs font-medium ${getStatusBadgeClass(booking.status)}`}
-                            >
-                              {formatStatus(booking.status)}
-                            </span>
-                          </div>
-                        </article>
-                      ))}
-                      {overview.rentalBookings.length === 0 ? (
-                        <p className="rounded-2xl border border-dashed border-stone-300 bg-stone-50 p-5 text-sm text-stone-600">
-                          Бронирований пока нет.
-                        </p>
-                      ) : null}
-                    </div>
-
-                    <div className="space-y-3">
-                      <h3 className="text-base font-semibold text-stone-950">
-                        Ближайшие слоты
-                      </h3>
-                      {latestRentalSlots.map((slot) => (
-                        <article
-                          key={slot.id}
-                          className="rounded-2xl border border-stone-200 bg-stone-50 p-4"
-                        >
-                          <div className="flex items-start justify-between gap-3">
-                            <div>
-                              <p className="font-semibold text-stone-950">
-                                {slot.resource.name}
-                              </p>
-                              <p className="mt-1 text-sm text-stone-600">
-                                {slot.facility.name} / {slot.city.name}
-                              </p>
-                              <p className="mt-2 text-sm text-stone-700">
-                                {formatDateTime(slot.startsAt)}
-                              </p>
-                              <p className="mt-2 text-sm text-stone-600">
-                                {slot.visibleToPublic
-                                  ? 'Виден в публичной аренде'
-                                  : 'Скрыт из публичной аренды'}
-                              </p>
-                            </div>
-                            <span
-                              className={`rounded-full px-3 py-1 text-xs font-medium ${getStatusBadgeClass(slot.status)}`}
-                            >
-                              {formatStatus(slot.status)}
-                            </span>
-                          </div>
-                        </article>
-                      ))}
-                      {latestRentalSlots.length === 0 ? (
-                        <p className="rounded-2xl border border-dashed border-stone-300 bg-stone-50 p-5 text-sm text-stone-600">
-                          Слотов аренды пока нет.
-                        </p>
-                      ) : null}
-                    </div>
-                  </div>
+                  <RentalsSectionContent
+                    overview={overview}
+                    isRentalOperationalEditable={isRentalOperationalEditable}
+                    pendingRentalBookingsCount={pendingRentalBookingsCount}
+                    availablePublicSlotsCount={availablePublicSlotsCount}
+                    rentalBookingStatusFilter={rentalBookingStatusFilter}
+                    setRentalBookingStatusFilter={setRentalBookingStatusFilter}
+                    filteredRentalBookings={filteredRentalBookings}
+                    activeSelectedRentalBookingId={activeSelectedRentalBookingId}
+                    handleRentalBookingSelect={handleRentalBookingSelect}
+                    rentalBookingFeedback={rentalBookingFeedback}
+                    activeRentalBookingEditor={activeRentalBookingEditor}
+                    selectedRentalBooking={selectedRentalBooking}
+                    setRentalBookingEditorId={setRentalBookingEditorId}
+                    setRentalBookingEditor={setRentalBookingEditor}
+                    setRentalBookingFeedback={setRentalBookingFeedback}
+                    savingRentalBookingId={savingRentalBookingId}
+                    handleRentalBookingSave={handleRentalBookingSave}
+                    isRentalBookingDirty={isRentalBookingDirty}
+                    rentalSlotStatusFilter={rentalSlotStatusFilter}
+                    setRentalSlotStatusFilter={setRentalSlotStatusFilter}
+                    filteredRentalSlots={filteredRentalSlots}
+                    activeRentalSlotId={activeRentalSlotId}
+                    handleRentalSlotSelect={handleRentalSlotSelect}
+                    rentalSlotFeedback={rentalSlotFeedback}
+                    isRentalSlotCreateMode={isRentalSlotCreateMode}
+                    handleRentalSlotCreateStart={handleRentalSlotCreateStart}
+                    handleRentalSlotCreateCancel={handleRentalSlotCreateCancel}
+                    activeRentalSlotEditor={activeRentalSlotEditor}
+                    rentalSlotResourceOptions={rentalSlotResourceOptions}
+                    setRentalSlotEditorId={setRentalSlotEditorId}
+                    setRentalSlotEditor={setRentalSlotEditor}
+                    setRentalSlotFeedback={setRentalSlotFeedback}
+                    savingRentalSlotKey={savingRentalSlotKey}
+                    handleRentalSlotSave={handleRentalSlotSave}
+                    isRentalSlotCreateReady={isRentalSlotCreateReady}
+                    selectedRentalSlot={selectedRentalSlot}
+                    selectedRentalSlotHasActiveBooking={
+                      selectedRentalSlotHasActiveBooking
+                    }
+                    isRentalSlotDirty={isRentalSlotDirty}
+                  />
                 </SectionCard>
               ) : null}
             </div>

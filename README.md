@@ -16,7 +16,9 @@
 
 Локальный сервер стоит на базе [Next.js](https://nextjs.org). базовая документация представлена ниже:
 
+
 <details>
+<summary>Документация по Next.js</summary>
 This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
 
 First, run the development server:
@@ -56,6 +58,9 @@ Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/bui
 
 ## 1 Коммит localhost 0 + Tailwind + Docker + prisma 
 
+<details>
+<summary>Детали изменений</summary>
+
 содержит в себе установленные и подключенные на локальный хост сервисы. Создаем базы данных и настраиваем взаимосвязь между ними. 
 
 Текущий стек
@@ -66,12 +71,20 @@ Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/bui
 - Prisma ORM
 - API через Next.js (/api/*)
 - Thunder Client для тестирования
+</details>
 
 ## 2 Коммит Gorilla 0.0 
 
+<details>
+<summary>Детали изменений</summary>
+
 Привели в порядок взаимосвязи и настроили миграцию таблиц
+</details>
 
 ## 3 Коммит Gorilla 0.1
+
+<details>
+<summary>Детали изменений</summary>
 
 Итог по состоянию проекта
 
@@ -79,7 +92,7 @@ Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/bui
 команда в терминале npx prisma studio 
 порт http://localhost:5555
 
-<details>
+
 
 User
 - email / phone / telegramId
@@ -117,6 +130,8 @@ Booking привязан к User, а не к UserProfile (планируется
 </details>
 
 ## 4 Коммит Gorilla 0.2
+<details>
+<summary>Детали изменений</summary>
 
 1. подключил демо бота в [телеграмме](https://t.me/gorillahockyebot) для регистрации на сайте
 1.1 бот работает создает пользователя и выводит базу доступных тренировок
@@ -130,8 +145,11 @@ Booking привязан к User, а не к UserProfile (планируется
 Попробуй /book [trainingId], чтобы забронировать тренировку.
 
 2. исправление ошибок миграции и тестирования связи базы данных
+</details>
 
 ## 4 Коммит Gorilla 0.3
+<details>
+<summary>Детали изменений</summary>
 
 API (реализовано)
 
@@ -156,8 +174,11 @@ Trainings
 - Используется Thunder Client (VS Code)
 - POST/GET запросы работают
 - Добавлен дебаг через console.log(req.body)
+</details>
 
 ## 5 Коммит Gorilla 0.4
+<details>
+<summary>Детали изменений</summary>
 
 1. Инициализация и стабильность проекта
 - Настроен и запущен Next.js проект (TypeScript)
@@ -243,8 +264,11 @@ Backend полностью поднят и работает:
 Статус проекта
 
 Backend MVP foundation — завершён (v0.1 stable)
+</details>
 
 ## 6 Коммит Gorilla 0.5
+<details>
+<summary>Детали изменений</summary>
 
 Привели backend-контур в рабочее и стабильное состояние.
 
@@ -283,8 +307,11 @@ Backend MVP foundation — завершён (v0.1 stable)
 
 - backend foundation стабилизирован;
 - база и API готовы к следующему этапу — завершению пользовательского school-flow.
+</details>
 
 ## 6.1 Gorilla 0.5.1
+<details>
+<summary>Детали изменений</summary>
 
 Закрыт базовый пользовательский school-flow без изменений схемы БД.
 
@@ -310,8 +337,11 @@ Backend MVP foundation — завершён (v0.1 stable)
 
 - пользовательский контур бронирований тренировок доведён до рабочего состояния
 - backend готов к следующему этапу: team applications flow
+</details>
 
 ## 6.2 Gorilla 0.5.2
+<details>
+<summary>Детали изменений</summary>
 
 Закрыт базовый team applications flow для MVP v1.
 
@@ -341,8 +371,11 @@ Backend MVP foundation — завершён (v0.1 stable)
 
 - пользовательский team-flow доведён до рабочего состояния
 - backend готов к следующему этапу: staff review flow для заявок в команду
+</details>
 
 ## 6.3 Gorilla 0.5.3
+<details>
+<summary>Детали изменений</summary>
 
 Закрыт staff review flow для заявок в команду.
 
@@ -388,8 +421,11 @@ Backend MVP foundation — завершён (v0.1 stable)
 - командный контур доведён до staff-level review
 - school-flow и team-flow базово закрыты
 - следующий этап: пользовательский rental flow
+</details>
 
 ## 6.4 Gorilla 0.5.4
+<details>
+<summary>Детали изменений</summary>
 
 Закрыт базовый rental user flow для MVP v1.
 
@@ -433,8 +469,11 @@ Backend MVP foundation — завершён (v0.1 stable)
 - пользовательский контур аренды доведён до рабочего состояния
 - school-flow, team-flow и rental user-flow базово закрыты
 - следующий этап: staff/admin flow для аренды
+</details>
 
 ## 6.5 Gorilla 0.5.5
+<details>
+<summary>Детали изменений</summary>
 
 Закрыт staff/admin rental review flow для MVP v1.
 
@@ -479,8 +518,11 @@ Backend MVP foundation — завершён (v0.1 stable)
 - rental flow доведён до staff/admin уровня
 - school-flow, team-flow и rental-flow базово закрыты
 - следующий этап: базовый staff/admin CRUD для тренировок и командной операционки
+</details>
 
 ## 6.6 Gorilla 0.5.6
+<details>
+<summary>Детали изменений</summary>
 
 Закрыт staff/admin trainings management flow для MVP v1.
 
@@ -516,8 +558,11 @@ Backend MVP foundation — завершён (v0.1 stable)
 
 - staff/admin управление тренировками доведено до рабочего состояния
 - следующий шаг: управление rental inventory и rental slots без Prisma Studio
+</details>
 
 ## 6.7 Gorilla 0.5.7
+<details>
+<summary>Детали изменений</summary>
 
 Закрыт staff/admin rental slots management flow для MVP v1.
 
@@ -558,8 +603,11 @@ Backend MVP foundation — завершён (v0.1 stable)
 
 - rental-модуль доведён до полноценного staff/admin уровня
 - следующий этап: team roster management и staff-операционка по составу команды
+</details>
 
 ## 6.8 Gorilla 0.5.8
+<details>
+<summary>Детали изменений</summary>
 
 Закрыт staff/admin team roster management flow для MVP v1.
 
@@ -605,8 +653,11 @@ Backend MVP foundation — завершён (v0.1 stable)
 - командный модуль доведён до управления составом
 - school-flow, team-flow и rental-flow базово закрыты как по user-, так и по staff-логике
 - следующий этап: staff/admin management для rental inventory
+</details>
 
 ## 6.9 Gorilla 0.5.9
+<details>
+<summary>Детали изменений</summary>
 
 Закрыт staff/admin rental inventory management flow для MVP v1.
 
@@ -645,8 +696,11 @@ Backend MVP foundation — завершён (v0.1 stable)
 
 - rental-модуль теперь управляется staff/admin полностью без Prisma Studio
 - следующий этап: staff/admin management для команд и team applications из единого admin-контура
+</details>
 
 ## 6.10 Gorilla 0.5.10
+<details>
+<summary>Детали изменений</summary>
 
 Закрыт staff/admin team management flow для MVP v1.
 
@@ -692,8 +746,11 @@ Backend MVP foundation — завершён (v0.1 stable)
 - командный модуль собран в единый admin/staff контур
 - school-flow, team-flow и rental-flow закрыты по user- и staff-логике
 - следующий этап: auth foundation вместо разрозненного x-user-id
+</details>
 
 ## 7.0 Gorilla 0.6.0
+<details>
+<summary>Детали изменений</summary>
 
 Закрыт staff/admin rental inventory management flow для MVP v1.
 
@@ -732,8 +789,11 @@ Backend MVP foundation — завершён (v0.1 stable)
 
 - rental-модуль теперь управляется staff/admin полностью без Prisma Studio
 - следующий этап: auth foundation
+</details>
 
 ## 7.1 Gorilla 0.6.1
+<details>
+<summary>Детали изменений</summary>
 
 Закрыт auth/current-user foundation для MVP v1.
 
@@ -774,8 +834,11 @@ Backend MVP foundation — завершён (v0.1 stable)
 - auth foundation готов
 - backend почти собран в единый продуктовый контур
 - следующий этап: browser-ready dev auth + user dashboard foundation
+</details>
 
 ## 7.2 Gorilla 0.6.2
+<details>
+<summary>Детали изменений</summary>
 
 Закрыт browser-ready dev auth bridge + dashboard foundation для MVP v1.
 
@@ -827,8 +890,11 @@ Backend MVP foundation — завершён (v0.1 stable)
 - auth foundation и browser-ready dev bridge готовы
 - backend собран в более цельный продуктовый контур
 - следующий этап: первый минимальный пользовательский кабинет в интерфейсе
+</details>
 
 ## 7.3 Gorilla 0.6.3
+<details>
+<summary>Детали изменений</summary>
 
 Закрыт первый минимальный русскоязычный пользовательский кабинет.
 
@@ -861,8 +927,11 @@ Backend MVP foundation — завершён (v0.1 stable)
 
 - появился первый живой русскоязычный пользовательский экран платформы
 - следующий шаг: сделать кабинет не только обзорным, но и действующим, начиная с управления участниками
+</details>
 
 ## 7.4 Gorilla 0.6.4
+<details>
+<summary>Детали изменений</summary>
 
 Добавлено минимальное управление участниками в пользовательском кабинете.
 
@@ -904,8 +973,11 @@ Backend MVP foundation — завершён (v0.1 stable)
 - кабинет перестал быть только обзорным
 - появился первый реальный пользовательский action-flow внутри интерфейса
 - следующий шаг: запись на тренировки из UI
+</details>
 
 ## 7.5 Gorilla 0.6.5
+<details>
+<summary>Детали изменений</summary>
 
 Добавлен минимальный training booking UI в пользовательском кабинете.
 
@@ -954,8 +1026,11 @@ Backend MVP foundation — завершён (v0.1 stable)
 
 - пользовательский кабинет теперь умеет не только показывать данные, но и выполнять реальный сценарий записи на тренировку
 - следующий шаг: заявки в команду из интерфейса
+</details>
 
 ## 7.6 Gorilla 0.6.6
+<details>
+<summary>Детали изменений</summary>
 
 Добавлен минимальный team applications UI в пользовательском кабинете.
 
@@ -995,8 +1070,11 @@ Backend MVP foundation — завершён (v0.1 stable)
 
 - пользовательский team flow стал доступен из интерфейса
 - следующий шаг: rental booking UI в кабинете
+</details>
 
 ## 7.7 Gorilla 0.6.7
+<details>
+<summary>Детали изменений</summary>
 
 Добавлен минимальный rental booking UI в пользовательском кабинете.
 
@@ -1046,8 +1124,11 @@ Backend MVP foundation — завершён (v0.1 stable)
     - заявки в команду
     - аренда
 - следующий этап: первый минимальный staff/admin интерфейс
+</details>
 
 ## 8.0 Gorilla 0.7.0
+<details>
+<summary>Детали изменений</summary>
 
 Исправлен role-based entry flow и подготовлен правильный фундамент маршрутизации по ролям.
 
@@ -1073,8 +1154,11 @@ Backend MVP foundation — завершён (v0.1 stable)
 - USER логинится в /cabinet
 - MANAGER логинится в /admin
 - ADMIN логинится в /admin
+</details>
 
 ## 8.1 Gorilla 0.7.1
+<details>
+<summary>Детали изменений</summary>
 
 Собран новый dev-блок после предыдущего коммита.
 
@@ -1133,8 +1217,11 @@ Backend MVP foundation — завершён (v0.1 stable)
 - роли и точки входа стали логичными
 - staff workspace перестал быть сырым фундаментом без маршрутизации
 - подготовлена основа для следующего шага: реальные действия из staff-интерфейса, а не только просмотр данных
+</details>
 
 ## 8.2 Gorilla 0.7.2
+<details>
+<summary>Детали изменений</summary>
 
 Секция «Заявки в команду» в /admin переведена из обзорного режима в рабочий staff-модуль.
 
@@ -1176,9 +1263,11 @@ Backend MVP foundation — завершён (v0.1 stable)
 - /admin перестал быть только обзорным экраном
 - появился первый реальный staff workflow
 - следующий шаг: рабочее управление тренировками из /admin
+</details>
 
+## 8.3 Gorilla 0.7.3
 <details>
-<summary>## 8.3 Gorilla 0.7.3</summary>
+<summary>Детали изменений</summary>
 
 Секция «Тренировки» в /admin переведена из обзорного режима в рабочий staff-модуль.
 
@@ -1224,4 +1313,55 @@ Backend MVP foundation — завершён (v0.1 stable)
 - /admin получил второй рабочий staff workflow
 - после заявок в команду теперь рабочим стал и модуль тренировок
 - следующий шаг: рабочий staff-модуль аренды
+</details>
+
+## 8.4 Gorilla 0.7.4
+<details>
+<summary>Детали изменений</summary>
+Секция «Аренда» в /admin переведена из обзорного режима в рабочий staff-модуль.
+
+Что сделано:
+
+- в /admin добавлен рабочий staff-модуль аренды
+- реализованы list-detail блоки для:
+    - rental bookings
+    - rental slots
+- для ADMIN и MANAGER реализовано:
+    - изменение статуса брони
+    - редактирование managerNote
+    - создание rental slot
+    - редактирование rental slot
+- добавлены фильтры:
+    - по статусу брони
+    - по статусу слота
+- facilities/resources оставлены как компактный operational overview
+- после успешного PATCH/POST UI обновляется без ручной перезагрузки
+- USER доступа к staff rental section не получает
+
+Проверка:
+
+- npx prisma validate — ok
+- npx tsc --noEmit — ok
+- npm run lint — ok
+- npm run build — ok
+
+Ручная / live проверка:
+
+- ADMIN видит rental section — ok
+- MANAGER видит rental section — ok
+- USER не получает доступ — ok
+- ADMIN может менять статус rental booking — ok
+- MANAGER может менять статус rental booking — ok
+- ADMIN может редактировать managerNote — ok
+- MANAGER может редактировать managerNote — ok
+- ADMIN может создать и отредактировать rental slot — ok
+- MANAGER может создать и отредактировать rental slot — ok
+- /cabinet не сломан — ok
+- /admin не сломан — ok
+
+Итог:
+
+- /admin получил третий рабочий staff workflow
+- после заявок в команду и тренировок теперь рабочим стал и модуль аренды
+- следующий шаг: рабочий модуль команд и составов
 </details>
