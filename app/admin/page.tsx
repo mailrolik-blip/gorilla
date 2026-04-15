@@ -232,6 +232,28 @@ type AdminOverview = {
 };
 
 type PageStatus = 'loading' | 'ready' | 'error';
+type TeamApplicationStatusFilter =
+  | 'ALL'
+  | 'PENDING'
+  | 'IN_REVIEW'
+  | 'ACCEPTED'
+  | 'REJECTED'
+  | 'CANCELLED';
+type StaffManagedTeamApplicationStatus =
+  | 'PENDING'
+  | 'IN_REVIEW'
+  | 'ACCEPTED'
+  | 'REJECTED';
+
+type TeamApplicationEditorState = {
+  status: AdminTeamApplicationSummary['status'];
+  internalNote: string;
+};
+
+type TeamApplicationFeedback = {
+  tone: 'success' | 'error';
+  message: string;
+};
 
 type FetchResult<T> = {
   payload: T | { error?: string } | null;
@@ -268,6 +290,28 @@ const statusLabels: Record<string, string> = {
   BOOKED: 'Забронировано',
   UNAVAILABLE: 'Недоступно',
 };
+
+const teamApplicationFilterOptions: {
+  value: TeamApplicationStatusFilter;
+  label: string;
+}[] = [
+  { value: 'ALL', label: 'Все статусы' },
+  { value: 'PENDING', label: 'На рассмотрении' },
+  { value: 'IN_REVIEW', label: 'В работе' },
+  { value: 'ACCEPTED', label: 'Одобрено' },
+  { value: 'REJECTED', label: 'Отклонено' },
+  { value: 'CANCELLED', label: 'Отменено' },
+];
+
+const staffManagedTeamApplicationStatusOptions: {
+  value: StaffManagedTeamApplicationStatus;
+  label: string;
+}[] = [
+  { value: 'PENDING', label: 'На рассмотрении' },
+  { value: 'IN_REVIEW', label: 'В работе' },
+  { value: 'ACCEPTED', label: 'Одобрено' },
+  { value: 'REJECTED', label: 'Отклонено' },
+];
 
 function formatRoleList(roles: string[]) {
   if (roles.length === 0) {
@@ -326,6 +370,19 @@ function formatUserIdentity(user: {
   return `Пользователь #${user.id}`;
 }
 
+function createTeamApplicationEditorState(
+  application: AdminTeamApplicationSummary
+): TeamApplicationEditorState {
+  return {
+    status: ['PENDING', 'IN_REVIEW', 'ACCEPTED', 'REJECTED'].includes(
+      application.status
+    )
+      ? (application.status as StaffManagedTeamApplicationStatus)
+      : 'PENDING',
+    internalNote: application.internalNote ?? '',
+  };
+}
+
 function formatStatus(status: string) {
   return statusLabels[status] ?? status;
 }
@@ -373,6 +430,8 @@ function translateErrorMessage(message: string) {
       'Не удалось загрузить заявки в команду.',
     'Failed to fetch team applications for staff':
       'Не удалось загрузить заявки в команду по тренерскому контуру.',
+    'Failed to update team application':
+      'Не удалось сохранить изменения по заявке.',
     'Failed to fetch trainings for staff': 'Не удалось загрузить список тренировок.',
     'Failed to fetch trainings': 'Не удалось загрузить список тренировок.',
     'Failed to fetch rental bookings for staff':
@@ -386,15 +445,26 @@ function translateErrorMessage(message: string) {
     'Staff access required': 'Нужны staff-права для рабочего кабинета.',
     'Manager or admin access required':
       'Нужны права manager/admin для staff кабинета.',
+    'At least one of status or internalNote is required':
+      'Измените статус или внутреннюю заметку перед сохранением.',
+    'status must be one of PENDING, IN_REVIEW, ACCEPTED, REJECTED':
+      'Статус заявки должен быть одним из: PENDING, IN_REVIEW, ACCEPTED, REJECTED.',
+    'internalNote must be a string or null':
+      'Внутренняя заметка должна быть строкой или пустым значением.',
+    'Invalid team application id': 'Некорректный идентификатор заявки.',
     'Method not allowed': 'Метод не поддерживается.',
   };
 
   return errorMessages[message] ?? message;
 }
 
-async function fetchJson<T>(url: string): Promise<FetchResult<T>> {
+async function fetchJson<T>(
+  url: string,
+  init?: RequestInit
+): Promise<FetchResult<T>> {
   const response = await fetch(url, {
     credentials: 'include',
+    ...init,
   });
 
   const payload = (await response.json().catch(() => null)) as
@@ -484,6 +554,23 @@ export default function AdminPage() {
   const [currentUser, setCurrentUser] = useState<CurrentUserSummary | null>(null);
   const [overview, setOverview] = useState<AdminOverview | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [teamApplicationStatusFilter, setTeamApplicationStatusFilter] =
+    useState<TeamApplicationStatusFilter>('ALL');
+  const [teamApplicationTeamFilter, setTeamApplicationTeamFilter] =
+    useState<string>('ALL');
+  const [selectedTeamApplicationId, setSelectedTeamApplicationId] = useState<
+    number | null
+  >(null);
+  const [teamApplicationEditorId, setTeamApplicationEditorId] = useState<
+    number | null
+  >(null);
+  const [teamApplicationEditor, setTeamApplicationEditor] =
+    useState<TeamApplicationEditorState | null>(null);
+  const [teamApplicationFeedback, setTeamApplicationFeedback] =
+    useState<TeamApplicationFeedback | null>(null);
+  const [savingTeamApplicationId, setSavingTeamApplicationId] = useState<
+    number | null
+  >(null);
 
   useEffect(() => {
     let isCancelled = false;
@@ -740,6 +827,171 @@ export default function AdminPage() {
       : currentUserCapabilities.role === 'MANAGER'
         ? 'Отвечает за операционный staff-контур: команды, заявки, тренировки и аренду.'
         : 'Отвечает за полный staff/admin контур платформы и foundation под управление ролями.';
+  const isTeamApplicationEditable =
+    currentUserCapabilities.isAdmin || currentUserCapabilities.isManager;
+  const teamApplicationTeamOptions = Array.from(
+    new Map(
+      (overview?.teamApplications ?? []).map((application) => [
+        application.team.id,
+        {
+          id: application.team.id,
+          name: application.team.name,
+          cityName: application.team.city?.name ?? 'Город не указан',
+        },
+      ])
+    ).values()
+  ).sort((left, right) => left.name.localeCompare(right.name, 'ru'));
+  const filteredTeamApplications = (overview?.teamApplications ?? []).filter(
+    (application) => {
+      if (
+        teamApplicationStatusFilter !== 'ALL' &&
+        application.status !== teamApplicationStatusFilter
+      ) {
+        return false;
+      }
+
+      if (
+        teamApplicationTeamFilter !== 'ALL' &&
+        String(application.team.id) !== teamApplicationTeamFilter
+      ) {
+        return false;
+      }
+
+      return true;
+    }
+  );
+  const selectedTeamApplication =
+    filteredTeamApplications.find(
+      (application) => application.id === selectedTeamApplicationId
+    ) ??
+    filteredTeamApplications[0] ??
+    null;
+  const activeSelectedTeamApplicationId = selectedTeamApplication?.id ?? null;
+  const activeTeamApplicationEditor =
+    selectedTeamApplication &&
+    teamApplicationEditor !== null &&
+    teamApplicationEditorId === selectedTeamApplication.id
+      ? teamApplicationEditor
+      : selectedTeamApplication
+        ? createTeamApplicationEditorState(selectedTeamApplication)
+        : null;
+  const normalizedSelectedTeamApplicationNote =
+    selectedTeamApplication?.internalNote ?? '';
+  const normalizedEditorTeamApplicationNote =
+    activeTeamApplicationEditor?.internalNote.trim() ?? '';
+  const canEditSelectedTeamApplicationStatus =
+    isTeamApplicationEditable &&
+    selectedTeamApplication !== null &&
+    selectedTeamApplication.status !== 'CANCELLED';
+  const isTeamApplicationDirty =
+    selectedTeamApplication !== null &&
+    activeTeamApplicationEditor !== null &&
+    (selectedTeamApplication.status !== activeTeamApplicationEditor.status ||
+      normalizedSelectedTeamApplicationNote !== normalizedEditorTeamApplicationNote);
+
+  function handleTeamApplicationSelect(
+    application: AdminTeamApplicationSummary
+  ) {
+    setSelectedTeamApplicationId(application.id);
+    setTeamApplicationEditorId(application.id);
+    setTeamApplicationEditor(createTeamApplicationEditorState(application));
+    setTeamApplicationFeedback(null);
+  }
+
+  async function handleTeamApplicationSave() {
+    if (
+      !selectedTeamApplication ||
+      !activeTeamApplicationEditor ||
+      !isTeamApplicationEditable
+    ) {
+      return;
+    }
+
+    const nextInternalNote =
+      activeTeamApplicationEditor.internalNote.trim().length > 0
+        ? activeTeamApplicationEditor.internalNote.trim()
+        : null;
+    const payload: {
+      status?: StaffManagedTeamApplicationStatus;
+      internalNote?: string | null;
+    } = {};
+
+    if (
+      selectedTeamApplication.status !== activeTeamApplicationEditor.status &&
+      ['PENDING', 'IN_REVIEW', 'ACCEPTED', 'REJECTED'].includes(
+        activeTeamApplicationEditor.status
+      )
+    ) {
+      payload.status =
+        activeTeamApplicationEditor.status as StaffManagedTeamApplicationStatus;
+    }
+
+    if ((selectedTeamApplication.internalNote ?? null) !== nextInternalNote) {
+      payload.internalNote = nextInternalNote;
+    }
+
+    if (Object.keys(payload).length === 0) {
+      setTeamApplicationFeedback({
+        tone: 'success',
+        message: 'Изменений для сохранения нет.',
+      });
+      return;
+    }
+
+    setSavingTeamApplicationId(selectedTeamApplication.id);
+    setTeamApplicationFeedback(null);
+
+    const updateResult = await fetchJson<AdminTeamApplicationSummary>(
+      `/api/admin/team-applications/${selectedTeamApplication.id}`,
+      {
+        method: 'PATCH',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(payload),
+      }
+    );
+
+    if (updateResult.response.status === 401) {
+      router.replace('/dev/login?next=/admin');
+      return;
+    }
+
+    if (!updateResult.response.ok) {
+      setSavingTeamApplicationId(null);
+      setTeamApplicationFeedback({
+        tone: 'error',
+        message: translateErrorMessage(
+          (updateResult.payload as { error?: string } | null)?.error ||
+            'Failed to update team application'
+        ),
+      });
+      return;
+    }
+
+    const updatedApplication = updateResult.payload as AdminTeamApplicationSummary;
+
+    setOverview((currentOverview) => {
+      if (!currentOverview) {
+        return currentOverview;
+      }
+
+      return {
+        ...currentOverview,
+        teamApplications: currentOverview.teamApplications.map((application) =>
+          application.id === updatedApplication.id ? updatedApplication : application
+        ),
+      };
+    });
+    setSelectedTeamApplicationId(updatedApplication.id);
+    setTeamApplicationEditorId(updatedApplication.id);
+    setTeamApplicationEditor(createTeamApplicationEditorState(updatedApplication));
+    setSavingTeamApplicationId(null);
+    setTeamApplicationFeedback({
+      tone: 'success',
+      message: 'Заявка сохранена. Изменения уже отражены в списке.',
+    });
+  }
 
   return (
     <main className="min-h-screen bg-[radial-gradient(circle_at_top,#f4efe4_0%,#ede6d8_45%,#e4ddcf_100%)] px-4 py-8 text-stone-900">
@@ -927,8 +1179,8 @@ export default function AdminPage() {
                   title="Заявки в команду"
                   description={
                     currentUserCapabilities.teamApplicationReviewScope === 'own'
-                      ? 'Только заявки по вашим coached teams.'
-                      : 'Последние заявки и их текущие статусы по staff/admin API.'
+                      ? 'Только заявки по вашим coached teams. Глобальное редактирование в этом модуле доступно только MANAGER и ADMIN.'
+                      : 'Рабочий staff-модуль: фильтрация, просмотр заявки и сохранение изменений без ручной перезагрузки.'
                   }
                 >
                   {overview.teamApplications.length === 0 ? (
@@ -936,39 +1188,314 @@ export default function AdminPage() {
                       Заявок пока нет.
                     </p>
                   ) : (
-                    <div className="space-y-3">
-                      {overview.teamApplications.slice(0, 5).map((application) => (
-                        <article
-                          key={application.id}
-                          className="rounded-2xl border border-stone-200 bg-stone-50 p-4"
-                        >
-                          <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
-                            <div>
-                              <p className="font-semibold text-stone-950">
-                                {application.team.name}
-                              </p>
-                              <p className="mt-1 text-sm text-stone-600">
-                                {formatPersonName(application.participant)} /{' '}
-                                {application.team.city?.name || 'Город не указан'}
-                              </p>
-                              <p className="mt-2 text-sm text-stone-700">
-                                {application.commentFromApplicant ||
-                                  'Комментарий от заявителя не указан.'}
-                              </p>
-                            </div>
-                            <div className="flex flex-col items-start gap-3 sm:items-end">
-                              <span
-                                className={`rounded-full px-3 py-1 text-xs font-medium ${getStatusBadgeClass(application.status)}`}
-                              >
-                                {formatStatus(application.status)}
-                              </span>
-                              <p className="text-xs text-stone-500">
-                                {formatDateTime(application.createdAt)}
-                              </p>
-                            </div>
+                    <div className="grid gap-5 xl:grid-cols-[0.92fr_1.08fr]">
+                      <div className="space-y-4">
+                        <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-1">
+                          <label className="text-sm font-medium text-stone-700">
+                            Фильтр по статусу
+                            <select
+                              value={teamApplicationStatusFilter}
+                              onChange={(event) => {
+                                setTeamApplicationStatusFilter(
+                                  event.target.value as TeamApplicationStatusFilter
+                                );
+                                setTeamApplicationFeedback(null);
+                              }}
+                              className="mt-2 w-full rounded-2xl border border-stone-300 bg-white px-4 py-3 text-base text-stone-950 outline-none transition focus:border-stone-500"
+                            >
+                              {teamApplicationFilterOptions.map((option) => (
+                                <option key={option.value} value={option.value}>
+                                  {option.label}
+                                </option>
+                              ))}
+                            </select>
+                          </label>
+
+                          <label className="text-sm font-medium text-stone-700">
+                            Фильтр по команде
+                            <select
+                              value={teamApplicationTeamFilter}
+                              onChange={(event) => {
+                                setTeamApplicationTeamFilter(event.target.value);
+                                setTeamApplicationFeedback(null);
+                              }}
+                              className="mt-2 w-full rounded-2xl border border-stone-300 bg-white px-4 py-3 text-base text-stone-950 outline-none transition focus:border-stone-500"
+                            >
+                              <option value="ALL">Все команды</option>
+                              {teamApplicationTeamOptions.map((team) => (
+                                <option key={team.id} value={team.id}>
+                                  {team.name} / {team.cityName}
+                                </option>
+                              ))}
+                            </select>
+                          </label>
+                        </div>
+
+                        {filteredTeamApplications.length === 0 ? (
+                          <p className="rounded-2xl border border-dashed border-stone-300 bg-stone-50 p-5 text-sm text-stone-600">
+                            По текущим фильтрам заявок нет.
+                          </p>
+                        ) : (
+                          <div className="space-y-3 xl:max-h-[720px] xl:overflow-y-auto xl:pr-2">
+                            {filteredTeamApplications.map((application) => {
+                              const isSelected =
+                                application.id === activeSelectedTeamApplicationId;
+
+                              return (
+                                <button
+                                  key={application.id}
+                                  type="button"
+                                  onClick={() => handleTeamApplicationSelect(application)}
+                                  className={`w-full rounded-2xl border p-4 text-left transition ${
+                                    isSelected
+                                      ? 'border-stone-950 bg-stone-950 text-white shadow-[0_18px_45px_-35px_rgba(0,0,0,0.45)]'
+                                      : 'border-stone-200 bg-stone-50 hover:border-stone-400 hover:bg-white'
+                                  }`}
+                                >
+                                  <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                                    <div>
+                                      <p className="font-semibold">
+                                        {formatPersonName(application.participant)}
+                                      </p>
+                                      <p
+                                        className={`mt-1 text-sm ${
+                                          isSelected ? 'text-stone-300' : 'text-stone-600'
+                                        }`}
+                                      >
+                                        {application.team.name} /{' '}
+                                        {application.team.city?.name || 'Город не указан'}
+                                      </p>
+                                      <p
+                                        className={`mt-2 text-sm ${
+                                          isSelected ? 'text-stone-300' : 'text-stone-700'
+                                        }`}
+                                      >
+                                        {application.reviewedBy
+                                          ? `Обработал: ${formatUserIdentity(application.reviewedBy)}`
+                                          : 'Ещё не обработана'}
+                                      </p>
+                                    </div>
+                                    <div className="flex flex-col items-start gap-2 sm:items-end">
+                                      <span
+                                        className={`rounded-full px-3 py-1 text-xs font-medium ${
+                                          isSelected
+                                            ? 'bg-white/15 text-white'
+                                            : getStatusBadgeClass(application.status)
+                                        }`}
+                                      >
+                                        {formatStatus(application.status)}
+                                      </span>
+                                      <p
+                                        className={`text-xs ${
+                                          isSelected ? 'text-stone-400' : 'text-stone-500'
+                                        }`}
+                                      >
+                                        {formatDateTime(application.updatedAt)}
+                                      </p>
+                                    </div>
+                                  </div>
+                                </button>
+                              );
+                            })}
                           </div>
-                        </article>
-                      ))}
+                        )}
+                      </div>
+
+                      <div className="rounded-[24px] border border-stone-200 bg-stone-50 p-5">
+                        {selectedTeamApplication && activeTeamApplicationEditor ? (
+                          <div className="space-y-5">
+                            {teamApplicationFeedback ? (
+                              <p
+                                className={`rounded-2xl border px-4 py-3 text-sm ${
+                                  teamApplicationFeedback.tone === 'success'
+                                    ? 'border-emerald-200 bg-emerald-50 text-emerald-700'
+                                    : 'border-rose-200 bg-rose-50 text-rose-700'
+                                }`}
+                              >
+                                {teamApplicationFeedback.message}
+                              </p>
+                            ) : null}
+
+                            {!isTeamApplicationEditable ? (
+                              <p className="rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
+                                В этом модуле редактирование доступно только для
+                                MANAGER и ADMIN. Тренер видит заявки в режиме
+                                просмотра.
+                              </p>
+                            ) : null}
+
+                            <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+                              <div>
+                                <p className="text-xs font-semibold uppercase tracking-[0.16em] text-stone-500">
+                                  Заявка #{selectedTeamApplication.id}
+                                </p>
+                                <h3 className="mt-2 text-xl font-semibold text-stone-950">
+                                  {formatPersonName(selectedTeamApplication.participant)}
+                                </h3>
+                                <p className="mt-2 text-sm text-stone-600">
+                                  {selectedTeamApplication.team.name} /{' '}
+                                  {selectedTeamApplication.team.city?.name ||
+                                    'Город не указан'}
+                                </p>
+                              </div>
+                              <span
+                                className={`rounded-full px-3 py-1 text-xs font-medium ${getStatusBadgeClass(
+                                  selectedTeamApplication.status
+                                )}`}
+                              >
+                                {formatStatus(selectedTeamApplication.status)}
+                              </span>
+                            </div>
+
+                            <div className="grid gap-3 sm:grid-cols-2">
+                              <div className="rounded-2xl bg-white p-4">
+                                <p className="text-xs font-semibold uppercase tracking-[0.14em] text-stone-500">
+                                  Создана
+                                </p>
+                                <p className="mt-2 text-sm text-stone-800">
+                                  {formatDateTime(selectedTeamApplication.createdAt)}
+                                </p>
+                              </div>
+                              <div className="rounded-2xl bg-white p-4">
+                                <p className="text-xs font-semibold uppercase tracking-[0.14em] text-stone-500">
+                                  Обновлена
+                                </p>
+                                <p className="mt-2 text-sm text-stone-800">
+                                  {formatDateTime(selectedTeamApplication.updatedAt)}
+                                </p>
+                              </div>
+                              <div className="rounded-2xl bg-white p-4 sm:col-span-2">
+                                <p className="text-xs font-semibold uppercase tracking-[0.14em] text-stone-500">
+                                  Кто обработал
+                                </p>
+                                <p className="mt-2 text-sm text-stone-800">
+                                  {selectedTeamApplication.reviewedBy
+                                    ? formatUserIdentity(selectedTeamApplication.reviewedBy)
+                                    : 'Заявка ещё не обрабатывалась'}
+                                </p>
+                              </div>
+                            </div>
+
+                            <div className="grid gap-4">
+                              <div className="rounded-2xl bg-white p-4">
+                                <p className="text-xs font-semibold uppercase tracking-[0.14em] text-stone-500">
+                                  Комментарий пользователя
+                                </p>
+                                <p className="mt-2 whitespace-pre-wrap text-sm leading-6 text-stone-800">
+                                  {selectedTeamApplication.commentFromApplicant ||
+                                    'Комментарий от заявителя не указан.'}
+                                </p>
+                              </div>
+
+                              <label className="text-sm font-medium text-stone-700">
+                                Статус заявки
+                                {canEditSelectedTeamApplicationStatus ? (
+                                  <select
+                                    value={activeTeamApplicationEditor.status}
+                                    onChange={(event) => {
+                                      setTeamApplicationEditorId(
+                                        selectedTeamApplication.id
+                                      );
+                                      setTeamApplicationEditor((currentEditor) =>
+                                        currentEditor ?? activeTeamApplicationEditor
+                                          ? {
+                                              ...(currentEditor ??
+                                                activeTeamApplicationEditor),
+                                              status: event.target
+                                                .value as StaffManagedTeamApplicationStatus,
+                                            }
+                                          : currentEditor
+                                      );
+                                      setTeamApplicationFeedback(null);
+                                    }}
+                                    disabled={
+                                      savingTeamApplicationId ===
+                                      selectedTeamApplication.id
+                                    }
+                                    className="mt-2 w-full rounded-2xl border border-stone-300 bg-white px-4 py-3 text-base text-stone-950 outline-none transition focus:border-stone-500 disabled:cursor-not-allowed disabled:bg-stone-100"
+                                  >
+                                    {staffManagedTeamApplicationStatusOptions.map(
+                                      (option) => (
+                                        <option key={option.value} value={option.value}>
+                                          {option.label}
+                                        </option>
+                                      )
+                                    )}
+                                  </select>
+                                ) : (
+                                  <div className="mt-2 rounded-2xl border border-stone-300 bg-white px-4 py-3 text-sm text-stone-800">
+                                    {formatStatus(selectedTeamApplication.status)}
+                                    {selectedTeamApplication.status === 'CANCELLED'
+                                      ? ' — отменённые заявки в этом модуле меняются только через заметку.'
+                                      : ''}
+                                  </div>
+                                )}
+                              </label>
+
+                              <label className="text-sm font-medium text-stone-700">
+                                Internal note
+                                <textarea
+                                  value={activeTeamApplicationEditor.internalNote}
+                                  onChange={(event) => {
+                                    const nextInternalNote = event.target.value;
+
+                                    setTeamApplicationEditorId(
+                                      selectedTeamApplication.id
+                                    );
+                                    setTeamApplicationEditor((currentEditor) =>
+                                      currentEditor ?? activeTeamApplicationEditor
+                                        ? {
+                                            ...(currentEditor ??
+                                              activeTeamApplicationEditor),
+                                            internalNote: nextInternalNote,
+                                          }
+                                        : currentEditor
+                                    );
+                                    setTeamApplicationFeedback(null);
+                                  }}
+                                  rows={6}
+                                  disabled={
+                                    !isTeamApplicationEditable ||
+                                    savingTeamApplicationId ===
+                                      selectedTeamApplication.id
+                                  }
+                                  placeholder="Внутренняя заметка staff"
+                                  className="mt-2 w-full rounded-2xl border border-stone-300 bg-white px-4 py-3 text-base text-stone-950 outline-none transition focus:border-stone-500 disabled:cursor-not-allowed disabled:bg-stone-100"
+                                />
+                              </label>
+                            </div>
+
+                            {isTeamApplicationEditable ? (
+                              <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                                <p className="text-sm text-stone-600">
+                                  {selectedTeamApplication.reviewedBy
+                                    ? 'После сохранения updatedAt и reviewedBy обновятся сразу в интерфейсе.'
+                                    : 'После первого сохранения заявка получит reviewedBy без ручной перезагрузки.'}
+                                </p>
+                                <button
+                                  type="button"
+                                  onClick={handleTeamApplicationSave}
+                                  disabled={
+                                    !isTeamApplicationDirty ||
+                                    savingTeamApplicationId ===
+                                      selectedTeamApplication.id
+                                  }
+                                  className="rounded-full bg-stone-950 px-5 py-3 text-sm font-semibold text-white transition hover:bg-stone-800 disabled:cursor-not-allowed disabled:bg-stone-400"
+                                >
+                                  {savingTeamApplicationId ===
+                                  selectedTeamApplication.id
+                                    ? 'Сохраняем...'
+                                    : 'Сохранить заявку'}
+                                </button>
+                              </div>
+                            ) : null}
+                          </div>
+                        ) : (
+                          <p className="rounded-2xl border border-dashed border-stone-300 bg-white p-5 text-sm text-stone-600">
+                            Выберите заявку слева, чтобы открыть её данные.
+                          </p>
+                        )}
+                      </div>
                     </div>
                   )}
                 </SectionCard>
