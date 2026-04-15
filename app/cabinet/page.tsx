@@ -4,6 +4,8 @@ import { type FormEvent, useEffect, useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 
+import { getRoleCapabilities } from '@/lib/app-access';
+
 type CitySummary = {
   id: number;
   name: string;
@@ -1843,6 +1845,12 @@ export default function CabinetPage() {
     }
   }
 
+  const currentUserCapabilities = dashboard
+    ? getRoleCapabilities(dashboard.currentUser)
+    : null;
+  const isStaffSecondaryView =
+    currentUserCapabilities?.cabinetViewMode === 'secondary';
+
   return (
     <main className="min-h-screen bg-[radial-gradient(circle_at_top,#f4efe4_0%,#ede6d8_45%,#e4ddcf_100%)] px-4 py-8 text-stone-900">
       <div className="mx-auto flex w-full max-w-6xl flex-col gap-6">
@@ -1850,19 +1858,20 @@ export default function CabinetPage() {
           <div className="flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
             <div>
               <p className="text-xs font-semibold uppercase tracking-[0.28em] text-stone-400">
-                Личный кабинет
+                {isStaffSecondaryView ? 'Пользовательский контур' : 'Личный кабинет'}
               </p>
               <h1 className="mt-3 text-3xl font-semibold tracking-tight">
-                Ваш кабинет
+                {isStaffSecondaryView ? 'Пользовательский кабинет' : 'Ваш кабинет'}
               </h1>
               <p className="mt-2 max-w-2xl text-sm leading-6 text-stone-300">
-                Единая точка входа для ваших участников, записей на тренировки,
-                заявок в команду и бронирований.
+                {isStaffSecondaryView
+                  ? 'Здесь остаётся пользовательский контур: участники, записи на тренировки, заявки в команду и бронирования. Для staff это вторичный экран, а основная рабочая зона находится в /admin.'
+                  : 'Единая точка входа для ваших участников, записей на тренировки, заявок в команду и бронирований.'}
               </p>
             </div>
             <div className="flex gap-3">
               <Link
-                href="/dev/login?next=/cabinet"
+                href="/dev/login"
                 className="rounded-full border border-stone-600 px-4 py-2 text-sm font-medium text-stone-200 transition hover:border-stone-300 hover:text-white"
               >
                 Вход в режиме разработки
@@ -1885,6 +1894,32 @@ export default function CabinetPage() {
 
         {status === 'ready' && dashboard ? (
           <>
+            {isStaffSecondaryView ? (
+              <section className="rounded-[28px] border border-sky-300 bg-sky-50 p-6 shadow-[0_24px_70px_-40px_rgba(0,0,0,0.35)]">
+                <div className="flex flex-col gap-3 lg:flex-row lg:items-end lg:justify-between">
+                  <div>
+                    <p className="text-xs font-semibold uppercase tracking-[0.22em] text-sky-700">
+                      Staff note
+                    </p>
+                    <h2 className="mt-2 text-xl font-semibold text-sky-950">
+                      Основной рабочий вход для staff находится в /admin
+                    </h2>
+                    <p className="mt-2 max-w-3xl text-sm leading-6 text-sky-900">
+                      Этот экран остаётся доступным как вторичный пользовательский вид.
+                      Здесь можно проверить user-flow, но основной staff workspace для
+                      MANAGER и ADMIN находится в admin-контуре.
+                    </p>
+                  </div>
+                  <Link
+                    href="/admin"
+                    className="rounded-full bg-sky-950 px-4 py-2 text-sm font-semibold text-white transition hover:bg-sky-900"
+                  >
+                    Вернуться в staff workspace
+                  </Link>
+                </div>
+              </section>
+            ) : null}
+
             <SectionCard
               eyebrow="Текущий пользователь"
               title={`Пользователь #${dashboard.currentUser.id}`}

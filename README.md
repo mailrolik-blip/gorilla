@@ -1046,3 +1046,30 @@ Backend MVP foundation — завершён (v0.1 stable)
     - заявки в команду
     - аренда
 - следующий этап: первый минимальный staff/admin интерфейс
+
+## 8.0 Gorilla 0.7.0
+
+Исправлен role-based entry flow и подготовлен правильный фундамент маршрутизации по ролям.
+
+Что сделано:
+
+- единый вход сохранён
+- основной маршрут после логина теперь зависит от роли:
+    - USER -> /cabinet
+    - MANAGER -> /admin
+    - ADMIN -> /admin
+- next учитывается только если маршрут разрешён для роли
+- обычный пользователь больше не попадает в pseudo-admin сценарий
+- /cabinet перестал быть основным landing для staff
+- /admin стал основным staff workspace
+- MANAGER и ADMIN теперь различаются по access model на уровне foundation
+
+Проверка:
+
+- npx prisma validate — ok
+- npx tsc --noEmit — ok
+- npm run lint — ok
+- npm run build — ok
+- USER логинится в /cabinet
+- MANAGER логинится в /admin
+- ADMIN логинится в /admin

@@ -4,6 +4,12 @@ import { type FormEvent, useEffect, useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 
+import {
+  getPrimaryAppPath,
+  resolveAuthorizedAppPath,
+  sanitizeRequestedAppPath,
+} from '@/lib/app-access';
+
 type CurrentUserSummary = {
   id: number;
   email: string | null;
@@ -82,17 +88,11 @@ export default function DevLoginPage() {
   const [currentUser, setCurrentUser] = useState<CurrentUserSummary | null>(null);
   const [status, setStatus] = useState<'idle' | 'loading' | 'submitting'>('idle');
   const [error, setError] = useState<string | null>(null);
-  const [nextPath, setNextPath] = useState('/cabinet');
+  const [nextPath, setNextPath] = useState<string | null>(null);
 
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
-    const nextPathValue = params.get('next') || '/cabinet';
-
-    setNextPath(
-      nextPathValue.startsWith('/') && !nextPathValue.startsWith('//')
-        ? nextPathValue
-        : '/cabinet'
-    );
+    setNextPath(sanitizeRequestedAppPath(params.get('next')));
   }, []);
 
   useEffect(() => {
@@ -172,9 +172,11 @@ export default function DevLoginPage() {
         );
       }
 
-      setCurrentUser(payload.currentUser as CurrentUserSummary);
+      const nextCurrentUser = payload.currentUser as CurrentUserSummary;
+
+      setCurrentUser(nextCurrentUser);
       setStatus('idle');
-      router.push(nextPath);
+      router.replace(resolveAuthorizedAppPath(nextCurrentUser, nextPath));
     } catch (loginError) {
       setError(
         loginError instanceof Error
@@ -259,6 +261,11 @@ export default function DevLoginPage() {
                 Укажите числовой <code>userId</code>. После успешного входа
                 браузер сохранит dev-cookie и откроет кабинет.
               </p>
+              <p className="mt-2 text-sm text-stone-600">
+                USER открывается в <code>/cabinet</code>, а MANAGER и ADMIN по
+                умолчанию переходят в <code>/admin</code>. Параметр <code>next</code>{' '}
+                используется только для маршрута, который разрешён этой роли.
+              </p>
 
               <form className="mt-6 flex flex-col gap-4" onSubmit={handleLogin}>
                 <label className="flex flex-col gap-2 text-sm font-medium text-stone-700">
@@ -318,6 +325,10 @@ export default function DevLoginPage() {
                     <div>
                       <dt className="text-stone-400">Роли</dt>
                       <dd>{formatRoleList(currentUser.roles)}</dd>
+                    </div>
+                    <div>
+                      <dt className="text-stone-400">Основной маршрут</dt>
+                      <dd>{getPrimaryAppPath(currentUser)}</dd>
                     </div>
                     <div>
                       <dt className="text-stone-400">Предпочитаемый город</dt>
