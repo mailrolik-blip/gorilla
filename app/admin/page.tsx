@@ -22,6 +22,11 @@ type PersonSummary = {
   lastName: string | null;
 };
 
+type ParticipantSummary = PersonSummary & {
+  birthDate: string | null;
+  city: CitySummary | null;
+};
+
 type CurrentUserSummary = {
   id: number;
   email: string | null;
@@ -39,6 +44,28 @@ type AdminTeamSummary = {
   slug: string | null;
   description: string | null;
   city: CitySummary | null;
+  createdAt: string;
+  updatedAt: string;
+};
+
+type AdminTeamMemberSummary = {
+  id: number;
+  team: {
+    id: number;
+    name: string;
+    cityId: number | null;
+    createdAt: string;
+    updatedAt: string;
+    city: CitySummary | null;
+  };
+  participant: (PersonSummary & {
+    birthDate: string | null;
+    city: CitySummary | null;
+  }) | null;
+  status: string;
+  positionCode: string | null;
+  jerseyNumber: number | null;
+  joinedAt: string;
   createdAt: string;
   updatedAt: string;
 };
@@ -222,7 +249,9 @@ type AdminRentalResourceSummary = {
 };
 
 type AdminOverview = {
+  participants: ParticipantSummary[];
   teams: AdminTeamSummary[];
+  teamMembers: AdminTeamMemberSummary[];
   teamApplications: AdminTeamApplicationSummary[];
   trainings: AdminTrainingSummary[];
   rentalBookings: AdminRentalBookingSummary[];
@@ -251,6 +280,37 @@ type TeamApplicationEditorState = {
 };
 
 type TeamApplicationFeedback = {
+  tone: 'success' | 'error';
+  message: string;
+};
+
+type TeamFormMode = 'create' | 'edit';
+
+type TeamEditorState = {
+  name: string;
+  slug: string;
+  cityId: string;
+  description: string;
+};
+
+type TeamFeedback = {
+  tone: 'success' | 'error';
+  message: string;
+};
+
+type StaffManagedTeamMemberStatus = 'ACTIVE' | 'INJURED' | 'SUSPENDED';
+type TeamMemberFormMode = 'create' | 'edit';
+
+type TeamMemberEditorState = {
+  participantId: string;
+  teamId: string;
+  status: StaffManagedTeamMemberStatus;
+  positionCode: string;
+  jerseyNumber: string;
+  joinedAt: string;
+};
+
+type TeamMemberFeedback = {
   tone: 'success' | 'error';
   message: string;
 };
@@ -344,6 +404,9 @@ const trainingTypeLabels: Record<string, string> = {
 };
 
 const statusLabels: Record<string, string> = {
+  ACTIVE: 'Активен',
+  INJURED: 'Травма',
+  SUSPENDED: 'Неактивен',
   PENDING: 'На рассмотрении',
   IN_REVIEW: 'В работе',
   ACCEPTED: 'Одобрено',
@@ -376,6 +439,15 @@ const staffManagedTeamApplicationStatusOptions: {
   { value: 'IN_REVIEW', label: 'В работе' },
   { value: 'ACCEPTED', label: 'Одобрено' },
   { value: 'REJECTED', label: 'Отклонено' },
+];
+
+const staffManagedTeamMemberStatusOptions: {
+  value: StaffManagedTeamMemberStatus;
+  label: string;
+}[] = [
+  { value: 'ACTIVE', label: 'Активен' },
+  { value: 'INJURED', label: 'Травма' },
+  { value: 'SUSPENDED', label: 'Неактивен' },
 ];
 
 const trainingActivityFilterOptions: {
@@ -464,6 +536,20 @@ function formatPersonName(person: PersonSummary | null) {
   return fullName || formatProfileType(person.profileType);
 }
 
+function formatParticipantOptionLabel(
+  participant:
+    | (PersonSummary & { birthDate: string | null; city: CitySummary | null })
+    | null
+) {
+  if (!participant) {
+    return 'Участник не указан';
+  }
+
+  return `${formatPersonName(participant)}${
+    participant.city ? ` / ${participant.city.name}` : ''
+  }`;
+}
+
 function formatUserIdentity(user: {
   id: number;
   email: string | null;
@@ -502,9 +588,62 @@ function createTeamApplicationEditorState(
   };
 }
 
+function toDateInputValue(date: Date) {
+  const localDate = new Date(date.getTime() - date.getTimezoneOffset() * 60000);
+  return localDate.toISOString().slice(0, 10);
+}
+
 function toDateTimeLocalInputValue(date: Date) {
   const localDate = new Date(date.getTime() - date.getTimezoneOffset() * 60000);
   return localDate.toISOString().slice(0, 16);
+}
+
+function createTeamEditorState(team?: AdminTeamSummary | null): TeamEditorState {
+  if (team) {
+    return {
+      name: team.name,
+      slug: team.slug ?? '',
+      cityId: team.city ? String(team.city.id) : '',
+      description: team.description ?? '',
+    };
+  }
+
+  return {
+    name: '',
+    slug: '',
+    cityId: '',
+    description: '',
+  };
+}
+
+function createTeamMemberEditorState(
+  teamMember?: AdminTeamMemberSummary | null,
+  defaultTeamId?: number | null
+): TeamMemberEditorState {
+  if (teamMember) {
+    return {
+      participantId: String(teamMember.participant?.id ?? ''),
+      teamId: String(teamMember.team.id),
+      status: ['ACTIVE', 'INJURED', 'SUSPENDED'].includes(teamMember.status)
+        ? (teamMember.status as StaffManagedTeamMemberStatus)
+        : 'ACTIVE',
+      positionCode: teamMember.positionCode ?? '',
+      jerseyNumber:
+        teamMember.jerseyNumber !== null && teamMember.jerseyNumber !== undefined
+          ? String(teamMember.jerseyNumber)
+          : '',
+      joinedAt: toDateInputValue(new Date(teamMember.joinedAt)),
+    };
+  }
+
+  return {
+    participantId: '',
+    teamId: defaultTeamId ? String(defaultTeamId) : '',
+    status: 'ACTIVE',
+    positionCode: '',
+    jerseyNumber: '',
+    joinedAt: toDateInputValue(new Date()),
+  };
 }
 
 function createTrainingEditorState(
@@ -613,10 +752,12 @@ function formatDate(value: string) {
 
 function getStatusBadgeClass(status: string) {
   switch (status) {
+    case 'ACTIVE':
     case 'ACCEPTED':
     case 'CONFIRMED':
     case 'AVAILABLE':
       return 'bg-emerald-100 text-emerald-700';
+    case 'SUSPENDED':
     case 'REJECTED':
     case 'CANCELLED':
     case 'UNAVAILABLE':
@@ -629,16 +770,27 @@ function getStatusBadgeClass(status: string) {
   }
 }
 
+const sharedDescriptionValidationErrorKey = 'description must be a string or null';
+const sharedNameValidationErrorKey = 'name must be a non-empty string';
+
 function translateErrorMessage(message: string) {
   const errorMessages: Record<string, string> = {
     'Failed to fetch current user': 'Не удалось определить текущего пользователя.',
+    'Server error': 'Внутренняя ошибка сервера.',
     'Failed to fetch teams for staff': 'Не удалось загрузить список команд.',
+    'Failed to fetch team members for staff':
+      'Не удалось загрузить составы команд.',
     'Failed to fetch team applications for admin':
       'Не удалось загрузить заявки в команду.',
     'Failed to fetch team applications for staff':
       'Не удалось загрузить заявки в команду по тренерскому контуру.',
     'Failed to update team application':
       'Не удалось сохранить изменения по заявке.',
+    'Failed to create team': 'Не удалось создать команду.',
+    'Failed to update team': 'Не удалось сохранить изменения по команде.',
+    'Failed to create team member': 'Не удалось добавить участника в состав.',
+    'Failed to update team member':
+      'Не удалось сохранить изменения по записи состава.',
     'Failed to fetch trainings for staff': 'Не удалось загрузить список тренировок.',
     'Failed to fetch trainings': 'Не удалось загрузить список тренировок.',
     'Failed to fetch users': 'Не удалось загрузить список пользователей для выбора тренера.',
@@ -668,6 +820,38 @@ function translateErrorMessage(message: string) {
     'internalNote must be a string or null':
       'Внутренняя заметка должна быть строкой или пустым значением.',
     'Invalid team application id': 'Некорректный идентификатор заявки.',
+    'name, slug and cityId are required':
+      'Для создания команды нужны name, slug и cityId.',
+    [String(sharedDescriptionValidationErrorKey)]:
+      'Описание команды должно быть строкой или пустым значением.',
+    [String(sharedNameValidationErrorKey)]:
+      'Название команды должно быть непустой строкой.',
+    'slug must be a non-empty string':
+      'Slug команды должен быть непустой строкой.',
+    'Invalid team id': 'Некорректный идентификатор команды.',
+    'At least one of name, slug, cityId or description is required':
+      'Измените хотя бы одно поле команды перед сохранением.',
+    'Team slug is already in use': 'Такой slug команды уже используется.',
+    'Team not found': 'Команда не найдена.',
+    'teamId must be a positive integer':
+      'teamId должен быть положительным целым числом.',
+    'participantId must be a positive integer':
+      'participantId должен быть положительным целым числом.',
+    'teamId, participantId and status are required':
+      'Для записи состава нужны teamId, participantId и status.',
+    'status must be one of ACTIVE, INJURED, SUSPENDED':
+      'Статус состава должен быть одним из: ACTIVE, INJURED, SUSPENDED.',
+    'positionCode must be a string or null':
+      'positionCode должен быть строкой или пустым значением.',
+    'jerseyNumber must be a positive integer or null':
+      'Игровой номер должен быть положительным целым числом или пустым значением.',
+    'joinedAt must be a valid date': 'Дата вступления указана некорректно.',
+    'Invalid team member id': 'Некорректный идентификатор записи состава.',
+    'At least one of status, positionCode, jerseyNumber or joinedAt is required':
+      'Измените хотя бы одно поле записи состава перед сохранением.',
+    'Participant not found': 'Участник не найден.',
+    'Team member already exists': 'Такой участник уже есть в этой команде.',
+    'Team member not found': 'Запись состава не найдена.',
     'status must be one of PENDING_CONFIRMATION, CONFIRMED, CANCELLED':
       'Статус брони должен быть одним из: PENDING_CONFIRMATION, CONFIRMED, CANCELLED.',
     'managerNote must be a string or null':
@@ -705,7 +889,7 @@ function translateErrorMessage(message: string) {
     'Rental slot is already booked': 'Слот аренды уже занят.',
     'name, cityId, startTime, endTime and location are required':
       'Для создания тренировки нужны название, город, время начала, время окончания и место.',
-    'description must be a string or null':
+    [sharedDescriptionValidationErrorKey]:
       'Описание тренировки должно быть строкой или пустым значением.',
     'trainingType must be a string':
       'Тип тренировки должен быть строкой.',
@@ -720,7 +904,7 @@ function translateErrorMessage(message: string) {
     'endTime must be later than startTime':
       'Время окончания должно быть позже времени начала.',
     'Invalid training id': 'Некорректный идентификатор тренировки.',
-    'name must be a non-empty string':
+    [sharedNameValidationErrorKey]:
       'Название тренировки должно быть непустой строкой.',
     'cityId must be a positive integer':
       'Город тренировки указан некорректно.',
@@ -822,6 +1006,757 @@ function SummaryCard({
       </p>
       <p className="mt-2 text-sm leading-6 text-stone-600">{detail}</p>
     </article>
+  );
+}
+
+type TeamsSectionContentProps = {
+  totalTeamsCount: number;
+  teamCityFilter: string;
+  setTeamCityFilter: React.Dispatch<React.SetStateAction<string>>;
+  teamFilterCityOptions: CitySummary[];
+  teamCityOptions: CitySummary[];
+  isTeamEditable: boolean;
+  isTeamCreateMode: boolean;
+  handleTeamCreateStart: () => void;
+  handleTeamCreateCancel: () => void;
+  filteredTeams: AdminTeamSummary[];
+  activeTeamId: number | null;
+  handleTeamSelect: (team: AdminTeamSummary) => void;
+  teamFeedback: TeamFeedback | null;
+  activeTeamEditor: TeamEditorState | null;
+  selectedTeam: AdminTeamSummary | null;
+  selectedTeamMembersCount: number;
+  savingTeamKey: string | null;
+  setTeamEditorId: React.Dispatch<React.SetStateAction<number | null>>;
+  setTeamEditor: React.Dispatch<React.SetStateAction<TeamEditorState | null>>;
+  setTeamFeedback: React.Dispatch<React.SetStateAction<TeamFeedback | null>>;
+  handleTeamSave: () => void;
+  isTeamCreateReady: boolean;
+  isTeamDirty: boolean;
+};
+
+function TeamsSectionContent({
+  totalTeamsCount,
+  teamCityFilter,
+  setTeamCityFilter,
+  teamFilterCityOptions,
+  teamCityOptions,
+  isTeamEditable,
+  isTeamCreateMode,
+  handleTeamCreateStart,
+  handleTeamCreateCancel,
+  filteredTeams,
+  activeTeamId,
+  handleTeamSelect,
+  teamFeedback,
+  activeTeamEditor,
+  selectedTeam,
+  selectedTeamMembersCount,
+  savingTeamKey,
+  setTeamEditorId,
+  setTeamEditor,
+  setTeamFeedback,
+  handleTeamSave,
+  isTeamCreateReady,
+  isTeamDirty,
+}: TeamsSectionContentProps) {
+  const selectedSavingKey = selectedTeam ? `edit-${selectedTeam.id}` : null;
+
+  function updateCreateEditor(patch: Partial<TeamEditorState>) {
+    setTeamEditor((currentEditor) => {
+      const baseEditor = currentEditor ?? activeTeamEditor;
+      return baseEditor ? { ...baseEditor, ...patch } : currentEditor;
+    });
+    setTeamFeedback(null);
+  }
+
+  function updateSelectedEditor(patch: Partial<TeamEditorState>) {
+    if (!selectedTeam) {
+      return;
+    }
+
+    setTeamEditorId(selectedTeam.id);
+    setTeamEditor((currentEditor) => {
+      const baseEditor = currentEditor ?? activeTeamEditor;
+      return baseEditor ? { ...baseEditor, ...patch } : currentEditor;
+    });
+    setTeamFeedback(null);
+  }
+
+  return (
+    <div className="grid gap-5 xl:grid-cols-[0.92fr_1.08fr]">
+      <div className="space-y-4">
+        <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-1">
+          <label className="text-sm font-medium text-stone-700">
+            Фильтр по городу
+            <select
+              value={teamCityFilter}
+              onChange={(event) => {
+                setTeamCityFilter(event.target.value);
+                setTeamFeedback(null);
+              }}
+              className="mt-2 w-full rounded-2xl border border-stone-300 bg-white px-4 py-3 text-base text-stone-950 outline-none transition focus:border-stone-500"
+            >
+              <option value="ALL">Все города</option>
+              {teamFilterCityOptions.map((city) => (
+                <option key={city.id} value={city.id}>
+                  {city.name}
+                </option>
+              ))}
+            </select>
+          </label>
+        </div>
+
+        {isTeamEditable ? (
+          <div className="flex flex-wrap gap-3">
+            <button
+              type="button"
+              onClick={handleTeamCreateStart}
+              className="rounded-full bg-stone-950 px-5 py-3 text-sm font-semibold text-white transition hover:bg-stone-800"
+            >
+              Новая команда
+            </button>
+            {isTeamCreateMode ? (
+              <button
+                type="button"
+                onClick={handleTeamCreateCancel}
+                className="rounded-full border border-stone-300 px-5 py-3 text-sm font-semibold text-stone-700 transition hover:border-stone-500 hover:text-stone-950"
+              >
+                Вернуться к списку
+              </button>
+            ) : null}
+          </div>
+        ) : null}
+
+        {filteredTeams.length === 0 ? (
+          <p className="rounded-2xl border border-dashed border-stone-300 bg-stone-50 p-5 text-sm text-stone-600">
+            {totalTeamsCount === 0
+              ? 'Команд пока нет.'
+              : 'По текущему фильтру команд нет.'}
+          </p>
+        ) : (
+          <div className="space-y-3 xl:max-h-[720px] xl:overflow-y-auto xl:pr-2">
+            {filteredTeams.map((team) => {
+              const isSelected = !isTeamCreateMode && team.id === activeTeamId;
+
+              return (
+                <button
+                  key={team.id}
+                  type="button"
+                  onClick={() => handleTeamSelect(team)}
+                  className={`w-full rounded-2xl border p-4 text-left transition ${
+                    isSelected
+                      ? 'border-stone-950 bg-stone-950 text-white shadow-[0_18px_45px_-35px_rgba(0,0,0,0.45)]'
+                      : 'border-stone-200 bg-stone-50 hover:border-stone-400 hover:bg-white'
+                  }`}
+                >
+                  <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                    <div>
+                      <p className="font-semibold">{team.name}</p>
+                      <p
+                        className={`mt-1 text-sm ${
+                          isSelected ? 'text-stone-300' : 'text-stone-600'
+                        }`}
+                      >
+                        {team.city?.name || 'Город не указан'}
+                        {team.slug ? ` / ${team.slug}` : ''}
+                      </p>
+                      <p
+                        className={`mt-2 text-sm ${
+                          isSelected ? 'text-stone-300' : 'text-stone-700'
+                        }`}
+                      >
+                        Обновлено: {formatDateTime(team.updatedAt)}
+                      </p>
+                    </div>
+                    <span
+                      className={`rounded-full px-3 py-1 text-xs font-medium ${
+                        isSelected
+                          ? 'bg-white/15 text-white'
+                          : 'bg-stone-200 text-stone-700'
+                      }`}
+                    >
+                      Команда #{team.id}
+                    </span>
+                  </div>
+                </button>
+              );
+            })}
+          </div>
+        )}
+      </div>
+
+      <div className="rounded-[24px] border border-stone-200 bg-stone-50 p-5">
+        {teamFeedback ? (
+          <p
+            className={`rounded-2xl border px-4 py-3 text-sm ${
+              teamFeedback.tone === 'success'
+                ? 'border-emerald-200 bg-emerald-50 text-emerald-700'
+                : 'border-rose-200 bg-rose-50 text-rose-700'
+            }`}
+          >
+            {teamFeedback.message}
+          </p>
+        ) : null}
+
+        {activeTeamEditor && (isTeamCreateMode || selectedTeam) ? (
+          <div className="space-y-5">
+            <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+              <div>
+                <p className="text-xs font-semibold uppercase tracking-[0.16em] text-stone-500">
+                  {isTeamCreateMode ? 'Новая команда' : `Команда #${selectedTeam?.id}`}
+                </p>
+                <h3 className="mt-2 text-xl font-semibold text-stone-950">
+                  {isTeamCreateMode ? 'Создание команды' : selectedTeam?.name}
+                </h3>
+                <p className="mt-2 text-sm text-stone-600">
+                  {isTeamCreateMode
+                    ? 'POST создаёт новую команду в текущем staff-контуре.'
+                    : `Участников в составе: ${selectedTeamMembersCount}.`}
+                </p>
+              </div>
+              {!isTeamCreateMode && selectedTeam?.city ? (
+                <span className="rounded-full bg-stone-200 px-3 py-1 text-xs font-medium text-stone-700">
+                  {selectedTeam.city.name}
+                </span>
+              ) : null}
+            </div>
+
+            {!isTeamEditable ? (
+              <p className="rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
+                Глобальное управление командами доступно только MANAGER и ADMIN.
+              </p>
+            ) : null}
+
+            <div className="grid gap-4">
+              <label className="text-sm font-medium text-stone-700">
+                Название
+                <input
+                  value={activeTeamEditor.name}
+                  onChange={(event) =>
+                    isTeamCreateMode
+                      ? updateCreateEditor({ name: event.target.value })
+                      : updateSelectedEditor({ name: event.target.value })
+                  }
+                  disabled={
+                    savingTeamKey === 'create' ||
+                    savingTeamKey === selectedSavingKey
+                  }
+                  className="mt-2 w-full rounded-2xl border border-stone-300 bg-white px-4 py-3 text-base text-stone-950 outline-none transition focus:border-stone-500 disabled:cursor-not-allowed disabled:bg-stone-100"
+                />
+              </label>
+
+              <label className="text-sm font-medium text-stone-700">
+                Slug
+                <input
+                  value={activeTeamEditor.slug}
+                  onChange={(event) =>
+                    isTeamCreateMode
+                      ? updateCreateEditor({ slug: event.target.value })
+                      : updateSelectedEditor({ slug: event.target.value })
+                  }
+                  disabled={
+                    savingTeamKey === 'create' ||
+                    savingTeamKey === selectedSavingKey
+                  }
+                  className="mt-2 w-full rounded-2xl border border-stone-300 bg-white px-4 py-3 text-base text-stone-950 outline-none transition focus:border-stone-500 disabled:cursor-not-allowed disabled:bg-stone-100"
+                />
+              </label>
+
+              <label className="text-sm font-medium text-stone-700">
+                Город
+                <select
+                  value={activeTeamEditor.cityId}
+                  onChange={(event) =>
+                    isTeamCreateMode
+                      ? updateCreateEditor({ cityId: event.target.value })
+                      : updateSelectedEditor({ cityId: event.target.value })
+                  }
+                  disabled={
+                    savingTeamKey === 'create' ||
+                    savingTeamKey === selectedSavingKey
+                  }
+                  className="mt-2 w-full rounded-2xl border border-stone-300 bg-white px-4 py-3 text-base text-stone-950 outline-none transition focus:border-stone-500 disabled:cursor-not-allowed disabled:bg-stone-100"
+                >
+                  <option value="">Выберите город</option>
+                  {teamCityOptions.map((city) => (
+                    <option key={city.id} value={city.id}>
+                      {city.name}
+                    </option>
+                  ))}
+                </select>
+              </label>
+
+              <label className="text-sm font-medium text-stone-700">
+                Описание
+                <textarea
+                  value={activeTeamEditor.description}
+                  onChange={(event) =>
+                    isTeamCreateMode
+                      ? updateCreateEditor({ description: event.target.value })
+                      : updateSelectedEditor({ description: event.target.value })
+                  }
+                  rows={5}
+                  disabled={
+                    savingTeamKey === 'create' ||
+                    savingTeamKey === selectedSavingKey
+                  }
+                  className="mt-2 w-full rounded-2xl border border-stone-300 bg-white px-4 py-3 text-base text-stone-950 outline-none transition focus:border-stone-500 disabled:cursor-not-allowed disabled:bg-stone-100"
+                />
+              </label>
+            </div>
+
+            {isTeamEditable ? (
+              <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                <p className="text-sm text-stone-600">
+                  {isTeamCreateMode
+                    ? 'После создания новая команда сразу появляется в списке слева.'
+                    : 'PATCH меняет name, slug, city и description без ручной перезагрузки.'}
+                </p>
+                <button
+                  type="button"
+                  onClick={handleTeamSave}
+                  disabled={
+                    isTeamCreateMode
+                      ? !isTeamCreateReady || savingTeamKey === 'create'
+                      : !isTeamDirty || savingTeamKey === selectedSavingKey
+                  }
+                  className="rounded-full bg-stone-950 px-5 py-3 text-sm font-semibold text-white transition hover:bg-stone-800 disabled:cursor-not-allowed disabled:bg-stone-400"
+                >
+                  {isTeamCreateMode
+                    ? savingTeamKey === 'create'
+                      ? 'Создаём...'
+                      : 'Создать команду'
+                    : savingTeamKey === selectedSavingKey
+                      ? 'Сохраняем...'
+                      : 'Сохранить команду'}
+                </button>
+              </div>
+            ) : null}
+          </div>
+        ) : (
+          <p className="rounded-2xl border border-dashed border-stone-300 bg-white p-5 text-sm text-stone-600">
+            Выберите команду слева или создайте новую запись.
+          </p>
+        )}
+      </div>
+    </div>
+  );
+}
+
+type TeamMembersSectionContentProps = {
+  totalTeamMembersCount: number;
+  teamMemberTeamFilter: string;
+  setTeamMemberTeamFilter: React.Dispatch<React.SetStateAction<string>>;
+  teamMemberTeamOptions: AdminTeamSummary[];
+  filteredTeamMembers: AdminTeamMemberSummary[];
+  activeTeamMemberId: number | null;
+  handleTeamMemberSelect: (teamMember: AdminTeamMemberSummary) => void;
+  isTeamEditable: boolean;
+  isTeamMemberCreateMode: boolean;
+  handleTeamMemberCreateStart: () => void;
+  handleTeamMemberCreateCancel: () => void;
+  teamMemberFeedback: TeamMemberFeedback | null;
+  activeTeamMemberEditor: TeamMemberEditorState | null;
+  availableParticipantOptions: (PersonSummary & {
+    birthDate: string | null;
+    city: CitySummary | null;
+  })[];
+  savingTeamMemberKey: string | null;
+  setTeamMemberEditorId: React.Dispatch<React.SetStateAction<number | null>>;
+  setTeamMemberEditor: React.Dispatch<
+    React.SetStateAction<TeamMemberEditorState | null>
+  >;
+  setTeamMemberFeedback: React.Dispatch<
+    React.SetStateAction<TeamMemberFeedback | null>
+  >;
+  handleTeamMemberSave: () => void;
+  isTeamMemberCreateReady: boolean;
+  selectedTeamMember: AdminTeamMemberSummary | null;
+  isTeamMemberDirty: boolean;
+};
+
+function TeamMembersSectionContent({
+  totalTeamMembersCount,
+  teamMemberTeamFilter,
+  setTeamMemberTeamFilter,
+  teamMemberTeamOptions,
+  filteredTeamMembers,
+  activeTeamMemberId,
+  handleTeamMemberSelect,
+  isTeamEditable,
+  isTeamMemberCreateMode,
+  handleTeamMemberCreateStart,
+  handleTeamMemberCreateCancel,
+  teamMemberFeedback,
+  activeTeamMemberEditor,
+  availableParticipantOptions,
+  savingTeamMemberKey,
+  setTeamMemberEditorId,
+  setTeamMemberEditor,
+  setTeamMemberFeedback,
+  handleTeamMemberSave,
+  isTeamMemberCreateReady,
+  selectedTeamMember,
+  isTeamMemberDirty,
+}: TeamMembersSectionContentProps) {
+  const selectedSavingKey = selectedTeamMember
+    ? `edit-${selectedTeamMember.id}`
+    : null;
+
+  function updateCreateEditor(patch: Partial<TeamMemberEditorState>) {
+    setTeamMemberEditor((currentEditor) => {
+      const baseEditor = currentEditor ?? activeTeamMemberEditor;
+      return baseEditor ? { ...baseEditor, ...patch } : currentEditor;
+    });
+    setTeamMemberFeedback(null);
+  }
+
+  function updateSelectedEditor(patch: Partial<TeamMemberEditorState>) {
+    if (!selectedTeamMember) {
+      return;
+    }
+
+    setTeamMemberEditorId(selectedTeamMember.id);
+    setTeamMemberEditor((currentEditor) => {
+      const baseEditor = currentEditor ?? activeTeamMemberEditor;
+      return baseEditor ? { ...baseEditor, ...patch } : currentEditor;
+    });
+    setTeamMemberFeedback(null);
+  }
+
+  function renderReadonlyValue(value: string) {
+    return (
+      <div className="mt-2 rounded-2xl border border-stone-300 bg-white px-4 py-3 text-sm text-stone-800">
+        {value}
+      </div>
+    );
+  }
+
+  return (
+    <div className="grid gap-5 xl:grid-cols-[0.92fr_1.08fr]">
+      <div className="space-y-4">
+        <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-1">
+          <label className="text-sm font-medium text-stone-700">
+            Фильтр по команде
+            <select
+              value={teamMemberTeamFilter}
+              onChange={(event) => {
+                setTeamMemberTeamFilter(event.target.value);
+                setTeamMemberFeedback(null);
+              }}
+              className="mt-2 w-full rounded-2xl border border-stone-300 bg-white px-4 py-3 text-base text-stone-950 outline-none transition focus:border-stone-500"
+            >
+              <option value="ALL">Все команды</option>
+              {teamMemberTeamOptions.map((team) => (
+                <option key={team.id} value={team.id}>
+                  {team.name} / {team.city?.name || 'Город не указан'}
+                </option>
+              ))}
+            </select>
+          </label>
+        </div>
+
+        {isTeamEditable ? (
+          <div className="flex flex-wrap gap-3">
+            <button
+              type="button"
+              onClick={handleTeamMemberCreateStart}
+              className="rounded-full bg-stone-950 px-5 py-3 text-sm font-semibold text-white transition hover:bg-stone-800"
+            >
+              Добавить в состав
+            </button>
+            {isTeamMemberCreateMode ? (
+              <button
+                type="button"
+                onClick={handleTeamMemberCreateCancel}
+                className="rounded-full border border-stone-300 px-5 py-3 text-sm font-semibold text-stone-700 transition hover:border-stone-500 hover:text-stone-950"
+              >
+                Вернуться к списку
+              </button>
+            ) : null}
+          </div>
+        ) : null}
+
+        {filteredTeamMembers.length === 0 ? (
+          <p className="rounded-2xl border border-dashed border-stone-300 bg-stone-50 p-5 text-sm text-stone-600">
+            {totalTeamMembersCount === 0
+              ? 'Записей состава пока нет.'
+              : 'По текущему фильтру записей состава нет.'}
+          </p>
+        ) : (
+          <div className="space-y-3 xl:max-h-[720px] xl:overflow-y-auto xl:pr-2">
+            {filteredTeamMembers.map((teamMember) => {
+              const isSelected =
+                !isTeamMemberCreateMode && teamMember.id === activeTeamMemberId;
+
+              return (
+                <button
+                  key={teamMember.id}
+                  type="button"
+                  onClick={() => handleTeamMemberSelect(teamMember)}
+                  className={`w-full rounded-2xl border p-4 text-left transition ${
+                    isSelected
+                      ? 'border-stone-950 bg-stone-950 text-white shadow-[0_18px_45px_-35px_rgba(0,0,0,0.45)]'
+                      : 'border-stone-200 bg-stone-50 hover:border-stone-400 hover:bg-white'
+                  }`}
+                >
+                  <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                    <div>
+                      <p className="font-semibold">
+                        {formatParticipantOptionLabel(teamMember.participant)}
+                      </p>
+                      <p
+                        className={`mt-1 text-sm ${
+                          isSelected ? 'text-stone-300' : 'text-stone-600'
+                        }`}
+                      >
+                        {teamMember.team.name} /{' '}
+                        {teamMember.team.city?.name || 'Город не указан'}
+                      </p>
+                      <p
+                        className={`mt-2 text-sm ${
+                          isSelected ? 'text-stone-300' : 'text-stone-700'
+                        }`}
+                      >
+                        Позиция: {teamMember.positionCode || 'Не указана'} / №{' '}
+                        {teamMember.jerseyNumber ?? '—'}
+                      </p>
+                    </div>
+                    <span
+                      className={`rounded-full px-3 py-1 text-xs font-medium ${
+                        isSelected
+                          ? 'bg-white/15 text-white'
+                          : getStatusBadgeClass(teamMember.status)
+                      }`}
+                    >
+                      {formatStatus(teamMember.status)}
+                    </span>
+                  </div>
+                </button>
+              );
+            })}
+          </div>
+        )}
+      </div>
+
+      <div className="rounded-[24px] border border-stone-200 bg-stone-50 p-5">
+        {teamMemberFeedback ? (
+          <p
+            className={`rounded-2xl border px-4 py-3 text-sm ${
+              teamMemberFeedback.tone === 'success'
+                ? 'border-emerald-200 bg-emerald-50 text-emerald-700'
+                : 'border-rose-200 bg-rose-50 text-rose-700'
+            }`}
+          >
+            {teamMemberFeedback.message}
+          </p>
+        ) : null}
+
+        {activeTeamMemberEditor && (isTeamMemberCreateMode || selectedTeamMember) ? (
+          <div className="space-y-5">
+            <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+              <div>
+                <p className="text-xs font-semibold uppercase tracking-[0.16em] text-stone-500">
+                  {isTeamMemberCreateMode
+                    ? 'Новая запись состава'
+                    : `Состав #${selectedTeamMember?.id}`}
+                </p>
+                <h3 className="mt-2 text-xl font-semibold text-stone-950">
+                  {isTeamMemberCreateMode
+                    ? 'Добавление участника'
+                    : formatParticipantOptionLabel(selectedTeamMember?.participant ?? null)}
+                </h3>
+                <p className="mt-2 text-sm text-stone-600">
+                  {isTeamMemberCreateMode
+                    ? 'POST создаёт новую запись состава для выбранной команды.'
+                    : `${selectedTeamMember?.team.name} / ${
+                        selectedTeamMember?.team.city?.name || 'Город не указан'
+                      }`}
+                </p>
+              </div>
+              {!isTeamMemberCreateMode && selectedTeamMember ? (
+                <span
+                  className={`rounded-full px-3 py-1 text-xs font-medium ${getStatusBadgeClass(
+                    selectedTeamMember.status
+                  )}`}
+                >
+                  {formatStatus(selectedTeamMember.status)}
+                </span>
+              ) : null}
+            </div>
+
+            <div className="grid gap-4 md:grid-cols-2">
+              <label className="text-sm font-medium text-stone-700">
+                Участник
+                {isTeamMemberCreateMode ? (
+                  <select
+                    value={activeTeamMemberEditor.participantId}
+                    onChange={(event) =>
+                      updateCreateEditor({ participantId: event.target.value })
+                    }
+                    disabled={savingTeamMemberKey === 'create'}
+                    className="mt-2 w-full rounded-2xl border border-stone-300 bg-white px-4 py-3 text-base text-stone-950 outline-none transition focus:border-stone-500 disabled:cursor-not-allowed disabled:bg-stone-100"
+                  >
+                    <option value="">Выберите участника</option>
+                    {availableParticipantOptions.map((participant) => (
+                      <option key={participant.id} value={participant.id}>
+                        {formatParticipantOptionLabel(participant)}
+                      </option>
+                    ))}
+                  </select>
+                ) : (
+                  renderReadonlyValue(
+                    formatParticipantOptionLabel(selectedTeamMember?.participant ?? null)
+                  )
+                )}
+              </label>
+
+              <label className="text-sm font-medium text-stone-700">
+                Команда
+                {isTeamMemberCreateMode ? (
+                  <select
+                    value={activeTeamMemberEditor.teamId}
+                    onChange={(event) =>
+                      updateCreateEditor({ teamId: event.target.value })
+                    }
+                    disabled={savingTeamMemberKey === 'create'}
+                    className="mt-2 w-full rounded-2xl border border-stone-300 bg-white px-4 py-3 text-base text-stone-950 outline-none transition focus:border-stone-500 disabled:cursor-not-allowed disabled:bg-stone-100"
+                  >
+                    <option value="">Выберите команду</option>
+                    {teamMemberTeamOptions.map((team) => (
+                      <option key={team.id} value={team.id}>
+                        {team.name} / {team.city?.name || 'Город не указан'}
+                      </option>
+                    ))}
+                  </select>
+                ) : (
+                  renderReadonlyValue(
+                    `${selectedTeamMember?.team.name || 'Команда не указана'} / ${
+                      selectedTeamMember?.team.city?.name || 'Город не указан'
+                    }`
+                  )
+                )}
+              </label>
+
+              <label className="text-sm font-medium text-stone-700">
+                Статус
+                <select
+                  value={activeTeamMemberEditor.status}
+                  onChange={(event) =>
+                    isTeamMemberCreateMode
+                      ? updateCreateEditor({
+                          status: event.target.value as StaffManagedTeamMemberStatus,
+                        })
+                      : updateSelectedEditor({
+                          status: event.target.value as StaffManagedTeamMemberStatus,
+                        })
+                  }
+                  disabled={
+                    savingTeamMemberKey === 'create' ||
+                    savingTeamMemberKey === selectedSavingKey
+                  }
+                  className="mt-2 w-full rounded-2xl border border-stone-300 bg-white px-4 py-3 text-base text-stone-950 outline-none transition focus:border-stone-500 disabled:cursor-not-allowed disabled:bg-stone-100"
+                >
+                  {staffManagedTeamMemberStatusOptions.map((option) => (
+                    <option key={option.value} value={option.value}>
+                      {option.label}
+                    </option>
+                  ))}
+                </select>
+              </label>
+
+              <label className="text-sm font-medium text-stone-700">
+                Позиция
+                <input
+                  value={activeTeamMemberEditor.positionCode}
+                  onChange={(event) =>
+                    isTeamMemberCreateMode
+                      ? updateCreateEditor({ positionCode: event.target.value })
+                      : updateSelectedEditor({ positionCode: event.target.value })
+                  }
+                  disabled={
+                    savingTeamMemberKey === 'create' ||
+                    savingTeamMemberKey === selectedSavingKey
+                  }
+                  className="mt-2 w-full rounded-2xl border border-stone-300 bg-white px-4 py-3 text-base text-stone-950 outline-none transition focus:border-stone-500 disabled:cursor-not-allowed disabled:bg-stone-100"
+                />
+              </label>
+
+              <label className="text-sm font-medium text-stone-700">
+                Игровой номер
+                <input
+                  type="number"
+                  min={1}
+                  value={activeTeamMemberEditor.jerseyNumber}
+                  onChange={(event) =>
+                    isTeamMemberCreateMode
+                      ? updateCreateEditor({ jerseyNumber: event.target.value })
+                      : updateSelectedEditor({ jerseyNumber: event.target.value })
+                  }
+                  disabled={
+                    savingTeamMemberKey === 'create' ||
+                    savingTeamMemberKey === selectedSavingKey
+                  }
+                  className="mt-2 w-full rounded-2xl border border-stone-300 bg-white px-4 py-3 text-base text-stone-950 outline-none transition focus:border-stone-500 disabled:cursor-not-allowed disabled:bg-stone-100"
+                />
+              </label>
+
+              <label className="text-sm font-medium text-stone-700">
+                Joined at
+                <input
+                  type="date"
+                  value={activeTeamMemberEditor.joinedAt}
+                  onChange={(event) =>
+                    isTeamMemberCreateMode
+                      ? updateCreateEditor({ joinedAt: event.target.value })
+                      : updateSelectedEditor({ joinedAt: event.target.value })
+                  }
+                  disabled={
+                    savingTeamMemberKey === 'create' ||
+                    savingTeamMemberKey === selectedSavingKey
+                  }
+                  className="mt-2 w-full rounded-2xl border border-stone-300 bg-white px-4 py-3 text-base text-stone-950 outline-none transition focus:border-stone-500 disabled:cursor-not-allowed disabled:bg-stone-100"
+                />
+              </label>
+            </div>
+
+            {isTeamEditable ? (
+              <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                <p className="text-sm text-stone-600">
+                  {isTeamMemberCreateMode
+                    ? 'После создания запись состава сразу появляется в списке слева.'
+                    : 'PATCH меняет статус, позицию, номер и дату вступления без ручной перезагрузки.'}
+                </p>
+                <button
+                  type="button"
+                  onClick={handleTeamMemberSave}
+                  disabled={
+                    isTeamMemberCreateMode
+                      ? !isTeamMemberCreateReady || savingTeamMemberKey === 'create'
+                      : !isTeamMemberDirty ||
+                        savingTeamMemberKey === selectedSavingKey
+                  }
+                  className="rounded-full bg-stone-950 px-5 py-3 text-sm font-semibold text-white transition hover:bg-stone-800 disabled:cursor-not-allowed disabled:bg-stone-400"
+                >
+                  {isTeamMemberCreateMode
+                    ? savingTeamMemberKey === 'create'
+                      ? 'Сохраняем...'
+                      : 'Добавить в состав'
+                    : savingTeamMemberKey === selectedSavingKey
+                      ? 'Сохраняем...'
+                      : 'Сохранить запись'}
+                </button>
+              </div>
+            ) : null}
+          </div>
+        ) : (
+          <p className="rounded-2xl border border-dashed border-stone-300 bg-white p-5 text-sm text-stone-600">
+            Выберите запись состава слева или создайте новую.
+          </p>
+        )}
+      </div>
+    </div>
   );
 }
 
@@ -2427,6 +3362,29 @@ export default function AdminPage() {
   const [currentUser, setCurrentUser] = useState<CurrentUserSummary | null>(null);
   const [overview, setOverview] = useState<AdminOverview | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [teamCityFilter, setTeamCityFilter] = useState<string>('ALL');
+  const [selectedTeamId, setSelectedTeamId] = useState<number | null>(null);
+  const [teamEditorMode, setTeamEditorMode] = useState<TeamFormMode>('edit');
+  const [teamEditorId, setTeamEditorId] = useState<number | null>(null);
+  const [teamEditor, setTeamEditor] = useState<TeamEditorState | null>(null);
+  const [teamFeedback, setTeamFeedback] = useState<TeamFeedback | null>(null);
+  const [savingTeamKey, setSavingTeamKey] = useState<string | null>(null);
+  const [teamMemberTeamFilter, setTeamMemberTeamFilter] = useState<string>('ALL');
+  const [selectedTeamMemberId, setSelectedTeamMemberId] = useState<number | null>(
+    null
+  );
+  const [teamMemberEditorMode, setTeamMemberEditorMode] =
+    useState<TeamMemberFormMode>('edit');
+  const [teamMemberEditorId, setTeamMemberEditorId] = useState<number | null>(
+    null
+  );
+  const [teamMemberEditor, setTeamMemberEditor] =
+    useState<TeamMemberEditorState | null>(null);
+  const [teamMemberFeedback, setTeamMemberFeedback] =
+    useState<TeamMemberFeedback | null>(null);
+  const [savingTeamMemberKey, setSavingTeamMemberKey] = useState<string | null>(
+    null
+  );
   const [teamApplicationStatusFilter, setTeamApplicationStatusFilter] =
     useState<TeamApplicationStatusFilter>('ALL');
   const [teamApplicationTeamFilter, setTeamApplicationTeamFilter] =
@@ -2573,7 +3531,9 @@ export default function AdminPage() {
           setTrainingCityOptions([]);
           setTrainingCoachOptions([]);
           setOverview({
+            participants: [],
             teams: [],
+            teamMembers: [],
             teamApplications: (
               teamApplicationsResult.payload as TrainerTeamApplicationSummary[]
             ).map(normalizeTrainerApplication),
@@ -2593,20 +3553,24 @@ export default function AdminPage() {
 
       const [
         teamsResult,
+        teamMembersResult,
         teamApplicationsResult,
         trainingsResult,
         citiesResult,
         usersResult,
+        participantsResult,
         rentalBookingsResult,
         rentalSlotsResult,
         rentalFacilitiesResult,
         rentalResourcesResult,
       ] = await Promise.all([
         fetchJson<AdminTeamSummary[]>('/api/admin/teams'),
+        fetchJson<AdminTeamMemberSummary[]>('/api/admin/team-members'),
         fetchJson<AdminTeamApplicationSummary[]>('/api/admin/team-applications'),
         fetchJson<AdminTrainingSummary[]>('/api/admin/trainings'),
         fetchJson<CitySummary[]>('/api/city'),
         fetchJson<TrainingCoachOption[]>('/api/users'),
+        fetchJson<ParticipantSummary[]>('/api/participants'),
         fetchJson<AdminRentalBookingSummary[]>('/api/admin/rental-bookings'),
         fetchJson<AdminRentalSlotSummary[]>('/api/admin/rental-slots'),
         fetchJson<AdminRentalFacilitySummary[]>('/api/admin/rental-facilities'),
@@ -2615,10 +3579,12 @@ export default function AdminPage() {
 
       const results = [
         teamsResult,
+        teamMembersResult,
         teamApplicationsResult,
         trainingsResult,
         citiesResult,
         usersResult,
+        participantsResult,
         rentalBookingsResult,
         rentalSlotsResult,
         rentalFacilitiesResult,
@@ -2651,7 +3617,9 @@ export default function AdminPage() {
         setTrainingCityOptions(citiesResult.payload as CitySummary[]);
         setTrainingCoachOptions(usersResult.payload as TrainingCoachOption[]);
         setOverview({
+          participants: participantsResult.payload as ParticipantSummary[],
           teams: teamsResult.payload as AdminTeamSummary[],
+          teamMembers: teamMembersResult.payload as AdminTeamMemberSummary[],
           teamApplications:
             teamApplicationsResult.payload as AdminTeamApplicationSummary[],
           trainings: trainingsResult.payload as AdminTrainingSummary[],
@@ -2692,6 +3660,179 @@ export default function AdminPage() {
   const visibleAdminSectionIds = new Set(
     visibleAdminSections.map((section) => section.id)
   );
+  const isTeamEditable =
+    currentUserCapabilities.isAdmin || currentUserCapabilities.isManager;
+  const teamFilterCityOptions = Array.from(
+    new Map(
+      (overview?.teams ?? [])
+        .filter((team) => team.city)
+        .map((team) => [team.city!.id, team.city!])
+    ).values()
+  ).sort((left, right) => left.name.localeCompare(right.name, 'ru'));
+  const filteredTeams = (overview?.teams ?? [])
+    .filter((team) => {
+      if (teamCityFilter !== 'ALL' && String(team.city?.id) !== teamCityFilter) {
+        return false;
+      }
+
+      return true;
+    })
+    .sort(
+      (left, right) =>
+        new Date(right.updatedAt).getTime() - new Date(left.updatedAt).getTime()
+    );
+  const selectedTeam =
+    teamEditorMode === 'create'
+      ? null
+      : filteredTeams.find((team) => team.id === selectedTeamId) ??
+        filteredTeams[0] ??
+        null;
+  const activeTeamId = selectedTeam?.id ?? null;
+  const isTeamCreateMode = teamEditorMode === 'create';
+  const activeTeamEditor = isTeamCreateMode
+    ? teamEditor
+    : selectedTeam && teamEditor !== null && teamEditorId === selectedTeam.id
+      ? teamEditor
+      : selectedTeam
+        ? createTeamEditorState(selectedTeam)
+        : null;
+  const normalizedSelectedTeamName = selectedTeam?.name.trim() ?? '';
+  const normalizedSelectedTeamSlug = selectedTeam?.slug?.trim() ?? '';
+  const normalizedSelectedTeamDescription = selectedTeam?.description ?? '';
+  const normalizedEditorTeamName = activeTeamEditor?.name.trim() ?? '';
+  const normalizedEditorTeamSlug = activeTeamEditor?.slug.trim() ?? '';
+  const normalizedEditorTeamDescription = activeTeamEditor?.description.trim() ?? '';
+  const isTeamDirty =
+    !isTeamCreateMode &&
+    selectedTeam !== null &&
+    activeTeamEditor !== null &&
+    (normalizedSelectedTeamName !== normalizedEditorTeamName ||
+      normalizedSelectedTeamSlug !== normalizedEditorTeamSlug ||
+      String(selectedTeam.city?.id ?? '') !== activeTeamEditor.cityId ||
+      normalizedSelectedTeamDescription !== normalizedEditorTeamDescription);
+  const isTeamCreateReady =
+    isTeamCreateMode &&
+    activeTeamEditor !== null &&
+    normalizedEditorTeamName.length > 0 &&
+    normalizedEditorTeamSlug.length > 0 &&
+    activeTeamEditor.cityId.length > 0;
+  const selectedTeamMembersCount = selectedTeam
+    ? (overview?.teamMembers ?? []).filter(
+        (teamMember) => teamMember.team.id === selectedTeam.id
+      ).length
+    : 0;
+  const teamMembersByUpdated = (overview?.teamMembers ?? [])
+    .slice()
+    .sort(
+      (left, right) =>
+        new Date(right.updatedAt).getTime() - new Date(left.updatedAt).getTime()
+    );
+  const teamMemberTeamOptions = (overview?.teams ?? [])
+    .slice()
+    .sort((left, right) => left.name.localeCompare(right.name, 'ru'));
+  const filteredTeamMembers = teamMembersByUpdated.filter((teamMember) => {
+    if (
+      teamMemberTeamFilter !== 'ALL' &&
+      String(teamMember.team.id) !== teamMemberTeamFilter
+    ) {
+      return false;
+    }
+
+    return true;
+  });
+  const selectedTeamMember =
+    teamMemberEditorMode === 'create'
+      ? null
+      : filteredTeamMembers.find(
+          (teamMember) => teamMember.id === selectedTeamMemberId
+        ) ??
+        filteredTeamMembers[0] ??
+        null;
+  const activeTeamMemberId = selectedTeamMember?.id ?? null;
+  const isTeamMemberCreateMode = teamMemberEditorMode === 'create';
+  const activeTeamMemberEditor = isTeamMemberCreateMode
+    ? teamMemberEditor
+    : selectedTeamMember &&
+        teamMemberEditor !== null &&
+          teamMemberEditorId === selectedTeamMember.id
+      ? teamMemberEditor
+      : selectedTeamMember
+        ? createTeamMemberEditorState(selectedTeamMember)
+        : null;
+  const participantOptions = Array.from(
+    new Map(
+      [
+        ...(overview?.participants ?? []),
+        ...(overview?.teamMembers
+          .map((teamMember) => teamMember.participant)
+          .filter(
+            (
+              participant
+            ): participant is ParticipantSummary => participant !== null
+          ) ?? []),
+        ...(overview?.teamApplications
+          .map((application) => application.participant)
+          .filter(
+            (
+              participant
+            ): participant is ParticipantSummary => participant !== null
+          ) ?? []),
+        ...(overview?.rentalBookings
+          .map((booking) => booking.participant)
+          .filter(
+            (
+              participant
+            ): participant is ParticipantSummary => participant !== null
+          ) ?? []),
+      ].map((participant) => [participant.id, participant])
+    ).values()
+  ).sort((left, right) =>
+    formatPersonName(left).localeCompare(formatPersonName(right), 'ru')
+  );
+  const activeTeamMemberTargetTeamId = activeTeamMemberEditor?.teamId
+    ? Number(activeTeamMemberEditor.teamId)
+    : selectedTeamMember?.team.id ?? selectedTeam?.id ?? null;
+  const availableParticipantOptions = participantOptions.filter((participant) => {
+    if (!isTeamMemberCreateMode || !activeTeamMemberTargetTeamId) {
+      return true;
+    }
+
+    return !(overview?.teamMembers ?? []).some(
+      (teamMember) =>
+        teamMember.team.id === activeTeamMemberTargetTeamId &&
+        teamMember.participant?.id === participant.id
+    );
+  });
+  const normalizedSelectedTeamMemberPositionCode =
+    selectedTeamMember?.positionCode ?? '';
+  const normalizedSelectedTeamMemberJerseyNumber =
+    selectedTeamMember?.jerseyNumber !== null &&
+    selectedTeamMember?.jerseyNumber !== undefined
+      ? String(selectedTeamMember.jerseyNumber)
+      : '';
+  const normalizedSelectedTeamMemberJoinedAt = selectedTeamMember
+    ? toDateInputValue(new Date(selectedTeamMember.joinedAt))
+    : '';
+  const normalizedEditorTeamMemberPositionCode =
+    activeTeamMemberEditor?.positionCode.trim() ?? '';
+  const normalizedEditorTeamMemberJerseyNumber =
+    activeTeamMemberEditor?.jerseyNumber.trim() ?? '';
+  const isTeamMemberDirty =
+    !isTeamMemberCreateMode &&
+    selectedTeamMember !== null &&
+    activeTeamMemberEditor !== null &&
+    (selectedTeamMember.status !== activeTeamMemberEditor.status ||
+      normalizedSelectedTeamMemberPositionCode !==
+        normalizedEditorTeamMemberPositionCode ||
+      normalizedSelectedTeamMemberJerseyNumber !==
+        normalizedEditorTeamMemberJerseyNumber ||
+      normalizedSelectedTeamMemberJoinedAt !== activeTeamMemberEditor.joinedAt);
+  const isTeamMemberCreateReady =
+    isTeamMemberCreateMode &&
+    activeTeamMemberEditor !== null &&
+    activeTeamMemberEditor.participantId.length > 0 &&
+    activeTeamMemberEditor.teamId.length > 0 &&
+    activeTeamMemberEditor.joinedAt.length > 0;
   const teamCityCount = overview
     ? new Set(
         overview.teams
@@ -3001,6 +4142,462 @@ export default function AdminPage() {
     activeRentalSlotEditor.resourceId.length > 0 &&
     activeRentalSlotEditor.startsAt.length > 0 &&
     activeRentalSlotEditor.endsAt.length > 0;
+
+  function handleTeamSelect(team: AdminTeamSummary) {
+    setSelectedTeamId(team.id);
+    setTeamEditorMode('edit');
+    setTeamEditorId(team.id);
+    setTeamEditor(createTeamEditorState(team));
+    setTeamFeedback(null);
+  }
+
+  function handleTeamCreateStart() {
+    setTeamEditorMode('create');
+    setTeamEditorId(null);
+    setTeamEditor(createTeamEditorState());
+    setTeamFeedback(null);
+  }
+
+  function handleTeamCreateCancel() {
+    setTeamEditorMode('edit');
+    setTeamEditorId(selectedTeam?.id ?? null);
+    setTeamEditor(selectedTeam ? createTeamEditorState(selectedTeam) : null);
+    setTeamFeedback(null);
+  }
+
+  async function handleTeamSave() {
+    if (!activeTeamEditor || !isTeamEditable) {
+      return;
+    }
+
+    const nextDescription =
+      activeTeamEditor.description.trim().length > 0
+        ? activeTeamEditor.description.trim()
+        : null;
+
+    if (isTeamCreateMode) {
+      const cityId = Number(activeTeamEditor.cityId);
+
+      if (
+        activeTeamEditor.name.trim().length === 0 ||
+        activeTeamEditor.slug.trim().length === 0 ||
+        !Number.isInteger(cityId) ||
+        cityId <= 0
+      ) {
+        setTeamFeedback({
+          tone: 'error',
+          message: 'Укажите название, slug и город для новой команды.',
+        });
+        return;
+      }
+
+      setSavingTeamKey('create');
+      setTeamFeedback(null);
+
+      const createResult = await fetchJson<AdminTeamSummary>('/api/admin/teams', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          name: activeTeamEditor.name.trim(),
+          slug: activeTeamEditor.slug.trim(),
+          cityId,
+          description: nextDescription,
+        }),
+      });
+
+      if (createResult.response.status === 401) {
+        router.replace('/dev/login?next=/admin');
+        return;
+      }
+
+      if (!createResult.response.ok) {
+        setSavingTeamKey(null);
+        setTeamFeedback({
+          tone: 'error',
+          message: translateErrorMessage(
+            (createResult.payload as { error?: string } | null)?.error ||
+              'Failed to create team'
+          ),
+        });
+        return;
+      }
+
+      const createdTeam = createResult.payload as AdminTeamSummary;
+
+      setOverview((currentOverview) => {
+        if (!currentOverview) {
+          return currentOverview;
+        }
+
+        return {
+          ...currentOverview,
+          teams: [createdTeam, ...currentOverview.teams],
+        };
+      });
+      setSelectedTeamId(createdTeam.id);
+      setTeamEditorMode('edit');
+      setTeamEditorId(createdTeam.id);
+      setTeamEditor(createTeamEditorState(createdTeam));
+      setSavingTeamKey(null);
+      setTeamFeedback({
+        tone: 'success',
+        message: 'Команда создана и сразу добавлена в список.',
+      });
+      return;
+    }
+
+    if (!selectedTeam) {
+      return;
+    }
+
+    const payload: {
+      name?: string;
+      slug?: string;
+      cityId?: number;
+      description?: string | null;
+    } = {};
+
+    if (normalizedSelectedTeamName !== normalizedEditorTeamName) {
+      payload.name = activeTeamEditor.name.trim();
+    }
+
+    if (normalizedSelectedTeamSlug !== normalizedEditorTeamSlug) {
+      payload.slug = activeTeamEditor.slug.trim();
+    }
+
+    if (String(selectedTeam.city?.id ?? '') !== activeTeamEditor.cityId) {
+      const cityId = Number(activeTeamEditor.cityId);
+
+      if (!Number.isInteger(cityId) || cityId <= 0) {
+        setTeamFeedback({
+          tone: 'error',
+          message: 'Выберите корректный город команды.',
+        });
+        return;
+      }
+
+      payload.cityId = cityId;
+    }
+
+    if (normalizedSelectedTeamDescription !== normalizedEditorTeamDescription) {
+      payload.description = nextDescription;
+    }
+
+    if (Object.keys(payload).length === 0) {
+      setTeamFeedback({
+        tone: 'success',
+        message: 'Изменений для сохранения нет.',
+      });
+      return;
+    }
+
+    setSavingTeamKey(`edit-${selectedTeam.id}`);
+    setTeamFeedback(null);
+
+    const updateResult = await fetchJson<AdminTeamSummary>(
+      `/api/admin/teams/${selectedTeam.id}`,
+      {
+        method: 'PATCH',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(payload),
+      }
+    );
+
+    if (updateResult.response.status === 401) {
+      router.replace('/dev/login?next=/admin');
+      return;
+    }
+
+    if (!updateResult.response.ok) {
+      setSavingTeamKey(null);
+      setTeamFeedback({
+        tone: 'error',
+        message: translateErrorMessage(
+          (updateResult.payload as { error?: string } | null)?.error ||
+            'Failed to update team'
+        ),
+      });
+      return;
+    }
+
+    const updatedTeam = updateResult.payload as AdminTeamSummary;
+
+    setOverview((currentOverview) => {
+      if (!currentOverview) {
+        return currentOverview;
+      }
+
+      return {
+        ...currentOverview,
+        teams: currentOverview.teams.map((team) =>
+          team.id === updatedTeam.id ? updatedTeam : team
+        ),
+        teamMembers: currentOverview.teamMembers.map((teamMember) =>
+          teamMember.team.id === updatedTeam.id
+            ? {
+                ...teamMember,
+                team: {
+                  ...teamMember.team,
+                  name: updatedTeam.name,
+                  cityId: updatedTeam.city?.id ?? null,
+                  city: updatedTeam.city,
+                },
+              }
+            : teamMember
+        ),
+      };
+    });
+    setSelectedTeamId(updatedTeam.id);
+    setTeamEditorId(updatedTeam.id);
+    setTeamEditorMode('edit');
+    setTeamEditor(createTeamEditorState(updatedTeam));
+    setSavingTeamKey(null);
+    setTeamFeedback({
+      tone: 'success',
+      message: 'Команда сохранена. Изменения уже отражены в списке.',
+    });
+  }
+
+  function handleTeamMemberSelect(teamMember: AdminTeamMemberSummary) {
+    setSelectedTeamMemberId(teamMember.id);
+    setTeamMemberEditorMode('edit');
+    setTeamMemberEditorId(teamMember.id);
+    setTeamMemberEditor(createTeamMemberEditorState(teamMember));
+    setTeamMemberFeedback(null);
+  }
+
+  function handleTeamMemberCreateStart() {
+    const defaultTeamId =
+      selectedTeam?.id ??
+      (teamMemberTeamFilter !== 'ALL' ? Number(teamMemberTeamFilter) : null);
+
+    setTeamMemberEditorMode('create');
+    setTeamMemberEditorId(null);
+    setTeamMemberEditor(createTeamMemberEditorState(null, defaultTeamId));
+    setTeamMemberFeedback(null);
+  }
+
+  function handleTeamMemberCreateCancel() {
+    setTeamMemberEditorMode('edit');
+    setTeamMemberEditorId(selectedTeamMember?.id ?? null);
+    setTeamMemberEditor(
+      selectedTeamMember ? createTeamMemberEditorState(selectedTeamMember) : null
+    );
+    setTeamMemberFeedback(null);
+  }
+
+  async function handleTeamMemberSave() {
+    if (!activeTeamMemberEditor || !isTeamEditable) {
+      return;
+    }
+
+    const nextPositionCode =
+      activeTeamMemberEditor.positionCode.trim().length > 0
+        ? activeTeamMemberEditor.positionCode.trim()
+        : null;
+    const nextJerseyNumber =
+      activeTeamMemberEditor.jerseyNumber.trim().length > 0
+        ? Number(activeTeamMemberEditor.jerseyNumber.trim())
+        : null;
+    const joinedAt = new Date(activeTeamMemberEditor.joinedAt);
+
+    if (Number.isNaN(joinedAt.valueOf())) {
+      setTeamMemberFeedback({
+        tone: 'error',
+        message: 'Укажите корректную дату вступления в состав.',
+      });
+      return;
+    }
+
+    if (
+      nextJerseyNumber !== null &&
+      (!Number.isInteger(nextJerseyNumber) || nextJerseyNumber <= 0)
+    ) {
+      setTeamMemberFeedback({
+        tone: 'error',
+        message: 'Игровой номер должен быть положительным целым числом.',
+      });
+      return;
+    }
+
+    if (isTeamMemberCreateMode) {
+      const teamId = Number(activeTeamMemberEditor.teamId);
+      const participantId = Number(activeTeamMemberEditor.participantId);
+
+      if (
+        !Number.isInteger(teamId) ||
+        teamId <= 0 ||
+        !Number.isInteger(participantId) ||
+        participantId <= 0
+      ) {
+        setTeamMemberFeedback({
+          tone: 'error',
+          message: 'Выберите команду и участника для новой записи состава.',
+        });
+        return;
+      }
+
+      setSavingTeamMemberKey('create');
+      setTeamMemberFeedback(null);
+
+      const createResult = await fetchJson<AdminTeamMemberSummary>(
+        '/api/admin/team-members',
+        {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            teamId,
+            participantId,
+            status: activeTeamMemberEditor.status,
+            positionCode: nextPositionCode,
+            jerseyNumber: nextJerseyNumber,
+            joinedAt: joinedAt.toISOString(),
+          }),
+        }
+      );
+
+      if (createResult.response.status === 401) {
+        router.replace('/dev/login?next=/admin');
+        return;
+      }
+
+      if (!createResult.response.ok) {
+        setSavingTeamMemberKey(null);
+        setTeamMemberFeedback({
+          tone: 'error',
+          message: translateErrorMessage(
+            (createResult.payload as { error?: string } | null)?.error ||
+              'Failed to create team member'
+          ),
+        });
+        return;
+      }
+
+      const createdTeamMember = createResult.payload as AdminTeamMemberSummary;
+
+      setOverview((currentOverview) => {
+        if (!currentOverview) {
+          return currentOverview;
+        }
+
+        return {
+          ...currentOverview,
+          teamMembers: [createdTeamMember, ...currentOverview.teamMembers],
+        };
+      });
+      setSelectedTeamMemberId(createdTeamMember.id);
+      setTeamMemberEditorMode('edit');
+      setTeamMemberEditorId(createdTeamMember.id);
+      setTeamMemberEditor(createTeamMemberEditorState(createdTeamMember));
+      setSavingTeamMemberKey(null);
+      setTeamMemberFeedback({
+        tone: 'success',
+        message: 'Участник добавлен в состав и сразу появился в списке.',
+      });
+      return;
+    }
+
+    if (!selectedTeamMember) {
+      return;
+    }
+
+    const payload: {
+      status?: StaffManagedTeamMemberStatus;
+      positionCode?: string | null;
+      jerseyNumber?: number | null;
+      joinedAt?: string;
+    } = {};
+
+    if (selectedTeamMember.status !== activeTeamMemberEditor.status) {
+      payload.status = activeTeamMemberEditor.status;
+    }
+
+    if (
+      normalizedSelectedTeamMemberPositionCode !==
+      normalizedEditorTeamMemberPositionCode
+    ) {
+      payload.positionCode = nextPositionCode;
+    }
+
+    if (
+      normalizedSelectedTeamMemberJerseyNumber !== normalizedEditorTeamMemberJerseyNumber
+    ) {
+      payload.jerseyNumber = nextJerseyNumber;
+    }
+
+    if (normalizedSelectedTeamMemberJoinedAt !== activeTeamMemberEditor.joinedAt) {
+      payload.joinedAt = joinedAt.toISOString();
+    }
+
+    if (Object.keys(payload).length === 0) {
+      setTeamMemberFeedback({
+        tone: 'success',
+        message: 'Изменений для сохранения нет.',
+      });
+      return;
+    }
+
+    setSavingTeamMemberKey(`edit-${selectedTeamMember.id}`);
+    setTeamMemberFeedback(null);
+
+    const updateResult = await fetchJson<AdminTeamMemberSummary>(
+      `/api/admin/team-members/${selectedTeamMember.id}`,
+      {
+        method: 'PATCH',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(payload),
+      }
+    );
+
+    if (updateResult.response.status === 401) {
+      router.replace('/dev/login?next=/admin');
+      return;
+    }
+
+    if (!updateResult.response.ok) {
+      setSavingTeamMemberKey(null);
+      setTeamMemberFeedback({
+        tone: 'error',
+        message: translateErrorMessage(
+          (updateResult.payload as { error?: string } | null)?.error ||
+            'Failed to update team member'
+        ),
+      });
+      return;
+    }
+
+    const updatedTeamMember = updateResult.payload as AdminTeamMemberSummary;
+
+    setOverview((currentOverview) => {
+      if (!currentOverview) {
+        return currentOverview;
+      }
+
+      return {
+        ...currentOverview,
+        teamMembers: currentOverview.teamMembers.map((teamMember) =>
+          teamMember.id === updatedTeamMember.id ? updatedTeamMember : teamMember
+        ),
+      };
+    });
+    setSelectedTeamMemberId(updatedTeamMember.id);
+    setTeamMemberEditorMode('edit');
+    setTeamMemberEditorId(updatedTeamMember.id);
+    setTeamMemberEditor(createTeamMemberEditorState(updatedTeamMember));
+    setSavingTeamMemberKey(null);
+    setTeamMemberFeedback({
+      tone: 'success',
+      message: 'Запись состава сохранена. Изменения уже отражены в списке.',
+    });
+  }
 
   function handleTeamApplicationSelect(
     application: AdminTeamApplicationSummary
@@ -3877,15 +5474,87 @@ export default function AdminPage() {
               {visibleAdminSectionIds.has('teams') ? (
                 <SectionCard
                   title="Команды"
+                  description={
+                    isTeamEditable
+                      ? 'Рабочий staff-модуль: список команд, создание новых записей и обновление основных полей без ручной перезагрузки.'
+                      : 'Обзор команд в ограниченном staff-контуре. Глобальное управление командами в этой секции доступно только MANAGER и ADMIN.'
+                  }
+                >
+                  <TeamsSectionContent
+                    totalTeamsCount={overview.teams.length}
+                    teamCityFilter={teamCityFilter}
+                    setTeamCityFilter={setTeamCityFilter}
+                    teamFilterCityOptions={teamFilterCityOptions}
+                    teamCityOptions={trainingCityOptions}
+                    isTeamEditable={isTeamEditable}
+                    isTeamCreateMode={isTeamCreateMode}
+                    handleTeamCreateStart={handleTeamCreateStart}
+                    handleTeamCreateCancel={handleTeamCreateCancel}
+                    filteredTeams={filteredTeams}
+                    activeTeamId={activeTeamId}
+                    handleTeamSelect={handleTeamSelect}
+                    teamFeedback={teamFeedback}
+                    activeTeamEditor={activeTeamEditor}
+                    selectedTeam={selectedTeam}
+                    selectedTeamMembersCount={selectedTeamMembersCount}
+                    savingTeamKey={savingTeamKey}
+                    setTeamEditorId={setTeamEditorId}
+                    setTeamEditor={setTeamEditor}
+                    setTeamFeedback={setTeamFeedback}
+                    handleTeamSave={handleTeamSave}
+                    isTeamCreateReady={isTeamCreateReady}
+                    isTeamDirty={isTeamDirty}
+                  />
+                </SectionCard>
+              ) : null}
+
+              {visibleAdminSectionIds.has('teams') ? (
+                <SectionCard
+                  title="Состав"
+                  description={
+                    isTeamEditable
+                      ? 'Рабочий staff-модуль: фильтр по команде, добавление участника в состав и обновление статуса, позиции, номера и даты вступления.'
+                      : 'Обзор состава команд в ограниченном staff-контуре. Глобальное управление составом доступно только MANAGER и ADMIN.'
+                  }
+                >
+                  <TeamMembersSectionContent
+                    totalTeamMembersCount={overview.teamMembers.length}
+                    teamMemberTeamFilter={teamMemberTeamFilter}
+                    setTeamMemberTeamFilter={setTeamMemberTeamFilter}
+                    teamMemberTeamOptions={teamMemberTeamOptions}
+                    filteredTeamMembers={filteredTeamMembers}
+                    activeTeamMemberId={activeTeamMemberId}
+                    handleTeamMemberSelect={handleTeamMemberSelect}
+                    isTeamEditable={isTeamEditable}
+                    isTeamMemberCreateMode={isTeamMemberCreateMode}
+                    handleTeamMemberCreateStart={handleTeamMemberCreateStart}
+                    handleTeamMemberCreateCancel={handleTeamMemberCreateCancel}
+                    teamMemberFeedback={teamMemberFeedback}
+                    activeTeamMemberEditor={activeTeamMemberEditor}
+                    availableParticipantOptions={availableParticipantOptions}
+                    savingTeamMemberKey={savingTeamMemberKey}
+                    setTeamMemberEditorId={setTeamMemberEditorId}
+                    setTeamMemberEditor={setTeamMemberEditor}
+                    setTeamMemberFeedback={setTeamMemberFeedback}
+                    handleTeamMemberSave={handleTeamMemberSave}
+                    isTeamMemberCreateReady={isTeamMemberCreateReady}
+                    selectedTeamMember={selectedTeamMember}
+                    isTeamMemberDirty={isTeamMemberDirty}
+                  />
+                </SectionCard>
+              ) : null}
+              {false && visibleAdminSectionIds.has('teams') ? (
+                <SectionCard
+                  title="Команды"
                   description="Короткий обзор всех команд, доступных staff/admin через текущий backend."
                 >
-                  {overview.teams.length === 0 ? (
+                  {(overview?.teams ?? []).length === 0 ? (
                     <p className="rounded-2xl border border-dashed border-stone-300 bg-stone-50 p-5 text-sm text-stone-600">
                       Команд пока нет.
                     </p>
                   ) : (
                     <div className="space-y-3">
-                      {overview.teams.slice(0, 5).map((team) => (
+                      {(overview?.teams ?? []).slice(0, 5).map((team) => (
                         <article
                           key={team.id}
                           className="rounded-2xl border border-stone-200 bg-stone-50 p-4"
