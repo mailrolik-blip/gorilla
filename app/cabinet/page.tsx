@@ -401,6 +401,44 @@ function sortAndFilterAvailableTrainings(trainings: AvailableTrainingSummary[]) 
     );
 }
 
+function getTrainingDayKey(startTime: string) {
+  return new Date(startTime).toISOString().split('T')[0]; // YYYY-MM-DD
+}
+
+function groupTrainingsByDay(trainings: AvailableTrainingSummary[]) {
+  const grouped: Record<string, AvailableTrainingSummary[]> = {};
+  
+  for (const training of trainings) {
+    const dayKey = getTrainingDayKey(training.startTime);
+    if (!grouped[dayKey]) {
+      grouped[dayKey] = [];
+    }
+    grouped[dayKey].push(training);
+  }
+  
+  return grouped;
+}
+
+function formatTrainingDay(dateString: string) {
+  const date = new Date(dateString + 'T00:00:00');
+  const today = new Date();
+  const tomorrow = new Date(today);
+  tomorrow.setDate(today.getDate() + 1);
+  
+  if (date.toDateString() === today.toDateString()) {
+    return 'Сегодня';
+  }
+  if (date.toDateString() === tomorrow.toDateString()) {
+    return 'Завтра';
+  }
+  
+  return new Intl.DateTimeFormat('ru-RU', {
+    weekday: 'long',
+    day: 'numeric',
+    month: 'long',
+  }).format(date);
+}
+
 function sortAndFilterAvailableRentalSlots(slots: AvailableRentalSlotSummary[]) {
   const now = Date.now();
 
@@ -581,6 +619,8 @@ export default function CabinetPage() {
   const [trainingFeedback, setTrainingFeedback] = useState<TrainingFeedback | null>(
     null
   );
+  const [selectedTrainingDay, setSelectedTrainingDay] = useState<string | null>(null);
+  const [selectedTrainingId, setSelectedTrainingId] = useState<number | null>(null);
   const [availableTeams, setAvailableTeams] = useState<AvailableTeamSummary[]>([]);
   const [teamsStatus, setTeamsStatus] = useState<'loading' | 'ready' | 'error'>(
     'loading'
@@ -2144,11 +2184,11 @@ export default function CabinetPage() {
 
               <SectionCard
                 eyebrow="Тренировки"
-                title="Доступные тренировки"
+                title="Расписание тренировок"
               >
                 <div className="space-y-4">
                   <p className="text-sm text-stone-600">
-                    Выберите участника и оформите запись на подходящую тренировку.
+                    Выберите день, чтобы увидеть доступные тренировки. Затем выберите тренировку и запишитесь.
                   </p>
 
                   {trainingFeedback?.scope === 'catalog' ? (
@@ -2172,15 +2212,131 @@ export default function CabinetPage() {
                       {trainingsError}
                     </p>
                   ) : availableTrainings.length === 0 ? (
-                    <p className="rounded-2xl border border-dashed border-stone-300 bg-stone-50 p-5 text-sm text-stone-600">
-                      Сейчас нет доступных тренировок для записи.
-                    </p>
+                    <div className="rounded-2xl border border-dashed border-stone-300 bg-stone-50 p-8 text-center">
+                      <p className="text-3xl">🏋️</p>
+                      <p className="mt-3 text-sm font-medium text-stone-700">
+                        Нет доступных тренировок
+                      </p>
+                      <p className="mt-1 text-xs text-stone-500">
+                        На данный момент нет активных тренировок для записи
+                      </p>
+                    </div>
                   ) : (
-                    <div className="space-y-3">
-                      {availableTrainings.map((training) => {
+                    <div className="space-y-6">
+                      {/* Days overview */}
+                      <div>
+                        <h3 className="mb-3 text-sm font-semibold text-stone-700">
+                          Выберите день
+                        </h3>
+                        <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
+                          {Object.entries(groupTrainingsByDay(availableTrainings))
+                            .sort(([a], [b]) => a.localeCompare(b))
+                            .map(([dayKey, trainings]) => (
+                              <button
+                                key={dayKey}
+                                type="button"
+                                onClick={() => {
+                                  setSelectedTrainingDay(dayKey);
+                                  setSelectedTrainingId(null);
+                                }}
+                                className={`rounded-2xl border p-4 text-left transition ${
+                                  selectedTrainingDay === dayKey
+                                    ? 'border-stone-500 bg-stone-100'
+                                    : 'border-stone-300 bg-white hover:border-stone-400'
+                                }`}
+                              >
+                                <p className="font-medium text-stone-950">
+                                  {formatTrainingDay(dayKey)}
+                                </p>
+                                <p className="mt-1 text-sm text-stone-600">
+                                  {trainings.length} тренировк{trainings.length === 1 ? 'а' : trainings.length < 5 ? 'и' : 'ок'}
+                                </p>
+                              </button>
+                            ))}
+                        </div>
+                      </div>
+
+                      {/* Selected day trainings */}
+                      {selectedTrainingDay && (
+                        <div>
+                          <div className="mb-3 flex items-center justify-between">
+                            <h3 className="text-sm font-semibold text-stone-700">
+                              Тренировки на {formatTrainingDay(selectedTrainingDay)}
+                            </h3>
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setSelectedTrainingDay(null);
+                                setSelectedTrainingId(null);
+                              }}
+                              className="text-xs text-stone-500 hover:text-stone-700"
+                            >
+                              Сбросить выбор
+                            </button>
+                          </div>
+                          
+                          {(() => {
+                            const dayTrainings = groupTrainingsByDay(availableTrainings)[selectedTrainingDay] || [];
+                            return dayTrainings.length === 0 ? (
+                              <div className="rounded-2xl border border-dashed border-stone-300 bg-stone-50 p-8 text-center">
+                                <p className="text-3xl">📅</p>
+                                <p className="mt-3 text-sm font-medium text-stone-700">
+                                  Нет тренировок на этот день
+                                </p>
+                                <p className="mt-1 text-xs text-stone-500">
+                                  Выберите другой день
+                                </p>
+                              </div>
+                            ) : (
+                              <div className="space-y-3">
+                                {dayTrainings.map((training) => {
+                                  const availability = getTrainingAvailability(training);
+                                  const isSelected = selectedTrainingId === training.trainingId;
+                                  
+                                  return (
+                                    <article
+                                      key={training.trainingId}
+                                      className={`rounded-2xl border p-4 transition cursor-pointer ${
+                                        isSelected
+                                          ? 'border-stone-500 bg-stone-100'
+                                          : 'border-stone-200 bg-stone-50 hover:border-stone-400'
+                                      }`}
+                                      onClick={() => setSelectedTrainingId(isSelected ? null : training.trainingId)}
+                                    >
+                                      <div className="flex items-start justify-between">
+                                        <div className="flex-1">
+                                          <p className="font-semibold text-stone-950">
+                                            {training.name}
+                                          </p>
+                                          <p className="mt-1 text-sm text-stone-600">
+                                            {formatTime(training.startTime)} — {formatTime(training.endTime)}
+                                          </p>
+                                          <p className="mt-1 text-sm text-stone-600">
+                                            {training.city.name} / {training.location}
+                                          </p>
+                                        </div>
+                                        <span
+                                          className={`rounded-full px-3 py-1 text-xs font-medium ${availability.badgeClass}`}
+                                        >
+                                          {availability.label}
+                                        </span>
+                                      </div>
+                                    </article>
+                                  );
+                                })}
+                              </div>
+                            );
+                          })()}
+                        </div>
+                      )}
+
+                      {/* Selected training details */}
+                      {selectedTrainingId && selectedTrainingDay && (() => {
+                        const training = availableTrainings.find(t => t.trainingId === selectedTrainingId);
+                        if (!training) return null;
+                        
                         const availability = getTrainingAvailability(training);
-                        const selectedParticipantId =
-                          getSelectedParticipantIdForTraining(training.trainingId);
+                        const selectedParticipantId = getSelectedParticipantIdForTraining(training.trainingId);
                         const selectedParticipant = dashboard.participants.find(
                           (participant) => participant.id === selectedParticipantId
                         );
@@ -2195,8 +2351,7 @@ export default function CabinetPage() {
                           (booking) =>
                             booking.training.trainingId === training.trainingId
                         );
-                        const isBookingInProgress =
-                          bookingTrainingId === training.trainingId;
+                        const isBookingInProgress = bookingTrainingId === training.trainingId;
                         const isBookingDisabled =
                           !availability.canBook ||
                           dashboard.participants.length === 0 ||
@@ -2205,78 +2360,69 @@ export default function CabinetPage() {
                           isBookingInProgress;
 
                         return (
-                          <article
-                            key={training.trainingId}
-                            className="rounded-2xl border border-stone-200 bg-stone-50 p-4"
-                          >
-                            <div className="flex flex-col gap-4">
-                              <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                          <div className="rounded-2xl border border-stone-300 bg-white p-6">
+                            <div className="mb-4 flex items-center justify-between">
+                              <h3 className="text-lg font-semibold text-stone-950">
+                                {training.name}
+                              </h3>
+                              <button
+                                type="button"
+                                onClick={() => setSelectedTrainingId(null)}
+                                className="text-sm text-stone-500 hover:text-stone-700"
+                              >
+                                Закрыть
+                              </button>
+                            </div>
+                            
+                            <div className="grid gap-4 md:grid-cols-2">
+                              <div className="space-y-3">
                                 <div>
-                                  <p className="font-semibold text-stone-950">
-                                    {training.name}
+                                  <p className="text-sm font-medium text-stone-700">Время и место</p>
+                                  <p className="mt-1 text-sm text-stone-600">
+                                    {formatDateTime(training.startTime)} — {formatTime(training.endTime)}
                                   </p>
                                   <p className="mt-1 text-sm text-stone-600">
                                     {training.city.name} / {training.location}
                                   </p>
-                                  <p className="mt-2 text-sm text-stone-700">
-                                    {formatDateTime(training.startTime)} —{' '}
-                                    {formatTime(training.endTime)}
+                                </div>
+                                
+                                <div>
+                                  <p className="text-sm font-medium text-stone-700">Формат и тренер</p>
+                                  <p className="mt-1 text-sm text-stone-600">
+                                    Формат: {formatTrainingType(training.trainingType)}
+                                  </p>
+                                  <p className="mt-1 text-sm text-stone-600">
+                                    Тренер: {formatTrainerName(training.trainer)}
                                   </p>
                                 </div>
-                                <span
-                                  className={`rounded-full px-3 py-1 text-xs font-medium ${availability.badgeClass}`}
-                                >
-                                  {availability.label}
-                                </span>
+                                
+                                <div>
+                                  <p className="text-sm font-medium text-stone-700">Доступность</p>
+                                  <p className="mt-1 text-sm text-stone-600">{availability.detail}</p>
+                                  {bookedParticipants.length > 0 && (
+                                    <p className="mt-1 text-sm text-stone-600">
+                                      Уже записаны: {bookedParticipants.map(b => formatPersonName(b.participant)).join(', ')}
+                                    </p>
+                                  )}
+                                </div>
                               </div>
-
-                              <div className="grid gap-1 text-sm text-stone-600">
-                                <p>Формат: {formatTrainingType(training.trainingType)}</p>
-                                <p>Тренер: {formatTrainerName(training.trainer)}</p>
-                                <p>{availability.detail}</p>
-                                {bookedParticipants.length > 0 ? (
-                                  <p>
-                                    Уже записаны:{' '}
-                                    {bookedParticipants
-                                      .map((booking) =>
-                                        formatPersonName(booking.participant)
-                                      )
-                                      .join(', ')}
-                                  </p>
-                                ) : null}
-                              </div>
-
-                              <div className="flex flex-col gap-3 md:flex-row md:items-end">
-                                <label className="flex-1 text-sm font-medium text-stone-700">
-                                  Участник
+                              
+                              <div className="space-y-4">
+                                <label className="block text-sm font-medium text-stone-700">
+                                  Выберите участника
                                   <select
-                                    value={
-                                      selectedParticipantId
-                                        ? String(selectedParticipantId)
-                                        : ''
-                                    }
+                                    value={selectedParticipantId ? String(selectedParticipantId) : ''}
                                     onChange={(event) =>
-                                      handleTrainingParticipantChange(
-                                        training.trainingId,
-                                        event.target.value
-                                      )
+                                      handleTrainingParticipantChange(training.trainingId, event.target.value)
                                     }
-                                    disabled={
-                                      dashboard.participants.length === 0 ||
-                                      isBookingInProgress
-                                    }
+                                    disabled={dashboard.participants.length === 0 || isBookingInProgress}
                                     className="mt-2 w-full rounded-2xl border border-stone-300 bg-white px-4 py-3 text-base text-stone-950 outline-none transition focus:border-stone-500 disabled:cursor-not-allowed disabled:bg-stone-100"
                                   >
                                     {dashboard.participants.length === 0 ? (
-                                      <option value="">
-                                        Сначала добавьте участника
-                                      </option>
+                                      <option value="">Сначала добавьте участника</option>
                                     ) : (
                                       dashboard.participants.map((participant) => (
-                                        <option
-                                          key={participant.id}
-                                          value={participant.id}
-                                        >
+                                        <option key={participant.id} value={participant.id}>
                                           {formatPersonName(participant)}
                                         </option>
                                       ))
@@ -2284,36 +2430,31 @@ export default function CabinetPage() {
                                   </select>
                                 </label>
 
+                                {dashboard.participants.length === 0 && (
+                                  <p className="text-sm text-stone-600">
+                                    Чтобы записаться на тренировку, сначала добавьте участника в разделе «Мои участники».
+                                  </p>
+                                )}
+
+                                {isSelectedParticipantAlreadyBooked && selectedParticipant && (
+                                  <p className="text-sm text-amber-700">
+                                    {formatPersonName(selectedParticipant)} уже записан на эту тренировку.
+                                  </p>
+                                )}
+
                                 <button
                                   type="button"
                                   onClick={() => handleTrainingBooking(training)}
                                   disabled={isBookingDisabled}
-                                  className="rounded-full bg-stone-950 px-5 py-3 text-sm font-semibold text-white transition hover:bg-stone-800 disabled:cursor-not-allowed disabled:bg-stone-400"
+                                  className="w-full rounded-full bg-stone-950 px-5 py-3 text-sm font-semibold text-white transition hover:bg-stone-800 disabled:cursor-not-allowed disabled:bg-stone-400"
                                 >
-                                  {isBookingInProgress
-                                    ? 'Оформляем запись...'
-                                    : 'Записать на тренировку'}
+                                  {isBookingInProgress ? 'Оформляем запись...' : 'Записать на тренировку'}
                                 </button>
                               </div>
-
-                              {dashboard.participants.length === 0 ? (
-                                <p className="text-sm text-stone-600">
-                                  Чтобы записаться на тренировку, сначала добавьте
-                                  участника в разделе «Мои участники».
-                                </p>
-                              ) : null}
-
-                              {isSelectedParticipantAlreadyBooked &&
-                              selectedParticipant ? (
-                                <p className="text-sm text-amber-700">
-                                  {formatPersonName(selectedParticipant)} уже записан
-                                  на эту тренировку.
-                                </p>
-                              ) : null}
                             </div>
-                          </article>
+                          </div>
                         );
-                      })}
+                      })()}
                     </div>
                   )}
                 </div>
