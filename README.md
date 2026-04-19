@@ -1417,3 +1417,42 @@ Backend MVP foundation — завершён (v0.1 stable)
 - следующий шаг: trainer-specific рабочая зона
 
 </details>
+
+## Gorilla 0.9.0
+
+<details>
+<summary>Детали изменений</summary>
+
+На текущем этапе платформа перешла от foundation-логики к рабочему web MVP для клуба.
+
+Что уже сделано:
+- настроен role-based entry flow:
+  - `USER -> /cabinet`
+  - `MANAGER / ADMIN -> /admin`
+  - `TRAINER -> /admin` в ограниченном рабочем режиме 
+- добавлен управляемый dev seed для локальной базы с тестовыми ролями, командами, тренировками, заявками и арендой :contentReference[oaicite:1]{index=1}
+- `/cabinet` работает как пользовательский кабинет:
+  - участники
+  - записи на тренировки
+  - заявки в команду
+  - аренда :contentReference[oaicite:2]{index=2}
+- `/admin` стал рабочим staff workspace, а не просто обзорным экраном :contentReference[oaicite:3]{index=3}
+
+Рабочие staff-модули в `/admin`:
+- **Заявки в команду**: фильтры, просмотр, изменение `status`, редактирование `internalNote` для `ADMIN / MANAGER` :contentReference[oaicite:4]{index=4}
+- **Тренировки**: список, фильтры, создание и редактирование тренировок для `ADMIN / MANAGER` :contentReference[oaicite:5]{index=5}
+- **Аренда**: изменение статуса брони, `managerNote`, создание и редактирование слотов аренды :contentReference[oaicite:6]{index=6}
+- **Команды и состав**: создание и редактирование команд, добавление и редактирование записей состава :contentReference[oaicite:7]{index=7}
+
+Отдельно оформлен trainer-specific workspace:
+- тренер видит только свою рабочую зону
+- не видит глобальные manager/admin секции
+- остаётся в общей role/capability модели платформы :contentReference[oaicite:8]{index=8}
+
+Технический статус:
+- `npx prisma validate` — ok
+- `npx tsc --noEmit` — ok
+- `npm run lint` — ok
+- `npm run build` — ok 
+
+</details>

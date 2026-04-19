@@ -385,13 +385,6 @@ type FetchResult<T> = {
   response: Response;
 };
 
-const roleLabels: Record<string, string> = {
-  USER: 'Пользователь',
-  COACH: 'Тренер',
-  MANAGER: 'Менеджер',
-  ADMIN: 'Администратор',
-};
-
 const trainingTypeLabels: Record<string, string> = {
   general: 'Общая',
   GENERAL: 'Общая',
@@ -503,14 +496,6 @@ const editableRentalSlotStatusOptions: {
   { value: 'AVAILABLE', label: 'Доступно' },
   { value: 'UNAVAILABLE', label: 'Недоступно' },
 ];
-
-function formatRoleList(roles: string[]) {
-  if (roles.length === 0) {
-    return 'Не указаны';
-  }
-
-  return roles.map((role) => roleLabels[role] ?? role).join(', ');
-}
 
 function formatProfileType(profileType: string | null) {
   switch (profileType) {
@@ -1097,7 +1082,7 @@ function TeamsSectionContent({
               }}
               className="mt-2 w-full rounded-2xl border border-stone-300 bg-white px-4 py-3 text-base text-stone-950 outline-none transition focus:border-stone-500"
             >
-              <option value="ALL">Все города</option>
+              <option value="ALL">Все города ({teamFilterCityOptions.length})</option>
               {teamFilterCityOptions.map((city) => (
                 <option key={city.id} value={city.id}>
                   {city.name}
@@ -1129,11 +1114,15 @@ function TeamsSectionContent({
         ) : null}
 
         {filteredTeams.length === 0 ? (
-          <p className="rounded-2xl border border-dashed border-stone-300 bg-stone-50 p-5 text-sm text-stone-600">
-            {totalTeamsCount === 0
-              ? 'Команд пока нет.'
-              : 'По текущему фильтру команд нет.'}
-          </p>
+          <div className="rounded-2xl border border-dashed border-stone-300 bg-stone-50 p-8 text-center">
+            <p className="text-3xl">🏒</p>
+            <p className="mt-3 text-sm font-medium text-stone-700">
+              {totalTeamsCount === 0 ? 'Команд пока нет' : 'По текущему фильтру команд нет'}
+            </p>
+            <p className="mt-1 text-xs text-stone-500">
+              {totalTeamsCount === 0 ? 'Создайте первую команду, чтобы начать' : 'Попробуйте изменить фильтр'}
+            </p>
+          </div>
         ) : (
           <div className="space-y-3 xl:max-h-[720px] xl:overflow-y-auto xl:pr-2">
             {filteredTeams.map((team) => {
@@ -1206,8 +1195,11 @@ function TeamsSectionContent({
                 <p className="text-xs font-semibold uppercase tracking-[0.16em] text-stone-500">
                   {isTeamCreateMode ? 'Новая команда' : `Команда #${selectedTeam?.id}`}
                 </p>
-                <h3 className="mt-2 text-xl font-semibold text-stone-950">
+                <h3 className="mt-2 flex items-center gap-2 text-xl font-semibold text-stone-950">
                   {isTeamCreateMode ? 'Создание команды' : selectedTeam?.name}
+                  {isTeamDirty && !isTeamCreateMode && (
+                    <span className="inline-block h-2 w-2 rounded-full bg-rose-500" title="Есть несохранённые изменения"></span>
+                  )}
                 </h3>
                 <p className="mt-2 text-sm text-stone-600">
                   {isTeamCreateMode
@@ -1447,7 +1439,7 @@ function TeamMembersSectionContent({
               }}
               className="mt-2 w-full rounded-2xl border border-stone-300 bg-white px-4 py-3 text-base text-stone-950 outline-none transition focus:border-stone-500"
             >
-              <option value="ALL">Все команды</option>
+              <option value="ALL">Все команды ({teamMemberTeamOptions.length})</option>
               {teamMemberTeamOptions.map((team) => (
                 <option key={team.id} value={team.id}>
                   {team.name} / {team.city?.name || 'Город не указан'}
@@ -1479,11 +1471,15 @@ function TeamMembersSectionContent({
         ) : null}
 
         {filteredTeamMembers.length === 0 ? (
-          <p className="rounded-2xl border border-dashed border-stone-300 bg-stone-50 p-5 text-sm text-stone-600">
-            {totalTeamMembersCount === 0
-              ? 'Записей состава пока нет.'
-              : 'По текущему фильтру записей состава нет.'}
-          </p>
+          <div className="rounded-2xl border border-dashed border-stone-300 bg-stone-50 p-8 text-center">
+            <p className="text-3xl">👥</p>
+            <p className="mt-3 text-sm font-medium text-stone-700">
+              {totalTeamMembersCount === 0 ? 'Записей состава пока нет' : 'По текущему фильтру записей состава нет'}
+            </p>
+            <p className="mt-1 text-xs text-stone-500">
+              {totalTeamMembersCount === 0 ? 'Добавьте первого участника в состав' : 'Попробуйте изменить фильтр'}
+            </p>
+          </div>
         ) : (
           <div className="space-y-3 xl:max-h-[720px] xl:overflow-y-auto xl:pr-2">
             {filteredTeamMembers.map((teamMember) => {
@@ -1562,10 +1558,13 @@ function TeamMembersSectionContent({
                     ? 'Новая запись состава'
                     : `Состав #${selectedTeamMember?.id}`}
                 </p>
-                <h3 className="mt-2 text-xl font-semibold text-stone-950">
+                <h3 className="mt-2 flex items-center gap-2 text-xl font-semibold text-stone-950">
                   {isTeamMemberCreateMode
                     ? 'Добавление участника'
                     : formatParticipantOptionLabel(selectedTeamMember?.participant ?? null)}
+                  {isTeamMemberDirty && !isTeamMemberCreateMode && (
+                    <span className="inline-block h-2 w-2 rounded-full bg-rose-500" title="Есть несохранённые изменения"></span>
+                  )}
                 </h3>
                 <p className="mt-2 text-sm text-stone-600">
                   {isTeamMemberCreateMode
@@ -1943,7 +1942,7 @@ function TrainingsSectionContent({
               }}
               className="mt-2 w-full rounded-2xl border border-stone-300 bg-white px-4 py-3 text-base text-stone-950 outline-none transition focus:border-stone-500"
             >
-              <option value="ALL">Все города</option>
+              <option value="ALL">Все города ({trainingFilterCityOptions.length})</option>
               {trainingFilterCityOptions.map((city) => (
                 <option key={city.id} value={city.id}>
                   {city.name}
@@ -1980,13 +1979,19 @@ function TrainingsSectionContent({
         )}
 
         {filteredTrainings.length === 0 ? (
-          <p className="rounded-2xl border border-dashed border-stone-300 bg-stone-50 p-5 text-sm text-stone-600">
-            {overview.trainings.length === 0
-              ? isTrainingEditable
-                ? 'Тренировок пока нет. Создайте первую запись справа.'
-                : 'Тренировок пока нет.'
-              : 'По текущим фильтрам тренировок нет.'}
-          </p>
+          <div className="rounded-2xl border border-dashed border-stone-300 bg-stone-50 p-8 text-center">
+            <p className="text-3xl">🏋️</p>
+            <p className="mt-3 text-sm font-medium text-stone-700">
+              {overview.trainings.length === 0
+                ? 'Тренировок пока нет'
+                : 'По текущим фильтрам тренировок нет'}
+            </p>
+            <p className="mt-1 text-xs text-stone-500">
+              {overview.trainings.length === 0
+                ? 'Создайте первую тренировку для начала'
+                : 'Попробуйте изменить фильтры активности или города'}
+            </p>
+          </div>
         ) : (
           <div className="space-y-3 xl:max-h-[720px] xl:overflow-y-auto xl:pr-2">
             {filteredTrainings.map((training) => {
@@ -5337,22 +5342,24 @@ export default function AdminPage() {
           <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
             <div>
               <p className="text-xs font-semibold uppercase tracking-[0.28em] text-stone-400">
-                Staff / admin
+                {currentUserCapabilities.isTrainer ? '🏋️ Тренерская рабочая зона' : 'Staff / admin'}
               </p>
               <h1 className="mt-3 text-3xl font-semibold tracking-tight">
-                Staff/admin кабинет
+                {currentUserCapabilities.isTrainer ? 'Мой рабочий кабинет тренера' : 'Staff/admin кабинет'}
               </h1>
               <p className="mt-2 max-w-2xl text-sm leading-6 text-stone-300">
-                Рабочая зона staff с role-aware доступом к командам, заявкам,
-                тренировкам и аренде.
+                {currentUserCapabilities.isTrainer
+                  ? 'Ваша рабочая зона: заявки по ваших командам и список ваших тренировок. Все остальные модули доступны только менеджерам и администраторам.'
+                  : 'Рабочая зона staff с role-aware доступом к командам, заявкам, тренировкам и аренде.'}
               </p>
               {currentUser ? (
                 <p className="mt-3 text-sm text-stone-300">
-                  Текущий пользователь: {formatPersonName(currentUser.profile)}. Роли:{' '}
-                  {formatRoleList(currentUser.roles)}. Платформенная роль:{' '}
-                  {currentUserCapabilities.roleLabel}. Уровень доступа:{' '}
-                  {currentUserCapabilities.adminAccessLabel}. Основной рабочий маршрут:{' '}
-                  {currentUserCapabilities.primaryEntryPath}.
+                  Пользователь: {formatPersonName(currentUser.profile)} ({currentUserCapabilities.roleLabel}){' '}
+                  {currentUserCapabilities.isTrainer && (
+                    <span className="block mt-1 text-xs text-stone-400">
+                      💡 Совет: используйте фильтры, чтобы найти нужные заявки и тренировки.
+                    </span>
+                  )}
                 </p>
               ) : null}
             </div>
@@ -5361,7 +5368,7 @@ export default function AdminPage() {
                 href="/cabinet"
                 className="rounded-full border border-stone-600 px-4 py-2 text-sm font-medium text-stone-200 transition hover:border-stone-300 hover:text-white"
               >
-                Пользовательский кабинет
+                {currentUserCapabilities.isTrainer ? 'Мой профиль' : 'Пользовательский кабинет'}
               </Link>
               <Link
                 href="/dev/login"
@@ -5401,17 +5408,30 @@ export default function AdminPage() {
                   </span>
                 </div>
                 <h2 className="mt-4 text-2xl font-semibold tracking-tight text-stone-950">
-                  /admin является рабочей зоной роли{' '}
-                  {currentUserCapabilities.roleLabel}
+                  {currentUserCapabilities.isTrainer
+                    ? 'Ваша рабочая зона как тренера'
+                    : `/admin является рабочей зоной роли ${currentUserCapabilities.roleLabel}`}
                 </h2>
                 <p className="mt-3 max-w-3xl text-sm leading-6 text-stone-700">
-                  {currentUserCapabilities.adminDescription}
+                  {currentUserCapabilities.isTrainer
+                    ? 'В этой рабочей зоне вы управляете заявками по вашим тренируемым командам и отслеживаете свой график тренировок. Все остальные разделы (глобальное управление командами, аренда, управление пользователями) открыты только для менеджеров и администраторов.'
+                    : currentUserCapabilities.adminDescription}
                 </p>
+                {currentUserCapabilities.isTrainer && (
+                  <div className="mt-4 rounded-2xl bg-amber-50 p-3 text-xs text-amber-800 border border-amber-200">
+                    <p className="font-semibold">💡 Начало работы:</p>
+                    <ul className="mt-2 space-y-1">
+                      <li>• Смотрите заявки в команду в левой части экрана</li>
+                      <li>• Фильтруйте по статусу и команде для быстрого поиска</li>
+                      <li>• Просмотрите все свои тренировки в разделе &quot;Тренировки&quot;</li>
+                    </ul>
+                  </div>
+                )}
               </article>
 
               <article className="rounded-[28px] border border-stone-300/70 bg-white p-6 shadow-[0_24px_70px_-40px_rgba(0,0,0,0.35)]">
                 <p className="text-sm font-medium text-stone-500">
-                  Role / access summary
+                  {currentUserCapabilities.isTrainer ? 'Ваш профиль' : 'Role / access summary'}
                 </p>
                 <div className="mt-4 grid gap-3 sm:grid-cols-3">
                   <div className="rounded-2xl bg-stone-100 p-4">
@@ -5588,14 +5608,22 @@ export default function AdminPage() {
                   title="Заявки в команду"
                   description={
                     currentUserCapabilities.teamApplicationReviewScope === 'own'
-                      ? 'Только заявки по вашим coached teams. Глобальное редактирование в этом модуле доступно только MANAGER и ADMIN.'
+                      ? 'Заявки участников по вашим тренируемым командам. Вы можете просматривать заявки, но редактирование доступно только менеджерам и администраторам.'
                       : 'Рабочий staff-модуль: фильтрация, просмотр заявки и сохранение изменений без ручной перезагрузки.'
                   }
                 >
                   {overview.teamApplications.length === 0 ? (
-                    <p className="rounded-2xl border border-dashed border-stone-300 bg-stone-50 p-5 text-sm text-stone-600">
-                      Заявок пока нет.
-                    </p>
+                    <div className="rounded-2xl border border-dashed border-stone-300 bg-stone-50 p-8 text-center">
+                      <p className="text-3xl">📭</p>
+                      <p className="mt-3 text-sm font-medium text-stone-700">
+                        {currentUserCapabilities.isTrainer ? 'Нет заявок в ваши команды' : 'Заявок пока нет'}
+                      </p>
+                      <p className="mt-1 text-xs text-stone-500">
+                        {currentUserCapabilities.isTrainer
+                          ? 'Заявки будут появляться здесь, когда участники захотят присоединиться к вашим командам'
+                          : 'Никаких новых заявок на данный момент'}
+                      </p>
+                    </div>
                   ) : (
                     <div className="grid gap-5 xl:grid-cols-[0.92fr_1.08fr]">
                       <div className="space-y-4">
@@ -5630,7 +5658,7 @@ export default function AdminPage() {
                               }}
                               className="mt-2 w-full rounded-2xl border border-stone-300 bg-white px-4 py-3 text-base text-stone-950 outline-none transition focus:border-stone-500"
                             >
-                              <option value="ALL">Все команды</option>
+                              <option value="ALL">Все команды ({teamApplicationTeamOptions.length})</option>
                               {teamApplicationTeamOptions.map((team) => (
                                 <option key={team.id} value={team.id}>
                                   {team.name} / {team.cityName}
@@ -5641,9 +5669,11 @@ export default function AdminPage() {
                         </div>
 
                         {filteredTeamApplications.length === 0 ? (
-                          <p className="rounded-2xl border border-dashed border-stone-300 bg-stone-50 p-5 text-sm text-stone-600">
-                            По текущим фильтрам заявок нет.
-                          </p>
+                          <div className="rounded-2xl border border-dashed border-stone-300 bg-stone-50 p-8 text-center">
+                            <p className="text-3xl">📋</p>
+                            <p className="mt-3 text-sm font-medium text-stone-700">По текущим фильтрам заявок нет</p>
+                            <p className="mt-1 text-xs text-stone-500">Дождитесь новых заявок или измените фильтры</p>
+                          </div>
                         ) : (
                           <div className="space-y-3 xl:max-h-[720px] xl:overflow-y-auto xl:pr-2">
                             {filteredTeamApplications.map((application) => {
@@ -5738,8 +5768,11 @@ export default function AdminPage() {
                                 <p className="text-xs font-semibold uppercase tracking-[0.16em] text-stone-500">
                                   Заявка #{selectedTeamApplication.id}
                                 </p>
-                                <h3 className="mt-2 text-xl font-semibold text-stone-950">
+                                <h3 className="mt-2 flex items-center gap-2 text-xl font-semibold text-stone-950">
                                   {formatPersonName(selectedTeamApplication.participant)}
+                                  {isTeamApplicationDirty && (
+                                    <span className="inline-block h-2 w-2 rounded-full bg-rose-500" title="Есть несохранённые изменения"></span>
+                                  )}
                                 </h3>
                                 <p className="mt-2 text-sm text-stone-600">
                                   {selectedTeamApplication.team.name} /{' '}
@@ -5915,7 +5948,7 @@ export default function AdminPage() {
                   title="Тренировки"
                   description={
                     currentUserCapabilities.trainingManagementScope === 'own'
-                      ? 'Список ваших тренировок в ограниченном staff-контуре. Глобальное обновление в этом модуле не открыто для TRAINER.'
+                      ? 'Ваш полный график тренировок. Здесь вы можете просматривать активные и завершённые тренировки, отфильтровать по дате и месту проведения.'
                       : 'Рабочий staff-модуль: список тренировок, создание и обновление основных полей без ручной перезагрузки.'
                   }
                 >
