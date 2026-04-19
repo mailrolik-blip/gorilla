@@ -7,7 +7,9 @@
     "build": "next build",
     "start": "next start",
     "lint": "eslint",
-    "db:seed": "node --env-file=.env prisma/seed.mjs"
+    "db:seed": "node --env-file=.env prisma/seed.mjs",
+    "db:backup": "powershell -ExecutionPolicy Bypass -File scripts/backup-db.ps1",
+    "db:restore": "echo 'Usage: powershell scripts/restore-db.ps1 -BackupFile <path/to/backup.sql>'"
   },
   "dependencies": {
     "@prisma/client": "^6.19.3",
