@@ -1487,7 +1487,7 @@ Backend MVP foundation — завершён (v0.1 stable)
 </details>
 
 
-## Gorilla 0.9.1
+## Gorilla 0.9.2
 
 ### Промежуточное обновление — backup / recovery foundation
 <details>
