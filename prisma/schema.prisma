@@ -45,6 +45,24 @@ enum RentalBookingStatus {
   CANCELLED
 }
 
+enum PromoTicketStatus {
+  NEW
+  OPENED
+  WIN
+  LOSE
+  EXPIRED
+}
+
+enum PromoSymbol {
+  STICK
+  HELMET
+  PUCK
+  GOAL
+  TRIP
+  DISCOUNT
+  NO_WIN
+}
+
 model User {
   id           Int     @id @default(autoincrement())
   email        String? @unique
@@ -60,6 +78,7 @@ model User {
   memberships TeamMember[]
   bookings       Booking[]       @relation("UserBookings")
   rentalBookings RentalBooking[] @relation("UserRentalBookings")
+  promoTickets   PromoTicket[]
   reviewedTeamApplications TeamApplication[] @relation("ReviewedTeamApplications")
   trainings   SchoolTraining[] // как тренер
 }
@@ -313,4 +332,41 @@ model RentalBooking {
   @@index([userId])
   @@index([participantId])
   @@index([status])
+}
+
+model PromoPrize {
+  id          Int         @id @default(autoincrement())
+  symbol      PromoSymbol @unique
+  title       String
+  description String?
+  isActive    Boolean     @default(true)
+  createdAt   DateTime    @default(now())
+  updatedAt   DateTime    @updatedAt
+
+  tickets PromoTicket[]
+
+  @@index([isActive])
+}
+
+model PromoTicket {
+  id            Int               @id @default(autoincrement())
+  userId        Int
+  code          String            @unique
+  campaignLabel String?
+  status        PromoTicketStatus @default(NEW)
+  sealedSymbols PromoSymbol[]
+  symbols       PromoSymbol[]     @default([])
+  prizeId       Int?
+  openedAt      DateTime?
+  expiresAt     DateTime?
+  createdAt     DateTime          @default(now())
+  updatedAt     DateTime          @updatedAt
+
+  user  User       @relation(fields: [userId], references: [id])
+  prize PromoPrize? @relation(fields: [prizeId], references: [id])
+
+  @@index([userId])
+  @@index([status])
+  @@index([expiresAt])
+  @@index([prizeId])
 }

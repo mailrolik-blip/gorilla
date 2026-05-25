@@ -1,9 +1,18 @@
-'use client';
+﻿'use client';
 
 import { type FormEvent, useEffect, useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 
+import {
+  WorkspaceCanvas,
+  WorkspaceDisclosure,
+  WorkspaceHero,
+  WorkspaceInset,
+  WorkspaceScoreStrip,
+} from '@/components/workspace-frame';
+import { PromoTicketWorkspace } from '@/components/promo-ticket-workspace';
+import { WorkspaceSectionNav } from '@/components/workspace-section-nav';
 import { getRoleCapabilities } from '@/lib/app-access';
 
 type CitySummary = {
@@ -164,6 +173,14 @@ type RentalFeedback = {
   tone: 'success' | 'error';
   message: string;
 };
+
+type CabinetSectionId =
+  | 'overview'
+  | 'participants'
+  | 'trainings'
+  | 'team'
+  | 'rentals'
+  | 'promo';
 
 const roleLabels: Record<string, string> = {
   USER: 'Пользователь',
@@ -343,26 +360,26 @@ function formatStatus(status: string) {
 function getTeamApplicationStatusBadgeClass(status: string) {
   switch (status) {
     case 'ACCEPTED':
-      return 'bg-emerald-100 text-emerald-700';
+      return 'bg-emerald-500/15 text-emerald-100';
     case 'REJECTED':
-      return 'bg-rose-100 text-rose-700';
+      return 'bg-rose-500/15 text-rose-100';
     case 'CANCELLED':
-      return 'bg-stone-200 text-stone-700';
+      return 'border border-white/10 bg-black/20 text-stone-300';
     case 'IN_REVIEW':
-      return 'bg-sky-100 text-sky-700';
+      return 'bg-sky-500/15 text-sky-100';
     default:
-      return 'bg-amber-100 text-amber-700';
+      return 'bg-amber-500/15 text-amber-100';
   }
 }
 
 function getRentalBookingStatusBadgeClass(status: string) {
   switch (status) {
     case 'CONFIRMED':
-      return 'bg-emerald-100 text-emerald-700';
+      return 'bg-emerald-500/15 text-emerald-100';
     case 'CANCELLED':
-      return 'bg-stone-200 text-stone-700';
+      return 'border border-white/10 bg-black/20 text-stone-300';
     default:
-      return 'bg-sky-100 text-sky-700';
+      return 'bg-sky-500/15 text-sky-100';
   }
 }
 
@@ -458,7 +475,7 @@ function getTrainingAvailability(training: AvailableTrainingSummary) {
       canBook: false,
       label: 'Набор закрыт',
       detail: 'Тренировка временно недоступна для записи.',
-      badgeClass: 'bg-stone-200 text-stone-700',
+      badgeClass: 'border border-white/10 bg-black/20 text-stone-300',
     };
   }
 
@@ -467,7 +484,7 @@ function getTrainingAvailability(training: AvailableTrainingSummary) {
       canBook: false,
       label: 'Тренировка завершена',
       detail: 'Запись на прошедшие тренировки недоступна.',
-      badgeClass: 'bg-stone-200 text-stone-700',
+      badgeClass: 'border border-white/10 bg-black/20 text-stone-300',
     };
   }
 
@@ -476,7 +493,7 @@ function getTrainingAvailability(training: AvailableTrainingSummary) {
       canBook: false,
       label: 'Мест нет',
       detail: `Записано ${training._count.bookings} из ${training.capacity}.`,
-      badgeClass: 'bg-rose-100 text-rose-700',
+      badgeClass: 'bg-rose-500/15 text-rose-100',
     };
   }
 
@@ -484,7 +501,7 @@ function getTrainingAvailability(training: AvailableTrainingSummary) {
     canBook: true,
     label: `Свободно ${placesLeft} из ${training.capacity}`,
     detail: `Уже записано ${training._count.bookings} из ${training.capacity}.`,
-    badgeClass: 'bg-emerald-100 text-emerald-700',
+    badgeClass: 'bg-emerald-500/15 text-emerald-100',
   };
 }
 
@@ -494,7 +511,7 @@ function getRentalSlotAvailability(slot: AvailableRentalSlotSummary) {
       canBook: false,
       label: 'Слот завершен',
       detail: 'Бронирование этого слота уже недоступно.',
-      badgeClass: 'bg-stone-200 text-stone-700',
+      badgeClass: 'border border-white/10 bg-black/20 text-stone-300',
     };
   }
 
@@ -503,7 +520,7 @@ function getRentalSlotAvailability(slot: AvailableRentalSlotSummary) {
       canBook: false,
       label: 'Забронировано',
       detail: 'Этот слот уже занят.',
-      badgeClass: 'bg-amber-100 text-amber-700',
+      badgeClass: 'bg-amber-500/15 text-amber-100',
     };
   }
 
@@ -512,7 +529,7 @@ function getRentalSlotAvailability(slot: AvailableRentalSlotSummary) {
       canBook: false,
       label: 'Недоступно',
       detail: 'Этот слот сейчас недоступен для бронирования.',
-      badgeClass: 'bg-stone-200 text-stone-700',
+      badgeClass: 'border border-white/10 bg-black/20 text-stone-300',
     };
   }
 
@@ -520,7 +537,7 @@ function getRentalSlotAvailability(slot: AvailableRentalSlotSummary) {
     canBook: true,
     label: 'Доступно',
     detail: 'Слот открыт для бронирования.',
-    badgeClass: 'bg-emerald-100 text-emerald-700',
+    badgeClass: 'bg-emerald-500/15 text-emerald-100',
   };
 }
 
@@ -568,14 +585,19 @@ function SectionCard(props: {
   title: string;
   eyebrow: string;
   children: React.ReactNode;
+  className?: string;
 }) {
   return (
-    <section className="rounded-[28px] border border-stone-300/70 bg-white/90 p-6 shadow-[0_24px_70px_-40px_rgba(0,0,0,0.35)]">
-      <p className="text-xs font-semibold uppercase tracking-[0.28em] text-stone-500">
-        {props.eyebrow}
-      </p>
-      <h2 className="mt-3 text-xl font-semibold text-stone-950">{props.title}</h2>
-      <div className="mt-5">{props.children}</div>
+    <section className={`space-y-6 ${props.className ?? ''}`}>
+      <div className="max-w-3xl border-b border-white/8 pb-5">
+        <p className="text-[11px] font-semibold uppercase tracking-[0.24em] text-stone-500">
+          {props.eyebrow}
+        </p>
+        <h2 className="mt-2 text-[1.75rem] font-semibold tracking-[-0.04em] text-white">
+          {props.title}
+        </h2>
+      </div>
+      <div>{props.children}</div>
     </section>
   );
 }
@@ -585,6 +607,9 @@ export default function CabinetPage() {
   const [dashboard, setDashboard] = useState<DashboardPayload | null>(null);
   const [status, setStatus] = useState<'loading' | 'ready' | 'error'>('loading');
   const [error, setError] = useState<string | null>(null);
+  const [activeCabinetSection, setActiveCabinetSection] =
+    useState<CabinetSectionId>('overview');
+  const [isParticipantFormOpen, setIsParticipantFormOpen] = useState(false);
   const [participantForm, setParticipantForm] = useState<ParticipantFormState>(
     initialParticipantFormState
   );
@@ -644,6 +669,7 @@ export default function CabinetPage() {
     number | null
   >(null);
   const [teamFeedback, setTeamFeedback] = useState<TeamFeedback | null>(null);
+  const [activeTeamCatalogId, setActiveTeamCatalogId] = useState<number | null>(null);
   const [publicRentalSlots, setPublicRentalSlots] = useState<
     AvailableRentalSlotSummary[]
   >([]);
@@ -668,14 +694,29 @@ export default function CabinetPage() {
     number | null
   >(null);
   const [rentalFeedback, setRentalFeedback] = useState<RentalFeedback | null>(null);
+  const [activeRentalCatalogSlotId, setActiveRentalCatalogSlotId] = useState<
+    number | null
+  >(null);
 
-  function resetParticipantForm() {
+  function resetParticipantForm(options?: { preserveSuccess?: boolean }) {
     setParticipantForm(initialParticipantFormState);
     setParticipantFormMode('create');
     setEditingParticipantId(null);
     setEditingOriginalProfileType(null);
     setParticipantError(null);
-    setParticipantSuccess(null);
+    if (!options?.preserveSuccess) {
+      setParticipantSuccess(null);
+    }
+  }
+
+  function openParticipantCreateForm() {
+    resetParticipantForm();
+    setIsParticipantFormOpen(true);
+  }
+
+  function closeParticipantForm() {
+    resetParticipantForm();
+    setIsParticipantFormOpen(false);
   }
 
   function handleParticipantInputChange<Field extends keyof ParticipantFormState>(
@@ -697,6 +738,7 @@ export default function CabinetPage() {
     setEditingOriginalProfileType(participant.profileType);
     setParticipantError(null);
     setParticipantSuccess(null);
+    setIsParticipantFormOpen(true);
   }
 
   function handleTrainingParticipantChange(trainingId: number, participantId: string) {
@@ -1428,7 +1470,8 @@ export default function CabinetPage() {
           ? 'Участник успешно добавлен.'
           : 'Данные участника сохранены.';
 
-      resetParticipantForm();
+      resetParticipantForm({ preserveSuccess: true });
+      setIsParticipantFormOpen(false);
       setParticipantSuccess(successMessage);
     } catch (saveError) {
       setParticipantError(
@@ -1683,6 +1726,7 @@ export default function CabinetPage() {
         ...currentComments,
         [team.id]: '',
       }));
+      setActiveTeamCatalogId(null);
       setTeamFeedback({
         scope: 'catalog',
         tone: 'success',
@@ -1815,6 +1859,7 @@ export default function CabinetPage() {
         ...currentNotes,
         [slot.id]: '',
       }));
+      setActiveRentalCatalogSlotId(null);
       setRentalFeedback({
         scope: 'catalog',
         tone: 'success',
@@ -1893,147 +1938,327 @@ export default function CabinetPage() {
   const cabinetDescription =
     currentUserCapabilities?.cabinetDescription ??
     'Единая точка входа для ваших участников, записей на тренировки, заявок в команду и бронирований.';
+  const cabinetNavItems = [
+    {
+      id: 'overview' as const,
+      label: 'Обзор',
+      description: 'Профиль и короткая сводка.',
+      badge: dashboard ? dashboard.participants.length : null,
+    },
+    {
+      id: 'participants' as const,
+      label: 'Участники',
+      description: 'Список и редактирование по запросу.',
+      badge: dashboard ? dashboard.participants.length : null,
+    },
+    {
+      id: 'trainings' as const,
+      label: 'Тренировки',
+      description: 'Календарь, запись и мои бронирования.',
+      badge: dashboard ? dashboard.trainingBookings.length : null,
+    },
+    {
+      id: 'team' as const,
+      label: 'Команда',
+      description: 'Доступные команды и мои заявки.',
+      badge: teamApplications.length,
+    },
+    {
+      id: 'rentals' as const,
+      label: 'Аренда',
+      description: 'Публичные слоты и мои бронирования.',
+      badge: rentalBookings.length,
+    },
+    {
+      id: 'promo' as const,
+      label: 'Промо',
+      description: 'Билеты и результаты акции.',
+      badge: null,
+    },
+  ];
+  const cabinetMetrics = dashboard
+    ? [
+        {
+          label: 'Участники',
+          value: String(dashboard.participants.length),
+          detail: 'Профили игроков и детей, привязанные к вашему кабинету.',
+        },
+        {
+          label: 'Тренировки',
+          value: String(dashboard.trainingBookings.length),
+          detail: 'Ваши текущие записи и быстрый доступ к календарю.',
+        },
+        {
+          label: 'Команда',
+          value: String(teamApplications.length),
+          detail: 'Поданные заявки и статусы их рассмотрения.',
+        },
+        {
+          label: 'Аренда',
+          value: String(rentalBookings.length),
+          detail: 'Брони по публичным слотам и их текущее состояние.',
+        },
+      ]
+    : [];
+  const activeCabinetItem =
+    cabinetNavItems.find((item) => item.id === activeCabinetSection) ?? cabinetNavItems[0];
+  const activeCabinetPrimaryAction =
+    activeCabinetSection === 'participants' || activeCabinetSection === 'overview' ? (
+      <button
+        type="button"
+        onClick={openParticipantCreateForm}
+        className="rounded-full bg-amber-400 px-4 py-2 text-sm font-black text-black transition hover:bg-amber-300"
+      >
+        Новый участник
+      </button>
+    ) : activeCabinetSection === 'promo' ? (
+      <Link
+        href="/promo-tickets"
+        className="rounded-full bg-amber-400 px-4 py-2 text-sm font-black text-black transition hover:bg-amber-300"
+      >
+        Открыть promo
+      </Link>
+    ) : null;
+  const currentUserMeta = dashboard ? (
+    <div className="flex flex-wrap gap-2">
+      <span className="rounded-full border border-white/10 bg-white/8 px-3 py-1 text-xs font-semibold uppercase tracking-[0.14em] text-stone-100">
+        {formatRoleList(dashboard.currentUser.roles)}
+      </span>
+      <span className="rounded-full border border-white/10 bg-white/8 px-3 py-1 text-xs font-semibold text-stone-200">
+        Город: {dashboard.currentUser.preferredCity?.name || 'не указан'}
+      </span>
+    </div>
+  ) : null;
 
   return (
-    <main className="min-h-screen bg-[radial-gradient(circle_at_top,#f4efe4_0%,#ede6d8_45%,#e4ddcf_100%)] px-4 py-8 text-stone-900">
-      <div className="mx-auto flex w-full max-w-6xl flex-col gap-6">
-        <header className="rounded-[30px] border border-stone-300/70 bg-[#171411] px-6 py-7 text-stone-100 shadow-[0_30px_80px_-45px_rgba(0,0,0,0.5)]">
-          <div className="flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
-            <div>
-              <p className="text-xs font-semibold uppercase tracking-[0.28em] text-stone-400">
-                {isStaffSecondaryView ? 'Пользовательский контур' : 'Личный кабинет'}
-              </p>
-              <h1 className="mt-3 text-3xl font-semibold tracking-tight">
-                {isStaffSecondaryView ? 'Пользовательский кабинет' : 'Ваш кабинет'}
-              </h1>
-              <p className="mt-2 max-w-2xl text-sm leading-6 text-stone-300">
-                {cabinetDescription}
-              </p>
-            </div>
-            <div className="flex gap-3">
+    <main className="min-h-screen bg-[radial-gradient(circle_at_top,#1a2633_0%,#0d1218_38%,#06080b_100%)] px-4 py-8 text-stone-100">
+      <div className="mx-auto flex w-full max-w-[1280px] flex-col gap-6">
+        <WorkspaceHero
+          eyebrow={isStaffSecondaryView ? 'Пользовательский контур' : 'Личный кабинет'}
+          title={isStaffSecondaryView ? 'Пользовательский кабинет' : 'Ваш кабинет Gorilla'}
+          description={cabinetDescription}
+          asideLabel="Как работает кабинет"
+          meta={currentUserMeta}
+          actions={
+            <>
+              {isStaffSecondaryView ? (
+                <Link
+                  href="/admin"
+                  className="rounded-full border border-white/12 bg-white/6 px-4 py-2 text-sm font-medium text-stone-100 transition hover:bg-white/10 hover:text-white"
+                >
+                  Открыть staff workspace
+                </Link>
+              ) : null}
               <Link
                 href="/dev/login"
-                className="rounded-full border border-stone-600 px-4 py-2 text-sm font-medium text-stone-200 transition hover:border-stone-300 hover:text-white"
+                className="rounded-full border border-white/12 bg-white/6 px-4 py-2 text-sm font-medium text-stone-100 transition hover:bg-white/10 hover:text-white"
               >
                 Вход в режиме разработки
               </Link>
-            </div>
-          </div>
-        </header>
+            </>
+          }
+          aside={
+            isStaffSecondaryView ? (
+              <>
+                <p className="text-xs font-semibold uppercase tracking-[0.18em] text-amber-300">
+                  Staff note
+                </p>
+                <p className="mt-2">
+                  Основной рабочий вход для staff-ролей находится в <code>/admin</code>.
+                  Этот экран остаётся вторичным пользовательским видом для проверки
+                  user-flow.
+                </p>
+              </>
+            ) : (
+              <>
+                <p className="text-xs font-semibold uppercase tracking-[0.18em] text-amber-300">
+                  Рабочий принцип
+                </p>
+                <p className="mt-2">
+                  По умолчанию вы видите обзор, списки и статусы. Формы открытия,
+                  добавления и редактирования появляются только по действию.
+                </p>
+              </>
+            )
+          }
+        />
 
         {status === 'loading' ? (
-          <section className="rounded-[28px] border border-stone-300/70 bg-white/90 p-6 text-sm text-stone-600 shadow-[0_24px_70px_-40px_rgba(0,0,0,0.35)]">
+          <section className="rounded-[1.9rem] border border-white/7 bg-white/[0.04] p-6 text-sm text-stone-300 shadow-[0_28px_70px_-46px_rgba(0,0,0,0.62)]">
             Загружаем кабинет...
           </section>
         ) : null}
 
         {status === 'error' ? (
-          <section className="rounded-[28px] border border-rose-300 bg-rose-50 p-6 text-sm text-rose-700 shadow-[0_24px_70px_-40px_rgba(0,0,0,0.35)]">
+          <section className="rounded-[1.9rem] border border-rose-400/30 bg-rose-500/12 p-6 text-sm text-rose-100 shadow-[0_28px_70px_-46px_rgba(15,23,42,0.34)]">
             {error}
           </section>
         ) : null}
 
         {status === 'ready' && dashboard ? (
-          <>
-            {isStaffSecondaryView ? (
-              <section className="rounded-[28px] border border-sky-300 bg-sky-50 p-6 shadow-[0_24px_70px_-40px_rgba(0,0,0,0.35)]">
-                <div className="flex flex-col gap-3 lg:flex-row lg:items-end lg:justify-between">
-                  <div>
-                    <p className="text-xs font-semibold uppercase tracking-[0.22em] text-sky-700">
-                      Staff note
-                    </p>
-                    <h2 className="mt-2 text-xl font-semibold text-sky-950">
-                      Основной рабочий вход для роли{' '}
-                      {currentUserCapabilities?.roleLabel || 'staff'} находится в
-                      /admin
-                    </h2>
-                    <p className="mt-2 max-w-3xl text-sm leading-6 text-sky-900">
-                      Этот экран остаётся доступным как вторичный пользовательский
-                      вид. Здесь можно проверить user-flow, но staff-capabilities и
-                      role-aware workspace находятся в admin-контуре.
-                    </p>
-                  </div>
-                  <Link
-                    href="/admin"
-                    className="rounded-full bg-sky-950 px-4 py-2 text-sm font-semibold text-white transition hover:bg-sky-900"
-                  >
-                    Вернуться в staff workspace
-                  </Link>
-                </div>
-              </section>
+          <WorkspaceCanvas className="space-y-10">
+            {cabinetMetrics.length > 0 ? (
+              <WorkspaceScoreStrip
+                items={cabinetMetrics.map((metric, index) => ({
+                  ...metric,
+                  accent:
+                    index === 1 ? 'amber' : index === 3 ? 'sky' : 'default',
+                }))}
+                compact
+              />
             ) : null}
 
-            <SectionCard
-              eyebrow="Текущий пользователь"
-              title={`Пользователь #${dashboard.currentUser.id}`}
-            >
-              <div className="grid gap-4 md:grid-cols-2">
-                <div className="rounded-2xl bg-stone-100 p-4">
-                  <p className="text-sm font-medium text-stone-500">Профиль</p>
-                  <p className="mt-2 text-lg font-semibold text-stone-950">
-                    {dashboard.currentUser.profile
-                      ? formatPersonName(dashboard.currentUser.profile)
-                      : 'Профиль не заполнен'}
-                  </p>
-                  <p className="mt-1 text-sm text-stone-600">
-                    Роли: {formatRoleList(dashboard.currentUser.roles)}
-                  </p>
+            <div className="space-y-8">
+              <section className="space-y-5 border-b border-white/8 pb-6">
+                <div className="flex flex-col gap-4 xl:flex-row xl:items-end xl:justify-between">
+                  <div className="max-w-3xl">
+                    <p className="text-[11px] font-semibold uppercase tracking-[0.26em] text-amber-300">
+                      Active workspace
+                    </p>
+                    <h2 className="mt-3 text-[2rem] font-semibold tracking-[-0.05em] text-white">
+                      {activeCabinetItem.label}
+                    </h2>
+                  </div>
+                  <div className="flex flex-wrap items-center gap-3">
+                    {activeCabinetPrimaryAction}
+                    <WorkspaceDisclosure label="Подсказка" className="min-w-[180px]">
+                      {activeCabinetItem.description}
+                    </WorkspaceDisclosure>
+                  </div>
                 </div>
-                <div className="rounded-2xl bg-stone-100 p-4">
-                  <p className="text-sm font-medium text-stone-500">Контакты</p>
-                  <p className="mt-2 text-sm text-stone-700">
-                    Эл. почта: {dashboard.currentUser.email || 'Не указана'}
-                  </p>
-                  <p className="mt-1 text-sm text-stone-700">
-                    Телеграм: {dashboard.currentUser.telegramId || 'Не указан'}
-                  </p>
-                  <p className="mt-1 text-sm text-stone-700">
-                    Предпочитаемый город:{' '}
-                    {dashboard.currentUser.preferredCity?.name || 'Не указан'}
-                  </p>
-                </div>
-              </div>
-            </SectionCard>
+                <WorkspaceSectionNav
+                  items={cabinetNavItems}
+                  activeId={activeCabinetSection}
+                  onChange={setActiveCabinetSection}
+                />
+              </section>
 
-            <div className="grid gap-6 xl:grid-cols-2">
-              <SectionCard eyebrow="Участники" title="Мои участники">
-                <div className="grid gap-6 lg:grid-cols-[1.1fr_0.9fr]">
-                  <div className="space-y-4">
+              <div className="min-w-0 space-y-10">
+                <SectionCard
+                  className={activeCabinetSection === 'overview' ? '' : 'hidden'}
+                  eyebrow="Текущий пользователь"
+                  title={`Пользователь #${dashboard.currentUser.id}`}
+                >
+                  <div className="grid gap-5 xl:grid-cols-[minmax(0,1.04fr)_340px]">
+                    <WorkspaceInset className="p-6">
+                      <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-stone-500">
+                        Overview
+                      </p>
+                      <p className="mt-4 text-[1.9rem] font-semibold tracking-[-0.04em] text-white">
+                        {dashboard.currentUser.profile
+                          ? formatPersonName(dashboard.currentUser.profile)
+                          : 'Профиль не заполнен'}
+                      </p>
+                      <div className="mt-5 flex flex-wrap gap-3">
+                        <button
+                          type="button"
+                          onClick={openParticipantCreateForm}
+                          className="rounded-full bg-amber-400 px-4 py-2 text-sm font-black text-black transition hover:bg-amber-300"
+                        >
+                          Новый участник
+                        </button>
+                        <Link
+                          href="/promo-tickets"
+                          className="rounded-full bg-white/8 px-4 py-2 text-sm font-semibold text-stone-100 ring-1 ring-white/12 transition hover:bg-white/12 hover:text-white"
+                        >
+                          Promo-билеты
+                        </Link>
+                      </div>
+                    </WorkspaceInset>
+                    <div className="space-y-4">
+                      <WorkspaceInset tone="muted" className="p-4">
+                        <p className="text-sm font-medium text-stone-400">Профиль</p>
+                        <p className="mt-2 text-sm text-stone-300">
+                          Роли: {formatRoleList(dashboard.currentUser.roles)}
+                        </p>
+                        <p className="mt-1 text-sm text-stone-300">
+                          Город:{' '}
+                          {dashboard.currentUser.preferredCity?.name || 'Не указан'}
+                        </p>
+                      </WorkspaceInset>
+                      <WorkspaceInset tone="muted" className="p-4">
+                        <p className="text-sm font-medium text-stone-400">Контакты</p>
+                        <p className="mt-2 text-sm text-stone-300">
+                          Эл. почта: {dashboard.currentUser.email || 'Не указана'}
+                        </p>
+                        <p className="mt-1 text-sm text-stone-300">
+                          Телеграм: {dashboard.currentUser.telegramId || 'Не указан'}
+                        </p>
+                      </WorkspaceInset>
+                    </div>
+                  </div>
+                </SectionCard>
+
+                <SectionCard
+                  className={activeCabinetSection === 'promo' ? '' : 'hidden'}
+                  eyebrow="Gorilla Promo"
+                  title="Промо-билеты"
+                >
+                  <PromoTicketWorkspace variant="cabinet" />
+                </SectionCard>
+
+                <div
+                  className={`space-y-8 ${
+                    activeCabinetSection === 'overview' ||
+                    activeCabinetSection === 'promo'
+                      ? 'hidden'
+                      : ''
+                  }`}
+                >
+              <SectionCard
+                className={activeCabinetSection === 'participants' ? '' : 'hidden'}
+                eyebrow="Участники"
+                title="Мои участники"
+              >
+                  <div className="grid gap-6 lg:grid-cols-[1.1fr_0.9fr]">
+                    <div className="space-y-4">
                     <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-                      <p className="text-sm text-stone-600">
-                        Добавляйте участников и редактируйте их данные прямо из кабинета.
+                      <p className="text-xs font-semibold uppercase tracking-[0.18em] text-stone-500">
+                        {dashboard.participants.length} в списке
                       </p>
                       <button
                         type="button"
-                        onClick={resetParticipantForm}
-                        className="rounded-full border border-stone-300 px-4 py-2 text-sm font-medium text-stone-700 transition hover:border-stone-500 hover:text-stone-950"
+                        onClick={openParticipantCreateForm}
+                        className="rounded-full border border-white/12 bg-black/20 px-4 py-2 text-sm font-medium text-stone-200 transition hover:border-white/20 hover:bg-white/6 hover:text-white"
                       >
                         Новый участник
                       </button>
                     </div>
 
+                    {participantSuccess ? (
+                      <p className="rounded-2xl border border-emerald-400/30 bg-emerald-500/12 px-4 py-3 text-sm text-emerald-100">
+                        {participantSuccess}
+                      </p>
+                    ) : null}
+
+                    {participantError && !isParticipantFormOpen ? (
+                      <p className="rounded-2xl border border-rose-400/30 bg-rose-500/12 px-4 py-3 text-sm text-rose-100">
+                        {participantError}
+                      </p>
+                    ) : null}
+
                     {dashboard.participants.length === 0 ? (
-                      <div className="rounded-2xl border border-dashed border-stone-300 bg-stone-50 p-5 text-sm text-stone-600">
-                        У вас пока нет участников. Заполните форму справа, чтобы добавить первого.
+                      <div className="rounded-[1.35rem] border border-white/8 bg-white/[0.04] p-5 text-sm text-stone-400">
+                        У вас пока нет участников. Откройте форму по кнопке «Новый участник», чтобы добавить первого.
                       </div>
                     ) : (
                       <div className="space-y-3">
                         {dashboard.participants.map((participant) => (
                           <article
                             key={participant.id}
-                            className="rounded-2xl border border-stone-200 bg-stone-50 p-4"
+                            className="rounded-[1.35rem] border border-white/8 bg-white/[0.04] p-4"
                           >
                             <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
                               <div>
                                 <div className="flex flex-wrap items-center gap-2">
-                                  <p className="font-semibold text-stone-950">
+                                  <p className="font-semibold text-white">
                                     {formatPersonName(participant)}
                                   </p>
-                                  <span className="rounded-full bg-stone-200 px-3 py-1 text-xs font-medium text-stone-700">
+                                  <span className="rounded-full bg-stone-200 px-3 py-1 text-xs font-medium text-stone-300">
                                     #{participant.id}
                                   </span>
                                 </div>
-                                <div className="mt-3 grid gap-1 text-sm text-stone-600">
+                                <div className="mt-3 grid gap-1 text-sm text-stone-400">
                                   <p>
                                     Тип профиля:{' '}
                                     {
@@ -2048,7 +2273,7 @@ export default function CabinetPage() {
                               <button
                                 type="button"
                                 onClick={() => beginParticipantEdit(participant)}
-                                className="rounded-full border border-stone-300 px-4 py-2 text-sm font-medium text-stone-700 transition hover:border-stone-500 hover:text-stone-950"
+                                className="rounded-full border border-white/12 bg-black/20 px-4 py-2 text-sm font-medium text-stone-200 transition hover:border-white/20 hover:bg-white/6 hover:text-white"
                               >
                                 Редактировать
                               </button>
@@ -2059,144 +2284,159 @@ export default function CabinetPage() {
                     )}
                   </div>
 
-                  <div className="rounded-[24px] border border-stone-200 bg-stone-50 p-5">
-                    <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-                      <div>
-                        <p className="text-sm font-medium text-stone-500">
-                          {participantFormMode === 'create'
-                            ? 'Новый участник'
-                            : `Редактирование участника #${editingParticipantId}`}
-                        </p>
-                        <h3 className="mt-2 text-lg font-semibold text-stone-950">
-                          {participantFormMode === 'create'
-                            ? 'Добавить участника'
-                            : 'Изменить данные участника'}
-                        </h3>
-                        <p className="mt-1 text-sm text-stone-600">
-                          {participantFormMode === 'create'
-                            ? 'Заполните основные данные участника. После сохранения список обновится автоматически.'
-                            : 'Измените поля и сохраните обновленные данные без перезагрузки страницы.'}
-                        </p>
-                      </div>
-
-                      {participantFormMode === 'edit' ? (
-                        <button
-                          type="button"
-                          onClick={resetParticipantForm}
-                          className="rounded-full border border-stone-300 px-4 py-2 text-sm font-medium text-stone-700 transition hover:border-stone-500 hover:text-stone-950"
-                        >
-                          Отменить
-                        </button>
-                      ) : null}
-                    </div>
-
-                    <form className="mt-5 flex flex-col gap-4" onSubmit={handleParticipantSubmit}>
-                      <label className="flex flex-col gap-2 text-sm font-medium text-stone-700">
-                        Имя
-                        <input
-                          value={participantForm.firstName}
-                          onChange={(event) =>
-                            handleParticipantInputChange('firstName', event.target.value)
-                          }
-                          className="rounded-2xl border border-stone-300 bg-white px-4 py-3 text-base text-stone-950 outline-none transition focus:border-stone-500"
-                          placeholder="Иван"
-                        />
-                      </label>
-
-                      <label className="flex flex-col gap-2 text-sm font-medium text-stone-700">
-                        Фамилия
-                        <input
-                          value={participantForm.lastName}
-                          onChange={(event) =>
-                            handleParticipantInputChange('lastName', event.target.value)
-                          }
-                          className="rounded-2xl border border-stone-300 bg-white px-4 py-3 text-base text-stone-950 outline-none transition focus:border-stone-500"
-                          placeholder="Иванов"
-                        />
-                      </label>
-
-                      <label className="flex flex-col gap-2 text-sm font-medium text-stone-700">
-                        Тип профиля
-                        <select
-                          value={participantForm.profileKind}
-                          onChange={(event) =>
-                            handleParticipantInputChange(
-                              'profileKind',
-                              event.target.value as ParticipantProfileKind
-                            )
-                          }
-                          className="rounded-2xl border border-stone-300 bg-white px-4 py-3 text-base text-stone-950 outline-none transition focus:border-stone-500"
-                        >
-                          <option value="SELF">Свой профиль</option>
-                          <option value="CHILD">Ребенок</option>
-                        </select>
-                      </label>
-
-                      <label className="flex flex-col gap-2 text-sm font-medium text-stone-700">
-                        Дата рождения
-                        <input
-                          type="date"
-                          value={participantForm.birthDate}
-                          onChange={(event) =>
-                            handleParticipantInputChange('birthDate', event.target.value)
-                          }
-                          className="rounded-2xl border border-stone-300 bg-white px-4 py-3 text-base text-stone-950 outline-none transition focus:border-stone-500"
-                        />
-                      </label>
-
-                      {participantError ? (
-                        <p className="rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700">
-                          {participantError}
-                        </p>
-                      ) : null}
-
-                      {participantSuccess ? (
-                        <p className="rounded-2xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-700">
-                          {participantSuccess}
-                        </p>
-                      ) : null}
-
-                      <div className="flex flex-col gap-3 sm:flex-row">
-                        <button
-                          type="submit"
-                          disabled={participantStatus === 'saving'}
-                          className="rounded-full bg-stone-950 px-5 py-3 text-sm font-semibold text-white transition hover:bg-stone-800 disabled:cursor-not-allowed disabled:bg-stone-400"
-                        >
-                          {participantStatus === 'saving'
-                            ? 'Сохраняем...'
-                            : participantFormMode === 'create'
+                  {isParticipantFormOpen ? (
+                    <div className="rounded-[1.5rem] border border-white/8 bg-white/[0.04] p-5">
+                      <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                        <div>
+                          <p className="text-sm font-medium text-stone-500">
+                            {participantFormMode === 'create'
+                              ? 'Новый участник'
+                              : `Редактирование участника #${editingParticipantId}`}
+                          </p>
+                          <h3 className="mt-2 text-lg font-semibold text-white">
+                            {participantFormMode === 'create'
                               ? 'Добавить участника'
-                              : 'Сохранить изменения'}
-                        </button>
+                              : 'Изменить данные участника'}
+                          </h3>
+                          <p className="mt-1 text-sm text-stone-400">
+                            {participantFormMode === 'create'
+                              ? 'Заполните основные данные участника. После сохранения список обновится автоматически.'
+                              : 'Измените поля и сохраните обновленные данные без перезагрузки страницы.'}
+                          </p>
+                        </div>
+
                         <button
                           type="button"
-                          onClick={resetParticipantForm}
-                          disabled={participantStatus === 'saving'}
-                          className="rounded-full border border-stone-300 px-5 py-3 text-sm font-semibold text-stone-700 transition hover:border-stone-500 hover:text-stone-950 disabled:cursor-not-allowed disabled:opacity-60"
+                          onClick={closeParticipantForm}
+                          className="rounded-full border border-white/12 bg-black/20 px-4 py-2 text-sm font-medium text-stone-200 transition hover:border-white/20 hover:bg-white/6 hover:text-white"
                         >
-                          Очистить форму
+                          Закрыть
                         </button>
                       </div>
-                    </form>
-                  </div>
+
+                      <form
+                        className="mt-5 flex flex-col gap-4"
+                        onSubmit={handleParticipantSubmit}
+                      >
+                        <label className="flex flex-col gap-2 text-sm font-medium text-stone-300">
+                          Имя
+                          <input
+                            value={participantForm.firstName}
+                            onChange={(event) =>
+                              handleParticipantInputChange('firstName', event.target.value)
+                            }
+                            className="rounded-2xl border border-white/10 bg-[#0b0f13] px-4 py-3 text-base text-stone-100 outline-none transition focus:border-amber-400"
+                            placeholder="Иван"
+                          />
+                        </label>
+
+                        <label className="flex flex-col gap-2 text-sm font-medium text-stone-300">
+                          Фамилия
+                          <input
+                            value={participantForm.lastName}
+                            onChange={(event) =>
+                              handleParticipantInputChange('lastName', event.target.value)
+                            }
+                            className="rounded-2xl border border-white/10 bg-[#0b0f13] px-4 py-3 text-base text-stone-100 outline-none transition focus:border-amber-400"
+                            placeholder="Иванов"
+                          />
+                        </label>
+
+                        <label className="flex flex-col gap-2 text-sm font-medium text-stone-300">
+                          Тип профиля
+                          <select
+                            value={participantForm.profileKind}
+                            onChange={(event) =>
+                              handleParticipantInputChange(
+                                'profileKind',
+                                event.target.value as ParticipantProfileKind
+                              )
+                            }
+                            className="rounded-2xl border border-white/10 bg-[#0b0f13] px-4 py-3 text-base text-stone-100 outline-none transition focus:border-amber-400"
+                          >
+                            <option value="SELF">Свой профиль</option>
+                            <option value="CHILD">Ребенок</option>
+                          </select>
+                        </label>
+
+                        <label className="flex flex-col gap-2 text-sm font-medium text-stone-300">
+                          Дата рождения
+                          <input
+                            type="date"
+                            value={participantForm.birthDate}
+                            onChange={(event) =>
+                              handleParticipantInputChange('birthDate', event.target.value)
+                            }
+                            className="rounded-2xl border border-white/10 bg-[#0b0f13] px-4 py-3 text-base text-stone-100 outline-none transition focus:border-amber-400"
+                          />
+                        </label>
+
+                        {participantError ? (
+                          <p className="rounded-2xl border border-rose-400/30 bg-rose-500/12 px-4 py-3 text-sm text-rose-100">
+                            {participantError}
+                          </p>
+                        ) : null}
+
+                        <div className="flex flex-col gap-3 sm:flex-row">
+                          <button
+                            type="submit"
+                            disabled={participantStatus === 'saving'}
+                            className="rounded-full bg-stone-950 px-5 py-3 text-sm font-semibold text-white transition hover:bg-stone-800 disabled:cursor-not-allowed disabled:bg-stone-400"
+                          >
+                            {participantStatus === 'saving'
+                              ? 'Сохраняем...'
+                              : participantFormMode === 'create'
+                                ? 'Добавить участника'
+                                : 'Сохранить изменения'}
+                          </button>
+                          <button
+                            type="button"
+                            onClick={closeParticipantForm}
+                            disabled={participantStatus === 'saving'}
+                            className="rounded-full border border-white/12 bg-black/20 px-5 py-3 text-sm font-semibold text-stone-200 transition hover:border-white/20 hover:bg-white/6 hover:text-white disabled:cursor-not-allowed disabled:opacity-60"
+                          >
+                            Закрыть форму
+                          </button>
+                        </div>
+                      </form>
+                    </div>
+                  ) : (
+                    <div className="rounded-[24px] border border-dashed border-white/10 bg-black/20 p-5">
+                      <p className="text-sm font-medium text-stone-300">
+                        Форма скрыта. Откройте её по действию, когда нужно добавить или изменить участника.
+                      </p>
+                      <p className="mt-2 text-sm text-stone-400">
+                        Для новой записи используйте кнопку «Новый участник». Для изменения уже созданного профиля выберите «Редактировать» в списке.
+                      </p>
+                      <button
+                        type="button"
+                        onClick={openParticipantCreateForm}
+                        className="mt-4 rounded-full border border-white/12 bg-black/20 px-4 py-2 text-sm font-medium text-stone-200 transition hover:border-white/20 hover:bg-white/6 hover:text-white"
+                      >
+                        Открыть форму
+                      </button>
+                    </div>
+                  )}
                 </div>
               </SectionCard>
 
               <SectionCard
+                className={activeCabinetSection === 'trainings' ? '' : 'hidden'}
                 eyebrow="Тренировки"
                 title="Расписание тренировок"
               >
                 <div className="space-y-4">
-                  <p className="text-sm text-stone-600">
-                    Выберите день, чтобы увидеть доступные тренировки. Затем выберите тренировку и запишитесь.
-                  </p>
+                  <WorkspaceDisclosure label="Как записаться">
+                    Выберите день, откройте тренировку и подтвердите запись для себя или
+                    участника.
+                  </WorkspaceDisclosure>
 
                   {trainingFeedback?.scope === 'catalog' ? (
                     <p
                       className={`rounded-2xl border px-4 py-3 text-sm ${
                         trainingFeedback.tone === 'success'
-                          ? 'border-emerald-200 bg-emerald-50 text-emerald-700'
-                          : 'border-rose-200 bg-rose-50 text-rose-700'
+                          ? 'border-emerald-400/30 bg-emerald-500/12 text-emerald-100'
+                          : 'border-rose-400/30 bg-rose-500/12 text-rose-100'
                       }`}
                     >
                       {trainingFeedback.message}
@@ -2204,17 +2444,17 @@ export default function CabinetPage() {
                   ) : null}
 
                   {trainingsStatus === 'loading' ? (
-                    <p className="rounded-2xl border border-dashed border-stone-300 bg-stone-50 p-5 text-sm text-stone-600">
+                    <p className="rounded-[1.35rem] border border-white/8 bg-white/[0.04] p-5 text-sm text-stone-400">
                       Загружаем доступные тренировки...
                     </p>
                   ) : trainingsStatus === 'error' && availableTrainings.length === 0 ? (
-                    <p className="rounded-2xl border border-rose-200 bg-rose-50 p-5 text-sm text-rose-700">
+                    <p className="rounded-2xl border border-rose-400/30 bg-rose-500/12 p-5 text-sm text-rose-100">
                       {trainingsError}
                     </p>
                   ) : availableTrainings.length === 0 ? (
-                    <div className="rounded-2xl border border-dashed border-stone-300 bg-stone-50 p-8 text-center">
+                    <div className="rounded-[1.5rem] border border-white/8 bg-white/[0.04] p-8 text-center">
                       <p className="text-3xl">🏋️</p>
-                      <p className="mt-3 text-sm font-medium text-stone-700">
+                      <p className="mt-3 text-sm font-medium text-stone-300">
                         Нет доступных тренировок
                       </p>
                       <p className="mt-1 text-xs text-stone-500">
@@ -2225,7 +2465,7 @@ export default function CabinetPage() {
                     <div className="space-y-6">
                       {/* Days overview */}
                       <div>
-                        <h3 className="mb-3 text-sm font-semibold text-stone-700">
+                        <h3 className="mb-3 text-sm font-semibold text-stone-300">
                           Выберите день
                         </h3>
                         <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
@@ -2241,15 +2481,20 @@ export default function CabinetPage() {
                                 }}
                                 className={`rounded-2xl border p-4 text-left transition ${
                                   selectedTrainingDay === dayKey
-                                    ? 'border-stone-500 bg-stone-100'
-                                    : 'border-stone-300 bg-white hover:border-stone-400'
+                                    ? 'border-amber-300/60 bg-white/[0.08]'
+                                    : 'border-white/10 bg-black/20 hover:border-white/18 hover:bg-white/6'
                                 }`}
                               >
-                                <p className="font-medium text-stone-950">
+                                <p className="font-medium text-white">
                                   {formatTrainingDay(dayKey)}
                                 </p>
-                                <p className="mt-1 text-sm text-stone-600">
-                                  {trainings.length} тренировк{trainings.length === 1 ? 'а' : trainings.length < 5 ? 'и' : 'ок'}
+                                <p className="mt-1 text-sm text-stone-400">
+                                  {trainings.length}{' '}
+                                  {trainings.length === 1
+                                    ? 'тренировка'
+                                    : trainings.length < 5
+                                      ? 'тренировки'
+                                      : 'тренировок'}
                                 </p>
                               </button>
                             ))}
@@ -2260,7 +2505,7 @@ export default function CabinetPage() {
                       {selectedTrainingDay && (
                         <div>
                           <div className="mb-3 flex items-center justify-between">
-                            <h3 className="text-sm font-semibold text-stone-700">
+                            <h3 className="text-sm font-semibold text-stone-300">
                               Тренировки на {formatTrainingDay(selectedTrainingDay)}
                             </h3>
                             <button
@@ -2269,7 +2514,7 @@ export default function CabinetPage() {
                                 setSelectedTrainingDay(null);
                                 setSelectedTrainingId(null);
                               }}
-                              className="text-xs text-stone-500 hover:text-stone-700"
+                              className="text-xs text-stone-500 hover:text-stone-300"
                             >
                               Сбросить выбор
                             </button>
@@ -2278,9 +2523,9 @@ export default function CabinetPage() {
                           {(() => {
                             const dayTrainings = groupTrainingsByDay(availableTrainings)[selectedTrainingDay] || [];
                             return dayTrainings.length === 0 ? (
-                              <div className="rounded-2xl border border-dashed border-stone-300 bg-stone-50 p-8 text-center">
+                              <div className="rounded-[1.5rem] border border-white/8 bg-white/[0.04] p-8 text-center">
                                 <p className="text-3xl">📅</p>
-                                <p className="mt-3 text-sm font-medium text-stone-700">
+                                <p className="mt-3 text-sm font-medium text-stone-300">
                                   Нет тренировок на этот день
                                 </p>
                                 <p className="mt-1 text-xs text-stone-500">
@@ -2298,20 +2543,20 @@ export default function CabinetPage() {
                                       key={training.trainingId}
                                       className={`rounded-2xl border p-4 transition cursor-pointer ${
                                         isSelected
-                                          ? 'border-stone-500 bg-stone-100'
-                                          : 'border-stone-200 bg-stone-50 hover:border-stone-400'
+                                          ? 'border-amber-300/60 bg-white/[0.08]'
+                                          : 'border-white/10 bg-black/18 hover:border-white/18 hover:bg-white/6'
                                       }`}
                                       onClick={() => setSelectedTrainingId(isSelected ? null : training.trainingId)}
                                     >
                                       <div className="flex items-start justify-between">
                                         <div className="flex-1">
-                                          <p className="font-semibold text-stone-950">
+                                          <p className="font-semibold text-white">
                                             {training.name}
                                           </p>
-                                          <p className="mt-1 text-sm text-stone-600">
-                                            {formatTime(training.startTime)} — {formatTime(training.endTime)}
+                                          <p className="mt-1 text-sm text-stone-400">
+                                            {formatTime(training.startTime)} вЂ” {formatTime(training.endTime)}
                                           </p>
-                                          <p className="mt-1 text-sm text-stone-600">
+                                          <p className="mt-1 text-sm text-stone-400">
                                             {training.city.name} / {training.location}
                                           </p>
                                         </div>
@@ -2360,15 +2605,15 @@ export default function CabinetPage() {
                           isBookingInProgress;
 
                         return (
-                          <div className="rounded-2xl border border-stone-300 bg-white p-6">
+                          <div className="rounded-[1.5rem] border border-white/10 bg-black/18 p-6">
                             <div className="mb-4 flex items-center justify-between">
-                              <h3 className="text-lg font-semibold text-stone-950">
+                              <h3 className="text-lg font-semibold text-white">
                                 {training.name}
                               </h3>
                               <button
                                 type="button"
                                 onClick={() => setSelectedTrainingId(null)}
-                                className="text-sm text-stone-500 hover:text-stone-700"
+                                className="text-sm text-stone-500 hover:text-stone-300"
                               >
                                 Закрыть
                               </button>
@@ -2377,30 +2622,30 @@ export default function CabinetPage() {
                             <div className="grid gap-4 md:grid-cols-2">
                               <div className="space-y-3">
                                 <div>
-                                  <p className="text-sm font-medium text-stone-700">Время и место</p>
-                                  <p className="mt-1 text-sm text-stone-600">
-                                    {formatDateTime(training.startTime)} — {formatTime(training.endTime)}
+                                  <p className="text-sm font-medium text-stone-300">Время и место</p>
+                                  <p className="mt-1 text-sm text-stone-400">
+                                    {formatDateTime(training.startTime)} вЂ” {formatTime(training.endTime)}
                                   </p>
-                                  <p className="mt-1 text-sm text-stone-600">
+                                  <p className="mt-1 text-sm text-stone-400">
                                     {training.city.name} / {training.location}
                                   </p>
                                 </div>
                                 
                                 <div>
-                                  <p className="text-sm font-medium text-stone-700">Формат и тренер</p>
-                                  <p className="mt-1 text-sm text-stone-600">
+                                  <p className="text-sm font-medium text-stone-300">Формат и тренер</p>
+                                  <p className="mt-1 text-sm text-stone-400">
                                     Формат: {formatTrainingType(training.trainingType)}
                                   </p>
-                                  <p className="mt-1 text-sm text-stone-600">
+                                  <p className="mt-1 text-sm text-stone-400">
                                     Тренер: {formatTrainerName(training.trainer)}
                                   </p>
                                 </div>
                                 
                                 <div>
-                                  <p className="text-sm font-medium text-stone-700">Доступность</p>
-                                  <p className="mt-1 text-sm text-stone-600">{availability.detail}</p>
+                                  <p className="text-sm font-medium text-stone-300">Доступность</p>
+                                  <p className="mt-1 text-sm text-stone-400">{availability.detail}</p>
                                   {bookedParticipants.length > 0 && (
-                                    <p className="mt-1 text-sm text-stone-600">
+                                    <p className="mt-1 text-sm text-stone-400">
                                       Уже записаны: {bookedParticipants.map(b => formatPersonName(b.participant)).join(', ')}
                                     </p>
                                   )}
@@ -2408,7 +2653,7 @@ export default function CabinetPage() {
                               </div>
                               
                               <div className="space-y-4">
-                                <label className="block text-sm font-medium text-stone-700">
+                                <label className="block text-sm font-medium text-stone-300">
                                   Выберите участника
                                   <select
                                     value={selectedParticipantId ? String(selectedParticipantId) : ''}
@@ -2416,7 +2661,7 @@ export default function CabinetPage() {
                                       handleTrainingParticipantChange(training.trainingId, event.target.value)
                                     }
                                     disabled={dashboard.participants.length === 0 || isBookingInProgress}
-                                    className="mt-2 w-full rounded-2xl border border-stone-300 bg-white px-4 py-3 text-base text-stone-950 outline-none transition focus:border-stone-500 disabled:cursor-not-allowed disabled:bg-stone-100"
+                                    className="mt-2 w-full rounded-2xl border border-white/10 bg-[#0b0f13] px-4 py-3 text-base text-stone-100 outline-none transition focus:border-amber-400 disabled:cursor-not-allowed disabled:border-white/6 disabled:bg-white/[0.04] disabled:text-stone-500"
                                   >
                                     {dashboard.participants.length === 0 ? (
                                       <option value="">Сначала добавьте участника</option>
@@ -2431,7 +2676,7 @@ export default function CabinetPage() {
                                 </label>
 
                                 {dashboard.participants.length === 0 && (
-                                  <p className="text-sm text-stone-600">
+                                  <p className="text-sm text-stone-400">
                                     Чтобы записаться на тренировку, сначала добавьте участника в разделе «Мои участники».
                                   </p>
                                 )}
@@ -2460,13 +2705,17 @@ export default function CabinetPage() {
                 </div>
               </SectionCard>
 
-              <SectionCard eyebrow="Тренировки" title="Мои записи на тренировки">
+              <SectionCard
+                className={activeCabinetSection === 'trainings' ? '' : 'hidden'}
+                eyebrow="Тренировки"
+                title="Мои записи на тренировки"
+              >
                 {trainingFeedback?.scope === 'bookings' ? (
                   <p
                     className={`mb-4 rounded-2xl border px-4 py-3 text-sm ${
                       trainingFeedback.tone === 'success'
-                        ? 'border-emerald-200 bg-emerald-50 text-emerald-700'
-                        : 'border-rose-200 bg-rose-50 text-rose-700'
+                        ? 'border-emerald-400/30 bg-emerald-500/12 text-emerald-100'
+                        : 'border-rose-400/30 bg-rose-500/12 text-rose-100'
                     }`}
                   >
                     {trainingFeedback.message}
@@ -2474,7 +2723,7 @@ export default function CabinetPage() {
                 ) : null}
 
                 {dashboard.trainingBookings.length === 0 ? (
-                  <p className="text-sm text-stone-600">
+                  <p className="text-sm text-stone-400">
                     У вас пока нет ближайших записей на тренировки.
                   </p>
                 ) : (
@@ -2482,19 +2731,19 @@ export default function CabinetPage() {
                     {dashboard.trainingBookings.map((booking) => (
                       <article
                         key={booking.id}
-                        className="rounded-2xl border border-stone-200 bg-stone-50 p-4"
+                        className="rounded-[1.35rem] border border-white/8 bg-white/[0.04] p-4"
                       >
                         <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
                           <div>
-                            <p className="font-semibold text-stone-950">
+                            <p className="font-semibold text-white">
                               {booking.training.name}
                             </p>
-                            <p className="mt-1 text-sm text-stone-600">
+                            <p className="mt-1 text-sm text-stone-400">
                               {formatPersonName(booking.participant)} /{' '}
                               {booking.training.location}
                             </p>
-                            <p className="mt-2 text-sm text-stone-700">
-                              {formatDateTime(booking.training.startTime)} —{' '}
+                            <p className="mt-2 text-sm text-stone-300">
+                              {formatDateTime(booking.training.startTime)} вЂ”{' '}
                               {formatTime(booking.training.endTime)}
                             </p>
                           </div>
@@ -2506,7 +2755,7 @@ export default function CabinetPage() {
                               type="button"
                               onClick={() => handleTrainingBookingCancel(booking)}
                               disabled={cancellingBookingId === booking.id}
-                              className="rounded-full border border-stone-300 px-4 py-2 text-sm font-medium text-stone-700 transition hover:border-stone-500 hover:text-stone-950 disabled:cursor-not-allowed disabled:opacity-60"
+                              className="rounded-full border border-white/12 bg-black/20 px-4 py-2 text-sm font-medium text-stone-200 transition hover:border-white/20 hover:bg-white/6 hover:text-white disabled:cursor-not-allowed disabled:opacity-60"
                             >
                               {cancellingBookingId === booking.id
                                 ? 'Отменяем...'
@@ -2520,19 +2769,22 @@ export default function CabinetPage() {
                 )}
               </SectionCard>
 
-              <SectionCard eyebrow="Команда" title="Доступные команды">
+              <SectionCard
+                className={activeCabinetSection === 'team' ? '' : 'hidden'}
+                eyebrow="Команда"
+                title="Доступные команды"
+              >
                 <div className="space-y-4">
-                  <p className="text-sm text-stone-600">
-                    Выберите участника и отправьте заявку в подходящую команду прямо
-                    из кабинета.
-                  </p>
+                  <WorkspaceDisclosure label="Как подать заявку">
+                    Откройте нужную команду, выберите участника и отправьте заявку.
+                  </WorkspaceDisclosure>
 
                   {teamFeedback?.scope === 'catalog' ? (
                     <p
                       className={`rounded-2xl border px-4 py-3 text-sm ${
                         teamFeedback.tone === 'success'
-                          ? 'border-emerald-200 bg-emerald-50 text-emerald-700'
-                          : 'border-rose-200 bg-rose-50 text-rose-700'
+                          ? 'border-emerald-400/30 bg-emerald-500/12 text-emerald-100'
+                          : 'border-rose-400/30 bg-rose-500/12 text-rose-100'
                       }`}
                     >
                       {teamFeedback.message}
@@ -2540,15 +2792,15 @@ export default function CabinetPage() {
                   ) : null}
 
                   {teamsStatus === 'loading' ? (
-                    <p className="rounded-2xl border border-dashed border-stone-300 bg-stone-50 p-5 text-sm text-stone-600">
+                    <p className="rounded-[1.35rem] border border-white/8 bg-white/[0.04] p-5 text-sm text-stone-400">
                       Загружаем список команд...
                     </p>
                   ) : teamsStatus === 'error' && availableTeams.length === 0 ? (
-                    <p className="rounded-2xl border border-rose-200 bg-rose-50 p-5 text-sm text-rose-700">
+                    <p className="rounded-2xl border border-rose-400/30 bg-rose-500/12 p-5 text-sm text-rose-100">
                       {teamsError}
                     </p>
                   ) : availableTeams.length === 0 ? (
-                    <p className="rounded-2xl border border-dashed border-stone-300 bg-stone-50 p-5 text-sm text-stone-600">
+                    <p className="rounded-[1.35rem] border border-white/8 bg-white/[0.04] p-5 text-sm text-stone-400">
                       Сейчас нет доступных команд для подачи заявки.
                     </p>
                   ) : (
@@ -2573,27 +2825,43 @@ export default function CabinetPage() {
                           selectedParticipantId === null ||
                           existingActiveApplication !== null ||
                           isSubmitting;
+                        const isExpanded = activeTeamCatalogId === team.id;
 
                         return (
                           <article
                             key={team.id}
-                            className="rounded-2xl border border-stone-200 bg-stone-50 p-4"
+                            className="rounded-[1.35rem] border border-white/8 bg-white/[0.04] p-4"
                           >
                             <div className="flex flex-col gap-4">
-                              <div>
-                                <p className="font-semibold text-stone-950">{team.name}</p>
-                                <p className="mt-1 text-sm text-stone-600">
-                                  {team.city?.name || 'Город не указан'}
-                                </p>
-                                {team.description ? (
-                                  <p className="mt-2 text-sm text-stone-700">
-                                    {team.description}
+                              <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                                <div>
+                                  <p className="font-semibold text-white">{team.name}</p>
+                                  <p className="mt-1 text-sm text-stone-400">
+                                    {team.city?.name || 'Город не указан'}
                                   </p>
-                                ) : null}
+                                  {team.description ? (
+                                    <p className="mt-2 text-sm text-stone-300">
+                                      {team.description}
+                                    </p>
+                                  ) : null}
+                                </div>
+                                <button
+                                  type="button"
+                                  onClick={() =>
+                                    setActiveTeamCatalogId((currentValue) =>
+                                      currentValue === team.id ? null : team.id
+                                    )
+                                  }
+                                  className="rounded-full border border-white/12 bg-black/20 px-4 py-2 text-sm font-medium text-stone-200 transition hover:border-white/20 hover:bg-white/6 hover:text-white"
+                                >
+                                  {isExpanded ? 'Скрыть форму' : 'Открыть заявку'}
+                                </button>
                               </div>
 
-                              <div className="grid gap-3">
-                                <label className="text-sm font-medium text-stone-700">
+                              {isExpanded ? (
+                                <>
+                                  <div className="grid gap-3">
+                                <label className="text-sm font-medium text-stone-300">
                                   Участник
                                   <select
                                     value={
@@ -2610,7 +2878,7 @@ export default function CabinetPage() {
                                     disabled={
                                       dashboard.participants.length === 0 || isSubmitting
                                     }
-                                    className="mt-2 w-full rounded-2xl border border-stone-300 bg-white px-4 py-3 text-base text-stone-950 outline-none transition focus:border-stone-500 disabled:cursor-not-allowed disabled:bg-stone-100"
+                                    className="mt-2 w-full rounded-2xl border border-white/10 bg-[#0b0f13] px-4 py-3 text-base text-stone-100 outline-none transition focus:border-amber-400 disabled:cursor-not-allowed disabled:border-white/6 disabled:bg-white/[0.04] disabled:text-stone-500"
                                   >
                                     {dashboard.participants.length === 0 ? (
                                       <option value="">
@@ -2629,7 +2897,7 @@ export default function CabinetPage() {
                                   </select>
                                 </label>
 
-                                <label className="text-sm font-medium text-stone-700">
+                                <label className="text-sm font-medium text-stone-300">
                                   Комментарий к заявке
                                   <textarea
                                     value={teamComments[team.id] ?? ''}
@@ -2639,39 +2907,43 @@ export default function CabinetPage() {
                                     rows={3}
                                     disabled={isSubmitting}
                                     placeholder="Необязательно"
-                                    className="mt-2 w-full rounded-2xl border border-stone-300 bg-white px-4 py-3 text-base text-stone-950 outline-none transition focus:border-stone-500 disabled:cursor-not-allowed disabled:bg-stone-100"
+                                    className="mt-2 w-full rounded-2xl border border-white/10 bg-[#0b0f13] px-4 py-3 text-base text-stone-100 outline-none transition focus:border-amber-400 disabled:cursor-not-allowed disabled:border-white/6 disabled:bg-white/[0.04] disabled:text-stone-500"
                                   />
                                 </label>
-                              </div>
+                                  </div>
 
-                              <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
-                                <div className="space-y-2">
-                                  {dashboard.participants.length === 0 ? (
-                                    <p className="text-sm text-stone-600">
-                                      Чтобы отправить заявку, сначала добавьте участника
-                                      в разделе «Мои участники».
-                                    </p>
-                                  ) : null}
-                                  {existingActiveApplication && selectedParticipant ? (
-                                    <p className="text-sm text-amber-700">
-                                      У {formatPersonName(selectedParticipant)} уже есть
-                                      заявка со статусом{' '}
-                                      {formatStatus(existingActiveApplication.status)}.
-                                    </p>
-                                  ) : null}
-                                </div>
+                                  <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+                                    <div className="space-y-2">
+                                      {dashboard.participants.length === 0 ? (
+                                        <p className="text-sm text-stone-400">
+                                          Чтобы отправить заявку, сначала добавьте участника
+                                          в разделе «Мои участники».
+                                        </p>
+                                      ) : null}
+                                      {existingActiveApplication && selectedParticipant ? (
+                                        <p className="text-sm text-amber-700">
+                                          У {formatPersonName(selectedParticipant)} уже есть
+                                          заявка со статусом{' '}
+                                          {formatStatus(existingActiveApplication.status)}.
+                                        </p>
+                                      ) : null}
+                                    </div>
 
-                                <button
-                                  type="button"
-                                  onClick={() => handleTeamApplicationSubmit(team)}
-                                  disabled={isSubmitDisabled}
-                                  className="rounded-full bg-stone-950 px-5 py-3 text-sm font-semibold text-white transition hover:bg-stone-800 disabled:cursor-not-allowed disabled:bg-stone-400"
-                                >
-                                  {isSubmitting
-                                    ? 'Отправляем заявку...'
-                                    : 'Подать заявку'}
-                                </button>
-                              </div>
+                                    <button
+                                      type="button"
+                                      onClick={() => handleTeamApplicationSubmit(team)}
+                                      disabled={isSubmitDisabled}
+                                      className="rounded-full bg-stone-950 px-5 py-3 text-sm font-semibold text-white transition hover:bg-stone-800 disabled:cursor-not-allowed disabled:bg-stone-400"
+                                    >
+                                      {isSubmitting
+                                        ? 'Отправляем заявку...'
+                                        : 'Подать заявку'}
+                                    </button>
+                                  </div>
+                                </>
+                              ) : (
+                                <p className="text-sm text-stone-500">Откройте заявку</p>
+                              )}
                             </div>
                           </article>
                         );
@@ -2681,13 +2953,17 @@ export default function CabinetPage() {
                 </div>
               </SectionCard>
 
-              <SectionCard eyebrow="Команда" title="Мои заявки в команду">
+              <SectionCard
+                className={activeCabinetSection === 'team' ? '' : 'hidden'}
+                eyebrow="Команда"
+                title="Мои заявки в команду"
+              >
                 {teamFeedback?.scope === 'applications' ? (
                   <p
                     className={`mb-4 rounded-2xl border px-4 py-3 text-sm ${
                       teamFeedback.tone === 'success'
-                        ? 'border-emerald-200 bg-emerald-50 text-emerald-700'
-                        : 'border-rose-200 bg-rose-50 text-rose-700'
+                        ? 'border-emerald-400/30 bg-emerald-500/12 text-emerald-100'
+                        : 'border-rose-400/30 bg-rose-500/12 text-rose-100'
                     }`}
                   >
                     {teamFeedback.message}
@@ -2695,15 +2971,15 @@ export default function CabinetPage() {
                 ) : null}
 
                 {teamApplicationsStatus === 'loading' ? (
-                  <p className="rounded-2xl border border-dashed border-stone-300 bg-stone-50 p-5 text-sm text-stone-600">
+                  <p className="rounded-[1.35rem] border border-white/8 bg-white/[0.04] p-5 text-sm text-stone-400">
                     Загружаем ваши заявки в команду...
                   </p>
                 ) : teamApplicationsStatus === 'error' && teamApplications.length === 0 ? (
-                  <p className="rounded-2xl border border-rose-200 bg-rose-50 p-5 text-sm text-rose-700">
+                  <p className="rounded-2xl border border-rose-400/30 bg-rose-500/12 p-5 text-sm text-rose-100">
                     {teamApplicationsError}
                   </p>
                 ) : teamApplications.length === 0 ? (
-                  <p className="text-sm text-stone-600">
+                  <p className="text-sm text-stone-400">
                     У вас пока нет заявок в команду.
                   </p>
                 ) : (
@@ -2716,18 +2992,18 @@ export default function CabinetPage() {
                       return (
                         <article
                           key={application.id}
-                          className="rounded-2xl border border-stone-200 bg-stone-50 p-4"
+                          className="rounded-[1.35rem] border border-white/8 bg-white/[0.04] p-4"
                         >
                           <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
                             <div>
-                              <p className="font-semibold text-stone-950">
+                              <p className="font-semibold text-white">
                                 {application.team.name}
                               </p>
-                              <p className="mt-1 text-sm text-stone-600">
+                              <p className="mt-1 text-sm text-stone-400">
                                 {formatPersonName(application.participant)} /{' '}
                                 {application.team.city?.name || 'Город не указан'}
                               </p>
-                              <p className="mt-2 text-sm text-stone-700">
+                              <p className="mt-2 text-sm text-stone-300">
                                 {application.commentFromApplicant ||
                                   'Комментарий не указан.'}
                               </p>
@@ -2745,7 +3021,7 @@ export default function CabinetPage() {
                                     handleTeamApplicationCancel(application)
                                   }
                                   disabled={isCancelling}
-                                  className="rounded-full border border-stone-300 px-4 py-2 text-sm font-medium text-stone-700 transition hover:border-stone-500 hover:text-stone-950 disabled:cursor-not-allowed disabled:opacity-60"
+                                  className="rounded-full border border-white/12 bg-black/20 px-4 py-2 text-sm font-medium text-stone-200 transition hover:border-white/20 hover:bg-white/6 hover:text-white disabled:cursor-not-allowed disabled:opacity-60"
                                 >
                                   {isCancelling
                                     ? 'Отменяем заявку...'
@@ -2761,19 +3037,23 @@ export default function CabinetPage() {
                 )}
               </SectionCard>
 
-              <SectionCard eyebrow="Аренда" title="Доступная аренда">
+              <SectionCard
+                className={activeCabinetSection === 'rentals' ? '' : 'hidden'}
+                eyebrow="Аренда"
+                title="Доступная аренда"
+              >
                 <div className="space-y-4">
-                  <p className="text-sm text-stone-600">
-                    Выберите слот аренды, при необходимости укажите участника или
-                    бронирование на себя, и оформите бронь из кабинета.
-                  </p>
+                  <WorkspaceDisclosure label="Как оформить бронь">
+                    Откройте слот, выберите участника при необходимости и подтвердите
+                    бронирование.
+                  </WorkspaceDisclosure>
 
                   {rentalFeedback?.scope === 'catalog' ? (
                     <p
                       className={`rounded-2xl border px-4 py-3 text-sm ${
                         rentalFeedback.tone === 'success'
-                          ? 'border-emerald-200 bg-emerald-50 text-emerald-700'
-                          : 'border-rose-200 bg-rose-50 text-rose-700'
+                          ? 'border-emerald-400/30 bg-emerald-500/12 text-emerald-100'
+                          : 'border-rose-400/30 bg-rose-500/12 text-rose-100'
                       }`}
                     >
                       {rentalFeedback.message}
@@ -2781,15 +3061,15 @@ export default function CabinetPage() {
                   ) : null}
 
                   {rentalSlotsStatus === 'loading' ? (
-                    <p className="rounded-2xl border border-dashed border-stone-300 bg-stone-50 p-5 text-sm text-stone-600">
+                    <p className="rounded-[1.35rem] border border-white/8 bg-white/[0.04] p-5 text-sm text-stone-400">
                       Загружаем слоты аренды...
                     </p>
                   ) : rentalSlotsStatus === 'error' && publicRentalSlots.length === 0 ? (
-                    <p className="rounded-2xl border border-rose-200 bg-rose-50 p-5 text-sm text-rose-700">
+                    <p className="rounded-2xl border border-rose-400/30 bg-rose-500/12 p-5 text-sm text-rose-100">
                       {rentalSlotsError}
                     </p>
                   ) : publicRentalSlots.length === 0 ? (
-                    <p className="rounded-2xl border border-dashed border-stone-300 bg-stone-50 p-5 text-sm text-stone-600">
+                    <p className="rounded-[1.35rem] border border-white/8 bg-white/[0.04] p-5 text-sm text-stone-400">
                       Сейчас нет слотов аренды для бронирования.
                     </p>
                   ) : (
@@ -2809,23 +3089,24 @@ export default function CabinetPage() {
                         const isBookingInProgress = bookingRentalSlotId === slot.id;
                         const isBookingDisabled =
                           !availability.canBook || isBookingInProgress;
+                        const isExpanded = activeRentalCatalogSlotId === slot.id;
 
                         return (
                           <article
                             key={slot.id}
-                            className="rounded-2xl border border-stone-200 bg-stone-50 p-4"
+                            className="rounded-[1.35rem] border border-white/8 bg-white/[0.04] p-4"
                           >
                             <div className="flex flex-col gap-4">
                               <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
                                 <div>
-                                  <p className="font-semibold text-stone-950">
+                                  <p className="font-semibold text-white">
                                     {slot.resource.name}
                                   </p>
-                                  <p className="mt-1 text-sm text-stone-600">
+                                  <p className="mt-1 text-sm text-stone-400">
                                     {slot.facility.name} / {slot.city.name}
                                   </p>
-                                  <p className="mt-2 text-sm text-stone-700">
-                                    {formatDateTime(slot.startsAt)} —{' '}
+                                  <p className="mt-2 text-sm text-stone-300">
+                                    {formatDateTime(slot.startsAt)} вЂ”{' '}
                                     {formatTime(slot.endsAt)}
                                   </p>
                                 </div>
@@ -2834,9 +3115,20 @@ export default function CabinetPage() {
                                 >
                                   {availability.label}
                                 </span>
+                                <button
+                                  type="button"
+                                  onClick={() =>
+                                    setActiveRentalCatalogSlotId((currentValue) =>
+                                      currentValue === slot.id ? null : slot.id
+                                    )
+                                  }
+                                  className="rounded-full border border-white/12 bg-black/20 px-4 py-2 text-sm font-medium text-stone-200 transition hover:border-white/20 hover:bg-white/6 hover:text-white"
+                                >
+                                  {isExpanded ? 'Скрыть форму' : 'Открыть бронь'}
+                                </button>
                               </div>
 
-                              <div className="grid gap-1 text-sm text-stone-600">
+                              <div className="grid gap-1 text-sm text-stone-400">
                                 <p>
                                   Ресурс:{' '}
                                   {slot.resource.resourceType
@@ -2847,61 +3139,67 @@ export default function CabinetPage() {
                                 <p>{availability.detail}</p>
                               </div>
 
-                              <div className="grid gap-3">
-                                <label className="text-sm font-medium text-stone-700">
-                                  Кого бронируем
-                                  <select
-                                    value={selectedParticipantValue}
-                                    onChange={(event) =>
-                                      handleRentalParticipantChange(
-                                        slot.id,
-                                        event.target.value
-                                      )
-                                    }
-                                    disabled={isBookingDisabled}
-                                    className="mt-2 w-full rounded-2xl border border-stone-300 bg-white px-4 py-3 text-base text-stone-950 outline-none transition focus:border-stone-500 disabled:cursor-not-allowed disabled:bg-stone-100"
-                                  >
-                                    <option value="self">На себя</option>
-                                    {dashboard.participants.map((participant) => (
-                                      <option key={participant.id} value={participant.id}>
-                                        {formatPersonName(participant)}
-                                      </option>
-                                    ))}
-                                  </select>
-                                </label>
+                              {isExpanded ? (
+                                <>
+                                  <div className="grid gap-3">
+                                    <label className="text-sm font-medium text-stone-300">
+                                      Кого бронируем
+                                      <select
+                                        value={selectedParticipantValue}
+                                        onChange={(event) =>
+                                          handleRentalParticipantChange(
+                                            slot.id,
+                                            event.target.value
+                                          )
+                                        }
+                                        disabled={isBookingDisabled}
+                                        className="mt-2 w-full rounded-2xl border border-white/10 bg-[#0b0f13] px-4 py-3 text-base text-stone-100 outline-none transition focus:border-amber-400 disabled:cursor-not-allowed disabled:border-white/6 disabled:bg-white/[0.04] disabled:text-stone-500"
+                                      >
+                                        <option value="self">На себя</option>
+                                        {dashboard.participants.map((participant) => (
+                                          <option key={participant.id} value={participant.id}>
+                                            {formatPersonName(participant)}
+                                          </option>
+                                        ))}
+                                      </select>
+                                    </label>
 
-                                <label className="text-sm font-medium text-stone-700">
-                                  Комментарий к бронированию
-                                  <textarea
-                                    value={rentalNotes[slot.id] ?? ''}
-                                    onChange={(event) =>
-                                      handleRentalNoteChange(slot.id, event.target.value)
-                                    }
-                                    rows={3}
-                                    disabled={isBookingDisabled}
-                                    placeholder="Необязательно"
-                                    className="mt-2 w-full rounded-2xl border border-stone-300 bg-white px-4 py-3 text-base text-stone-950 outline-none transition focus:border-stone-500 disabled:cursor-not-allowed disabled:bg-stone-100"
-                                  />
-                                </label>
-                              </div>
+                                    <label className="text-sm font-medium text-stone-300">
+                                      Комментарий к бронированию
+                                      <textarea
+                                        value={rentalNotes[slot.id] ?? ''}
+                                        onChange={(event) =>
+                                          handleRentalNoteChange(slot.id, event.target.value)
+                                        }
+                                        rows={3}
+                                        disabled={isBookingDisabled}
+                                        placeholder="Необязательно"
+                                        className="mt-2 w-full rounded-2xl border border-white/10 bg-[#0b0f13] px-4 py-3 text-base text-stone-100 outline-none transition focus:border-amber-400 disabled:cursor-not-allowed disabled:border-white/6 disabled:bg-white/[0.04] disabled:text-stone-500"
+                                      />
+                                    </label>
+                                  </div>
 
-                              <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
-                                <p className="text-sm text-stone-600">
-                                  {selectedParticipant
-                                    ? `Бронь будет оформлена на ${formatPersonName(selectedParticipant)}.`
-                                    : 'Бронь будет оформлена на ваш аккаунт.'}
-                                </p>
-                                <button
-                                  type="button"
-                                  onClick={() => handleRentalBooking(slot)}
-                                  disabled={isBookingDisabled}
-                                  className="rounded-full bg-stone-950 px-5 py-3 text-sm font-semibold text-white transition hover:bg-stone-800 disabled:cursor-not-allowed disabled:bg-stone-400"
-                                >
-                                  {isBookingInProgress
-                                    ? 'Оформляем бронь...'
-                                    : 'Забронировать'}
-                                </button>
-                              </div>
+                                  <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+                                    <p className="text-sm text-stone-400">
+                                      {selectedParticipant
+                                        ? `Бронь будет оформлена на ${formatPersonName(selectedParticipant)}.`
+                                        : 'Бронь будет оформлена на ваш аккаунт.'}
+                                    </p>
+                                    <button
+                                      type="button"
+                                      onClick={() => handleRentalBooking(slot)}
+                                      disabled={isBookingDisabled}
+                                      className="rounded-full bg-stone-950 px-5 py-3 text-sm font-semibold text-white transition hover:bg-stone-800 disabled:cursor-not-allowed disabled:bg-stone-400"
+                                    >
+                                      {isBookingInProgress
+                                        ? 'Оформляем бронь...'
+                                        : 'Забронировать'}
+                                    </button>
+                                  </div>
+                                </>
+                              ) : (
+                                <p className="text-sm text-stone-500">Откройте бронь</p>
+                              )}
                             </div>
                           </article>
                         );
@@ -2911,13 +3209,17 @@ export default function CabinetPage() {
                 </div>
               </SectionCard>
 
-              <SectionCard eyebrow="Аренда" title="Мои бронирования аренды">
+              <SectionCard
+                className={activeCabinetSection === 'rentals' ? '' : 'hidden'}
+                eyebrow="Аренда"
+                title="Мои бронирования аренды"
+              >
                 {rentalFeedback?.scope === 'bookings' ? (
                   <p
                     className={`mb-4 rounded-2xl border px-4 py-3 text-sm ${
                       rentalFeedback.tone === 'success'
-                        ? 'border-emerald-200 bg-emerald-50 text-emerald-700'
-                        : 'border-rose-200 bg-rose-50 text-rose-700'
+                        ? 'border-emerald-400/30 bg-emerald-500/12 text-emerald-100'
+                        : 'border-rose-400/30 bg-rose-500/12 text-rose-100'
                     }`}
                   >
                     {rentalFeedback.message}
@@ -2925,15 +3227,15 @@ export default function CabinetPage() {
                 ) : null}
 
                 {rentalBookingsStatus === 'loading' ? (
-                  <p className="rounded-2xl border border-dashed border-stone-300 bg-stone-50 p-5 text-sm text-stone-600">
+                  <p className="rounded-[1.35rem] border border-white/8 bg-white/[0.04] p-5 text-sm text-stone-400">
                     Загружаем ваши бронирования аренды...
                   </p>
                 ) : rentalBookingsStatus === 'error' && rentalBookings.length === 0 ? (
-                  <p className="rounded-2xl border border-rose-200 bg-rose-50 p-5 text-sm text-rose-700">
+                  <p className="rounded-2xl border border-rose-400/30 bg-rose-500/12 p-5 text-sm text-rose-100">
                     {rentalBookingsError}
                   </p>
                 ) : rentalBookings.length === 0 ? (
-                  <p className="text-sm text-stone-600">
+                  <p className="text-sm text-stone-400">
                     У вас пока нет бронирований аренды.
                   </p>
                 ) : (
@@ -2946,21 +3248,21 @@ export default function CabinetPage() {
                       return (
                         <article
                           key={booking.id}
-                          className="rounded-2xl border border-stone-200 bg-stone-50 p-4"
+                          className="rounded-[1.35rem] border border-white/8 bg-white/[0.04] p-4"
                         >
                           <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
                             <div>
-                              <p className="font-semibold text-stone-950">
+                              <p className="font-semibold text-white">
                                 {booking.resource.name}
                               </p>
-                              <p className="mt-1 text-sm text-stone-600">
+                              <p className="mt-1 text-sm text-stone-400">
                                 {booking.facility.name} / {booking.city.name}
                               </p>
-                              <p className="mt-2 text-sm text-stone-700">
-                                {formatDateTime(booking.slot.startsAt)} —{' '}
+                              <p className="mt-2 text-sm text-stone-300">
+                                {formatDateTime(booking.slot.startsAt)} вЂ”{' '}
                                 {formatTime(booking.slot.endsAt)}
                               </p>
-                              <p className="mt-2 text-sm text-stone-600">
+                              <p className="mt-2 text-sm text-stone-400">
                                 Бронь оформлена:{' '}
                                 {booking.participant
                                   ? formatPersonName(booking.participant)
@@ -2978,7 +3280,7 @@ export default function CabinetPage() {
                                   type="button"
                                   onClick={() => handleRentalBookingCancel(booking)}
                                   disabled={isCancelling}
-                                  className="rounded-full border border-stone-300 px-4 py-2 text-sm font-medium text-stone-700 transition hover:border-stone-500 hover:text-stone-950 disabled:cursor-not-allowed disabled:opacity-60"
+                                  className="rounded-full border border-white/12 bg-black/20 px-4 py-2 text-sm font-medium text-stone-200 transition hover:border-white/20 hover:bg-white/6 hover:text-white disabled:cursor-not-allowed disabled:opacity-60"
                                 >
                                   {isCancelling
                                     ? 'Отменяем бронь...'
@@ -2993,10 +3295,16 @@ export default function CabinetPage() {
                   </div>
                 )}
               </SectionCard>
+              </div>
+              </div>
             </div>
-          </>
+          </WorkspaceCanvas>
         ) : null}
       </div>
     </main>
   );
 }
+
+
+
+

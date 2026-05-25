@@ -11,7 +11,8 @@ export type AdminWorkspaceSectionId =
   | 'teams'
   | 'teamApplications'
   | 'trainings'
-  | 'rentals';
+  | 'rentals'
+  | 'promoTickets';
 
 export type RoleCapabilityRow = {
   id:
@@ -21,6 +22,7 @@ export type RoleCapabilityRow = {
     | 'teamApplications'
     | 'trainings'
     | 'rentals'
+    | 'promoTickets'
     | 'usersAndRoles'
     | 'clients'
     | 'ownData'
@@ -55,6 +57,7 @@ export type RoleCapabilities = {
   teamApplicationReviewScope: CapabilityScope;
   trainingManagementScope: CapabilityScope;
   rentalManagementScope: CapabilityScope;
+  promoManagementScope: CapabilityScope;
   userRoleManagementScope: CapabilityScope;
   clientVisibilityScope: CapabilityScope;
   canEditOwnData: boolean;
@@ -103,6 +106,12 @@ const adminWorkspaceSections: Record<AdminWorkspaceSectionId, AdminWorkspaceSect
       label: 'Аренда',
       description: 'Слоты, ресурсы, площадки и бронирования аренды.',
     },
+    promoTickets: {
+      id: 'promoTickets',
+      label: 'Промо-билеты',
+      description:
+        'Промо-модуль билетов, призов и фиксированных результатов акции.',
+    },
   };
 
 const roleDefinitions: Record<PlatformRole, RoleDefinition> = {
@@ -116,6 +125,7 @@ const roleDefinitions: Record<PlatformRole, RoleDefinition> = {
     teamApplicationReviewScope: 'none',
     trainingManagementScope: 'none',
     rentalManagementScope: 'none',
+    promoManagementScope: 'none',
     userRoleManagementScope: 'none',
     clientVisibilityScope: 'own',
     canEditOwnData: true,
@@ -143,6 +153,7 @@ const roleDefinitions: Record<PlatformRole, RoleDefinition> = {
     teamApplicationReviewScope: 'own',
     trainingManagementScope: 'own',
     rentalManagementScope: 'none',
+    promoManagementScope: 'none',
     userRoleManagementScope: 'none',
     clientVisibilityScope: 'own',
     canEditOwnData: true,
@@ -172,6 +183,7 @@ const roleDefinitions: Record<PlatformRole, RoleDefinition> = {
     teamApplicationReviewScope: 'all',
     trainingManagementScope: 'all',
     rentalManagementScope: 'all',
+    promoManagementScope: 'all',
     userRoleManagementScope: 'none',
     clientVisibilityScope: 'all',
     canEditOwnData: true,
@@ -189,7 +201,7 @@ const roleDefinitions: Record<PlatformRole, RoleDefinition> = {
       'Не управляет матрицей пользователей и ролей на уровне ADMIN.',
       'Системные admin-настройки и полный контроль ролей зарезервированы для ADMIN.',
     ],
-    visibleAdminSections: ['teams', 'teamApplications', 'trainings', 'rentals'],
+    visibleAdminSections: ['teams', 'teamApplications', 'trainings', 'rentals', 'promoTickets'],
   },
   ADMIN: {
     role: 'ADMIN',
@@ -201,6 +213,7 @@ const roleDefinitions: Record<PlatformRole, RoleDefinition> = {
     teamApplicationReviewScope: 'all',
     trainingManagementScope: 'all',
     rentalManagementScope: 'all',
+    promoManagementScope: 'all',
     userRoleManagementScope: 'all',
     clientVisibilityScope: 'all',
     canEditOwnData: true,
@@ -215,7 +228,7 @@ const roleDefinitions: Record<PlatformRole, RoleDefinition> = {
       'Открывает /cabinet только для проверки пользовательских сценариев.',
     ],
     restrictedActions: [],
-    visibleAdminSections: ['teams', 'teamApplications', 'trainings', 'rentals'],
+    visibleAdminSections: ['teams', 'teamApplications', 'trainings', 'rentals', 'promoTickets'],
   },
 };
 
@@ -401,6 +414,18 @@ export function getRoleCapabilityRows(
             ? 'Доступен только свой арендный контур.'
             : 'Staff-управление арендой недоступно.',
       tone: getScopeTone(capabilities.rentalManagementScope),
+    },
+    {
+      id: 'promoTickets',
+      label: 'Промо-билеты и призы',
+      value: getScopeValueLabel(capabilities.promoManagementScope),
+      detail:
+        capabilities.promoManagementScope === 'all'
+          ? 'Доступны выдача билетов, управление призами и просмотр результатов.'
+          : capabilities.promoManagementScope === 'own'
+            ? 'Доступна только своя часть promo-модуля.'
+            : 'Глобальное управление promo-модулем недоступно.',
+      tone: getScopeTone(capabilities.promoManagementScope),
     },
     {
       id: 'usersAndRoles',

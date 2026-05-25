@@ -424,6 +424,94 @@ async function ensureRentalBooking({
   });
 }
 
+async function ensurePromoPrize({ symbol, title, description, isActive = true }) {
+  const existingPrize = await prisma.promoPrize.findUnique({
+    where: { symbol },
+  });
+
+  if (existingPrize) {
+    return prisma.promoPrize.update({
+      where: { id: existingPrize.id },
+      data: {
+        title,
+        description,
+        isActive,
+      },
+    });
+  }
+
+  return prisma.promoPrize.create({
+    data: {
+      symbol,
+      title,
+      description,
+      isActive,
+    },
+  });
+}
+
+async function ensurePromoTicket({
+  code,
+  userId,
+  campaignLabel,
+  status,
+  sealedSymbols,
+  symbols,
+  prizeId,
+  openedAt,
+  expiresAt,
+}) {
+  const existingTicket = await prisma.promoTicket.findUnique({
+    where: { code },
+  });
+
+  const baseData = {
+    user: {
+      connect: { id: userId },
+    },
+    campaignLabel,
+    status,
+    sealedSymbols,
+    symbols,
+    openedAt,
+    expiresAt,
+  };
+
+  if (existingTicket) {
+    return prisma.promoTicket.update({
+      where: { id: existingTicket.id },
+      data: {
+        ...baseData,
+        ...(prizeId
+          ? {
+              prize: {
+                connect: { id: prizeId },
+              },
+            }
+          : {
+              prize: {
+                disconnect: true,
+              },
+            }),
+      },
+    });
+  }
+
+  return prisma.promoTicket.create({
+    data: {
+      code,
+      ...baseData,
+      ...(prizeId
+        ? {
+            prize: {
+              connect: { id: prizeId },
+            },
+          }
+        : {}),
+    },
+  });
+}
+
 function printSummary(summary) {
   console.log('');
   console.log('DEV_SEED_SUMMARY');
@@ -453,6 +541,9 @@ function printSummary(summary) {
     `Team application: ${summary.teamApplication.id} -> team ${summary.teamApplication.teamId}`
   );
   console.log(`Rental booking: ${summary.rental.booking.id} -> slot ${summary.rental.booking.slotId}`);
+  console.log(
+    `Promo tickets: ${summary.promoTickets.map((ticket) => `${ticket.id}:${ticket.code}:${ticket.status}`).join(', ')}`
+  );
   console.log('');
 }
 
@@ -476,6 +567,37 @@ async function main() {
     email: 'user.dev@gorilla.local',
     telegramId: 'gorilla_user_dev',
     staffRole: null,
+  });
+
+  const stickPrize = await ensurePromoPrize({
+    symbol: 'STICK',
+    title: 'Клюшка',
+    description: 'Фиксированный промо-приз: хоккейная клюшка.',
+  });
+  const helmetPrize = await ensurePromoPrize({
+    symbol: 'HELMET',
+    title: 'Шлем',
+    description: 'Фиксированный промо-приз: хоккейный шлем.',
+  });
+  const puckPrize = await ensurePromoPrize({
+    symbol: 'PUCK',
+    title: 'Шайба',
+    description: 'Фиксированный промо-приз: брендированная шайба Gorilla.',
+  });
+  const goalPrize = await ensurePromoPrize({
+    symbol: 'GOAL',
+    title: 'Тематический приз Gorilla',
+    description: 'Фиксированный промо-приз: тематический подарок или мерч Gorilla.',
+  });
+  const tripPrize = await ensurePromoPrize({
+    symbol: 'TRIP',
+    title: 'Путёвка',
+    description: 'Фиксированный промо-приз: путёвка по условиям акции.',
+  });
+  const discountPrize = await ensurePromoPrize({
+    symbol: 'DISCOUNT',
+    title: 'Скидка',
+    description: 'Фиксированный промо-приз: скидка на продукт или сервис Gorilla.',
   });
 
   await ensureProfile({
@@ -618,6 +740,62 @@ async function main() {
     managerNote: `Создано сидом для ручной проверки (${DEV_MARKER}).`,
   });
 
+  const promoTicketNewWin = await ensurePromoTicket({
+    code: 'GH-PROMO-DEMO-001',
+    userId: regularUser.id,
+    campaignLabel: 'Майская promo-акция',
+    status: 'NEW',
+    sealedSymbols: ['STICK', 'STICK', 'STICK'],
+    symbols: [],
+    prizeId: null,
+    openedAt: null,
+    expiresAt: fixedUtcDate(2026, 6, 30, 20, 0),
+  });
+  const promoTicketNewNoWin = await ensurePromoTicket({
+    code: 'GH-PROMO-DEMO-002',
+    userId: regularUser.id,
+    campaignLabel: 'Майская promo-акция',
+    status: 'NEW',
+    sealedSymbols: ['NO_WIN', 'NO_WIN', 'NO_WIN'],
+    symbols: [],
+    prizeId: null,
+    openedAt: null,
+    expiresAt: fixedUtcDate(2026, 6, 30, 20, 0),
+  });
+  const promoTicketNewMismatch = await ensurePromoTicket({
+    code: 'GH-PROMO-DEMO-003',
+    userId: regularUser.id,
+    campaignLabel: 'Тренировочный promo-билет',
+    status: 'NEW',
+    sealedSymbols: ['PUCK', 'HELMET', 'GOAL'],
+    symbols: [],
+    prizeId: null,
+    openedAt: null,
+    expiresAt: fixedUtcDate(2026, 7, 10, 20, 0),
+  });
+  const promoTicketOpenedWin = await ensurePromoTicket({
+    code: 'GH-PROMO-DEMO-004',
+    userId: regularUser.id,
+    campaignLabel: 'Финальный розыгрыш promo-кампании',
+    status: 'WIN',
+    sealedSymbols: ['TRIP', 'TRIP', 'TRIP'],
+    symbols: ['TRIP', 'TRIP', 'TRIP'],
+    prizeId: tripPrize.id,
+    openedAt: fixedUtcDate(2026, 5, 20, 14, 30),
+    expiresAt: fixedUtcDate(2026, 6, 15, 20, 0),
+  });
+  const promoTicketExpired = await ensurePromoTicket({
+    code: 'GH-PROMO-DEMO-005',
+    userId: regularUser.id,
+    campaignLabel: 'Истекший promo-билет',
+    status: 'EXPIRED',
+    sealedSymbols: ['DISCOUNT', 'DISCOUNT', 'DISCOUNT'],
+    symbols: [],
+    prizeId: null,
+    openedAt: null,
+    expiresAt: fixedUtcDate(2026, 5, 1, 20, 0),
+  });
+
   printSummary({
     cities: [moscow, nizhnyNovgorod],
     users: {
@@ -636,6 +814,21 @@ async function main() {
       slots: [availableRentalSlotOne, availableRentalSlotTwo, bookedRentalSlot],
       booking: rentalBooking,
     },
+    promoPrizes: [
+      stickPrize,
+      helmetPrize,
+      puckPrize,
+      goalPrize,
+      tripPrize,
+      discountPrize,
+    ],
+    promoTickets: [
+      promoTicketNewWin,
+      promoTicketNewNoWin,
+      promoTicketNewMismatch,
+      promoTicketOpenedWin,
+      promoTicketExpired,
+    ],
   });
 }
 

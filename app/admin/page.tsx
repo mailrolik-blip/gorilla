@@ -4,6 +4,15 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
 
+import { PromoAdminModule } from '@/components/promo-admin-module';
+import {
+  WorkspaceCanvas,
+  WorkspaceDisclosure,
+  WorkspaceHero,
+  WorkspaceInset,
+  WorkspaceScoreStrip,
+} from '@/components/workspace-frame';
+import { WorkspaceSectionNav } from '@/components/workspace-section-nav';
 import {
   canAccessAppPath,
   getRoleCapabilities,
@@ -154,6 +163,16 @@ type TrainerTrainingSummary = {
     bookings: number;
   };
 };
+
+type AdminSectionId =
+  | 'overview'
+  | 'trainerWorkspace'
+  | 'teams'
+  | 'roster'
+  | 'teamApplications'
+  | 'trainings'
+  | 'rentals'
+  | 'promoTickets';
 
 type AdminRentalBookingSummary = {
   id: number;
@@ -741,17 +760,17 @@ function getStatusBadgeClass(status: string) {
     case 'ACCEPTED':
     case 'CONFIRMED':
     case 'AVAILABLE':
-      return 'bg-emerald-100 text-emerald-700';
+      return 'bg-emerald-500/15 text-emerald-100';
     case 'SUSPENDED':
     case 'REJECTED':
     case 'CANCELLED':
     case 'UNAVAILABLE':
-      return 'bg-rose-100 text-rose-700';
+      return 'bg-rose-500/15 text-rose-100';
     case 'IN_REVIEW':
     case 'BOOKED':
-      return 'bg-sky-100 text-sky-700';
+      return 'bg-sky-500/15 text-sky-100';
     default:
-      return 'bg-amber-100 text-amber-700';
+      return 'bg-amber-500/15 text-amber-100';
   }
 }
 
@@ -964,33 +983,13 @@ function SectionCard({
   children: React.ReactNode;
 }) {
   return (
-    <section className="rounded-[28px] border border-stone-300/70 bg-white p-6 shadow-[0_24px_70px_-40px_rgba(0,0,0,0.35)]">
-      <div className="flex flex-col gap-2">
-        <h2 className="text-xl font-semibold text-stone-950">{title}</h2>
-        <p className="text-sm leading-6 text-stone-600">{description}</p>
+    <section className="space-y-6">
+      <div className="flex max-w-3xl flex-col gap-3 border-b border-white/8 pb-5">
+        <h2 className="text-[1.8rem] font-semibold tracking-[-0.04em] text-white">{title}</h2>
+        <WorkspaceDisclosure label="О разделе">{description}</WorkspaceDisclosure>
       </div>
-      <div className="mt-5">{children}</div>
+      <div>{children}</div>
     </section>
-  );
-}
-
-function SummaryCard({
-  title,
-  value,
-  detail,
-}: {
-  title: string;
-  value: string;
-  detail: string;
-}) {
-  return (
-    <article className="rounded-[24px] border border-stone-300/70 bg-white/95 p-5 shadow-[0_18px_45px_-35px_rgba(0,0,0,0.35)]">
-      <p className="text-sm font-medium text-stone-500">{title}</p>
-      <p className="mt-3 text-3xl font-semibold tracking-tight text-stone-950">
-        {value}
-      </p>
-      <p className="mt-2 text-sm leading-6 text-stone-600">{detail}</p>
-    </article>
   );
 }
 
@@ -1072,7 +1071,7 @@ function TeamsSectionContent({
     <div className="grid gap-5 xl:grid-cols-[0.92fr_1.08fr]">
       <div className="space-y-4">
         <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-1">
-          <label className="text-sm font-medium text-stone-700">
+          <label className="text-sm font-medium text-stone-300">
             Фильтр по городу
             <select
               value={teamCityFilter}
@@ -1080,7 +1079,7 @@ function TeamsSectionContent({
                 setTeamCityFilter(event.target.value);
                 setTeamFeedback(null);
               }}
-              className="mt-2 w-full rounded-2xl border border-stone-300 bg-white px-4 py-3 text-base text-stone-950 outline-none transition focus:border-stone-500"
+              className="mt-2 w-full rounded-2xl border border-white/10 bg-[#0b0f13] px-4 py-3 text-base text-stone-100 outline-none transition focus:border-amber-400"
             >
               <option value="ALL">Все города ({teamFilterCityOptions.length})</option>
               {teamFilterCityOptions.map((city) => (
@@ -1105,7 +1104,7 @@ function TeamsSectionContent({
               <button
                 type="button"
                 onClick={handleTeamCreateCancel}
-                className="rounded-full border border-stone-300 px-5 py-3 text-sm font-semibold text-stone-700 transition hover:border-stone-500 hover:text-stone-950"
+                className="rounded-full border border-white/12 bg-black/20 px-5 py-3 text-sm font-semibold text-stone-200 transition hover:border-white/20 hover:bg-white/6 hover:text-white"
               >
                 Вернуться к списку
               </button>
@@ -1114,9 +1113,9 @@ function TeamsSectionContent({
         ) : null}
 
         {filteredTeams.length === 0 ? (
-          <div className="rounded-2xl border border-dashed border-stone-300 bg-stone-50 p-8 text-center">
+          <div className="rounded-[1.5rem] border border-white/8 bg-white/[0.04] p-8 text-center">
             <p className="text-3xl">🏒</p>
-            <p className="mt-3 text-sm font-medium text-stone-700">
+            <p className="mt-3 text-sm font-medium text-stone-300">
               {totalTeamsCount === 0 ? 'Команд пока нет' : 'По текущему фильтру команд нет'}
             </p>
             <p className="mt-1 text-xs text-stone-500">
@@ -1136,7 +1135,7 @@ function TeamsSectionContent({
                   className={`w-full rounded-2xl border p-4 text-left transition ${
                     isSelected
                       ? 'border-stone-950 bg-stone-950 text-white shadow-[0_18px_45px_-35px_rgba(0,0,0,0.45)]'
-                      : 'border-stone-200 bg-stone-50 hover:border-stone-400 hover:bg-white'
+                      : 'border-white/8 bg-white/[0.035] hover:border-white/16 hover:bg-white/[0.06]'
                   }`}
                 >
                   <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
@@ -1144,7 +1143,7 @@ function TeamsSectionContent({
                       <p className="font-semibold">{team.name}</p>
                       <p
                         className={`mt-1 text-sm ${
-                          isSelected ? 'text-stone-300' : 'text-stone-600'
+                          isSelected ? 'text-stone-300' : 'text-stone-400'
                         }`}
                       >
                         {team.city?.name || 'Город не указан'}
@@ -1152,7 +1151,7 @@ function TeamsSectionContent({
                       </p>
                       <p
                         className={`mt-2 text-sm ${
-                          isSelected ? 'text-stone-300' : 'text-stone-700'
+                          isSelected ? 'text-stone-300' : 'text-stone-300'
                         }`}
                       >
                         Обновлено: {formatDateTime(team.updatedAt)}
@@ -1162,7 +1161,7 @@ function TeamsSectionContent({
                       className={`rounded-full px-3 py-1 text-xs font-medium ${
                         isSelected
                           ? 'bg-white/15 text-white'
-                          : 'bg-stone-200 text-stone-700'
+                          : 'border border-white/10 bg-black/20 text-stone-300'
                       }`}
                     >
                       Команда #{team.id}
@@ -1175,13 +1174,13 @@ function TeamsSectionContent({
         )}
       </div>
 
-      <div className="rounded-[24px] border border-stone-200 bg-stone-50 p-5">
+      <div className="rounded-[1.5rem] border border-white/8 bg-white/[0.04] p-5">
         {teamFeedback ? (
           <p
             className={`rounded-2xl border px-4 py-3 text-sm ${
               teamFeedback.tone === 'success'
-                ? 'border-emerald-200 bg-emerald-50 text-emerald-700'
-                : 'border-rose-200 bg-rose-50 text-rose-700'
+                ? 'border-emerald-400/30 bg-emerald-500/12 text-emerald-100'
+                : 'border-rose-400/30 bg-rose-500/12 text-rose-100'
             }`}
           >
             {teamFeedback.message}
@@ -1195,33 +1194,34 @@ function TeamsSectionContent({
                 <p className="text-xs font-semibold uppercase tracking-[0.16em] text-stone-500">
                   {isTeamCreateMode ? 'Новая команда' : `Команда #${selectedTeam?.id}`}
                 </p>
-                <h3 className="mt-2 flex items-center gap-2 text-xl font-semibold text-stone-950">
+                <h3 className="mt-2 flex items-center gap-2 text-xl font-semibold text-white">
                   {isTeamCreateMode ? 'Создание команды' : selectedTeam?.name}
                   {isTeamDirty && !isTeamCreateMode && (
                     <span className="inline-block h-2 w-2 rounded-full bg-rose-500" title="Есть несохранённые изменения"></span>
                   )}
                 </h3>
-                <p className="mt-2 text-sm text-stone-600">
+                <p className="mt-2 text-sm text-stone-400">
                   {isTeamCreateMode
                     ? 'POST создаёт новую команду в текущем staff-контуре.'
                     : `Участников в составе: ${selectedTeamMembersCount}.`}
                 </p>
               </div>
               {!isTeamCreateMode && selectedTeam?.city ? (
-                <span className="rounded-full bg-stone-200 px-3 py-1 text-xs font-medium text-stone-700">
+                <span className="rounded-full bg-stone-200 px-3 py-1 text-xs font-medium text-stone-300">
                   {selectedTeam.city.name}
                 </span>
               ) : null}
+
             </div>
 
             {!isTeamEditable ? (
-              <p className="rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
+              <p className="rounded-2xl border border-amber-300/30 bg-amber-400/10 px-4 py-3 text-sm text-amber-100">
                 Глобальное управление командами доступно только MANAGER и ADMIN.
               </p>
             ) : null}
 
             <div className="grid gap-4">
-              <label className="text-sm font-medium text-stone-700">
+              <label className="text-sm font-medium text-stone-300">
                 Название
                 <input
                   value={activeTeamEditor.name}
@@ -1234,11 +1234,11 @@ function TeamsSectionContent({
                     savingTeamKey === 'create' ||
                     savingTeamKey === selectedSavingKey
                   }
-                  className="mt-2 w-full rounded-2xl border border-stone-300 bg-white px-4 py-3 text-base text-stone-950 outline-none transition focus:border-stone-500 disabled:cursor-not-allowed disabled:bg-stone-100"
+                  className="mt-2 w-full rounded-2xl border border-white/10 bg-[#0b0f13] px-4 py-3 text-base text-stone-100 outline-none transition focus:border-amber-400 disabled:cursor-not-allowed disabled:border-white/6 disabled:bg-white/[0.04] disabled:text-stone-500"
                 />
               </label>
 
-              <label className="text-sm font-medium text-stone-700">
+              <label className="text-sm font-medium text-stone-300">
                 Slug
                 <input
                   value={activeTeamEditor.slug}
@@ -1251,11 +1251,11 @@ function TeamsSectionContent({
                     savingTeamKey === 'create' ||
                     savingTeamKey === selectedSavingKey
                   }
-                  className="mt-2 w-full rounded-2xl border border-stone-300 bg-white px-4 py-3 text-base text-stone-950 outline-none transition focus:border-stone-500 disabled:cursor-not-allowed disabled:bg-stone-100"
+                  className="mt-2 w-full rounded-2xl border border-white/10 bg-[#0b0f13] px-4 py-3 text-base text-stone-100 outline-none transition focus:border-amber-400 disabled:cursor-not-allowed disabled:border-white/6 disabled:bg-white/[0.04] disabled:text-stone-500"
                 />
               </label>
 
-              <label className="text-sm font-medium text-stone-700">
+              <label className="text-sm font-medium text-stone-300">
                 Город
                 <select
                   value={activeTeamEditor.cityId}
@@ -1268,7 +1268,7 @@ function TeamsSectionContent({
                     savingTeamKey === 'create' ||
                     savingTeamKey === selectedSavingKey
                   }
-                  className="mt-2 w-full rounded-2xl border border-stone-300 bg-white px-4 py-3 text-base text-stone-950 outline-none transition focus:border-stone-500 disabled:cursor-not-allowed disabled:bg-stone-100"
+                  className="mt-2 w-full rounded-2xl border border-white/10 bg-[#0b0f13] px-4 py-3 text-base text-stone-100 outline-none transition focus:border-amber-400 disabled:cursor-not-allowed disabled:border-white/6 disabled:bg-white/[0.04] disabled:text-stone-500"
                 >
                   <option value="">Выберите город</option>
                   {teamCityOptions.map((city) => (
@@ -1279,7 +1279,7 @@ function TeamsSectionContent({
                 </select>
               </label>
 
-              <label className="text-sm font-medium text-stone-700">
+              <label className="text-sm font-medium text-stone-300">
                 Описание
                 <textarea
                   value={activeTeamEditor.description}
@@ -1293,14 +1293,14 @@ function TeamsSectionContent({
                     savingTeamKey === 'create' ||
                     savingTeamKey === selectedSavingKey
                   }
-                  className="mt-2 w-full rounded-2xl border border-stone-300 bg-white px-4 py-3 text-base text-stone-950 outline-none transition focus:border-stone-500 disabled:cursor-not-allowed disabled:bg-stone-100"
+                  className="mt-2 w-full rounded-2xl border border-white/10 bg-[#0b0f13] px-4 py-3 text-base text-stone-100 outline-none transition focus:border-amber-400 disabled:cursor-not-allowed disabled:border-white/6 disabled:bg-white/[0.04] disabled:text-stone-500"
                 />
               </label>
             </div>
 
             {isTeamEditable ? (
               <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-                <p className="text-sm text-stone-600">
+                <p className="text-sm text-stone-400">
                   {isTeamCreateMode
                     ? 'После создания новая команда сразу появляется в списке слева.'
                     : 'PATCH меняет name, slug, city и description без ручной перезагрузки.'}
@@ -1327,7 +1327,7 @@ function TeamsSectionContent({
             ) : null}
           </div>
         ) : (
-          <p className="rounded-2xl border border-dashed border-stone-300 bg-white p-5 text-sm text-stone-600">
+          <p className="rounded-2xl border border-dashed border-white/10 bg-black/20 p-5 text-sm text-stone-400">
             Выберите команду слева или создайте новую запись.
           </p>
         )}
@@ -1419,7 +1419,7 @@ function TeamMembersSectionContent({
 
   function renderReadonlyValue(value: string) {
     return (
-      <div className="mt-2 rounded-2xl border border-stone-300 bg-white px-4 py-3 text-sm text-stone-800">
+      <div className="mt-2 rounded-[1.25rem] border border-white/10 bg-black/20 px-4 py-3 text-sm text-stone-200">
         {value}
       </div>
     );
@@ -1429,7 +1429,7 @@ function TeamMembersSectionContent({
     <div className="grid gap-5 xl:grid-cols-[0.92fr_1.08fr]">
       <div className="space-y-4">
         <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-1">
-          <label className="text-sm font-medium text-stone-700">
+          <label className="text-sm font-medium text-stone-300">
             Фильтр по команде
             <select
               value={teamMemberTeamFilter}
@@ -1437,7 +1437,7 @@ function TeamMembersSectionContent({
                 setTeamMemberTeamFilter(event.target.value);
                 setTeamMemberFeedback(null);
               }}
-              className="mt-2 w-full rounded-2xl border border-stone-300 bg-white px-4 py-3 text-base text-stone-950 outline-none transition focus:border-stone-500"
+              className="mt-2 w-full rounded-2xl border border-white/10 bg-[#0b0f13] px-4 py-3 text-base text-stone-100 outline-none transition focus:border-amber-400"
             >
               <option value="ALL">Все команды ({teamMemberTeamOptions.length})</option>
               {teamMemberTeamOptions.map((team) => (
@@ -1462,7 +1462,7 @@ function TeamMembersSectionContent({
               <button
                 type="button"
                 onClick={handleTeamMemberCreateCancel}
-                className="rounded-full border border-stone-300 px-5 py-3 text-sm font-semibold text-stone-700 transition hover:border-stone-500 hover:text-stone-950"
+                className="rounded-full border border-white/12 bg-black/20 px-5 py-3 text-sm font-semibold text-stone-200 transition hover:border-white/20 hover:bg-white/6 hover:text-white"
               >
                 Вернуться к списку
               </button>
@@ -1471,9 +1471,9 @@ function TeamMembersSectionContent({
         ) : null}
 
         {filteredTeamMembers.length === 0 ? (
-          <div className="rounded-2xl border border-dashed border-stone-300 bg-stone-50 p-8 text-center">
+          <div className="rounded-[1.5rem] border border-white/8 bg-white/[0.04] p-8 text-center">
             <p className="text-3xl">👥</p>
-            <p className="mt-3 text-sm font-medium text-stone-700">
+            <p className="mt-3 text-sm font-medium text-stone-300">
               {totalTeamMembersCount === 0 ? 'Записей состава пока нет' : 'По текущему фильтру записей состава нет'}
             </p>
             <p className="mt-1 text-xs text-stone-500">
@@ -1494,7 +1494,7 @@ function TeamMembersSectionContent({
                   className={`w-full rounded-2xl border p-4 text-left transition ${
                     isSelected
                       ? 'border-stone-950 bg-stone-950 text-white shadow-[0_18px_45px_-35px_rgba(0,0,0,0.45)]'
-                      : 'border-stone-200 bg-stone-50 hover:border-stone-400 hover:bg-white'
+                      : 'border-white/8 bg-white/[0.035] hover:border-white/16 hover:bg-white/[0.06]'
                   }`}
                 >
                   <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
@@ -1504,7 +1504,7 @@ function TeamMembersSectionContent({
                       </p>
                       <p
                         className={`mt-1 text-sm ${
-                          isSelected ? 'text-stone-300' : 'text-stone-600'
+                          isSelected ? 'text-stone-300' : 'text-stone-400'
                         }`}
                       >
                         {teamMember.team.name} /{' '}
@@ -1512,7 +1512,7 @@ function TeamMembersSectionContent({
                       </p>
                       <p
                         className={`mt-2 text-sm ${
-                          isSelected ? 'text-stone-300' : 'text-stone-700'
+                          isSelected ? 'text-stone-300' : 'text-stone-300'
                         }`}
                       >
                         Позиция: {teamMember.positionCode || 'Не указана'} / №{' '}
@@ -1536,13 +1536,13 @@ function TeamMembersSectionContent({
         )}
       </div>
 
-      <div className="rounded-[24px] border border-stone-200 bg-stone-50 p-5">
+      <div className="rounded-[1.5rem] border border-white/8 bg-white/[0.04] p-5">
         {teamMemberFeedback ? (
           <p
             className={`rounded-2xl border px-4 py-3 text-sm ${
               teamMemberFeedback.tone === 'success'
-                ? 'border-emerald-200 bg-emerald-50 text-emerald-700'
-                : 'border-rose-200 bg-rose-50 text-rose-700'
+                ? 'border-emerald-400/30 bg-emerald-500/12 text-emerald-100'
+                : 'border-rose-400/30 bg-rose-500/12 text-rose-100'
             }`}
           >
             {teamMemberFeedback.message}
@@ -1558,7 +1558,7 @@ function TeamMembersSectionContent({
                     ? 'Новая запись состава'
                     : `Состав #${selectedTeamMember?.id}`}
                 </p>
-                <h3 className="mt-2 flex items-center gap-2 text-xl font-semibold text-stone-950">
+                <h3 className="mt-2 flex items-center gap-2 text-xl font-semibold text-white">
                   {isTeamMemberCreateMode
                     ? 'Добавление участника'
                     : formatParticipantOptionLabel(selectedTeamMember?.participant ?? null)}
@@ -1566,7 +1566,7 @@ function TeamMembersSectionContent({
                     <span className="inline-block h-2 w-2 rounded-full bg-rose-500" title="Есть несохранённые изменения"></span>
                   )}
                 </h3>
-                <p className="mt-2 text-sm text-stone-600">
+                <p className="mt-2 text-sm text-stone-400">
                   {isTeamMemberCreateMode
                     ? 'POST создаёт новую запись состава для выбранной команды.'
                     : `${selectedTeamMember?.team.name} / ${
@@ -1586,7 +1586,7 @@ function TeamMembersSectionContent({
             </div>
 
             <div className="grid gap-4 md:grid-cols-2">
-              <label className="text-sm font-medium text-stone-700">
+              <label className="text-sm font-medium text-stone-300">
                 Участник
                 {isTeamMemberCreateMode ? (
                   <select
@@ -1595,7 +1595,7 @@ function TeamMembersSectionContent({
                       updateCreateEditor({ participantId: event.target.value })
                     }
                     disabled={savingTeamMemberKey === 'create'}
-                    className="mt-2 w-full rounded-2xl border border-stone-300 bg-white px-4 py-3 text-base text-stone-950 outline-none transition focus:border-stone-500 disabled:cursor-not-allowed disabled:bg-stone-100"
+                    className="mt-2 w-full rounded-2xl border border-white/10 bg-[#0b0f13] px-4 py-3 text-base text-stone-100 outline-none transition focus:border-amber-400 disabled:cursor-not-allowed disabled:border-white/6 disabled:bg-white/[0.04] disabled:text-stone-500"
                   >
                     <option value="">Выберите участника</option>
                     {availableParticipantOptions.map((participant) => (
@@ -1611,7 +1611,7 @@ function TeamMembersSectionContent({
                 )}
               </label>
 
-              <label className="text-sm font-medium text-stone-700">
+              <label className="text-sm font-medium text-stone-300">
                 Команда
                 {isTeamMemberCreateMode ? (
                   <select
@@ -1620,7 +1620,7 @@ function TeamMembersSectionContent({
                       updateCreateEditor({ teamId: event.target.value })
                     }
                     disabled={savingTeamMemberKey === 'create'}
-                    className="mt-2 w-full rounded-2xl border border-stone-300 bg-white px-4 py-3 text-base text-stone-950 outline-none transition focus:border-stone-500 disabled:cursor-not-allowed disabled:bg-stone-100"
+                    className="mt-2 w-full rounded-2xl border border-white/10 bg-[#0b0f13] px-4 py-3 text-base text-stone-100 outline-none transition focus:border-amber-400 disabled:cursor-not-allowed disabled:border-white/6 disabled:bg-white/[0.04] disabled:text-stone-500"
                   >
                     <option value="">Выберите команду</option>
                     {teamMemberTeamOptions.map((team) => (
@@ -1638,7 +1638,7 @@ function TeamMembersSectionContent({
                 )}
               </label>
 
-              <label className="text-sm font-medium text-stone-700">
+              <label className="text-sm font-medium text-stone-300">
                 Статус
                 <select
                   value={activeTeamMemberEditor.status}
@@ -1655,7 +1655,7 @@ function TeamMembersSectionContent({
                     savingTeamMemberKey === 'create' ||
                     savingTeamMemberKey === selectedSavingKey
                   }
-                  className="mt-2 w-full rounded-2xl border border-stone-300 bg-white px-4 py-3 text-base text-stone-950 outline-none transition focus:border-stone-500 disabled:cursor-not-allowed disabled:bg-stone-100"
+                  className="mt-2 w-full rounded-2xl border border-white/10 bg-[#0b0f13] px-4 py-3 text-base text-stone-100 outline-none transition focus:border-amber-400 disabled:cursor-not-allowed disabled:border-white/6 disabled:bg-white/[0.04] disabled:text-stone-500"
                 >
                   {staffManagedTeamMemberStatusOptions.map((option) => (
                     <option key={option.value} value={option.value}>
@@ -1665,7 +1665,7 @@ function TeamMembersSectionContent({
                 </select>
               </label>
 
-              <label className="text-sm font-medium text-stone-700">
+              <label className="text-sm font-medium text-stone-300">
                 Позиция
                 <input
                   value={activeTeamMemberEditor.positionCode}
@@ -1678,11 +1678,11 @@ function TeamMembersSectionContent({
                     savingTeamMemberKey === 'create' ||
                     savingTeamMemberKey === selectedSavingKey
                   }
-                  className="mt-2 w-full rounded-2xl border border-stone-300 bg-white px-4 py-3 text-base text-stone-950 outline-none transition focus:border-stone-500 disabled:cursor-not-allowed disabled:bg-stone-100"
+                  className="mt-2 w-full rounded-2xl border border-white/10 bg-[#0b0f13] px-4 py-3 text-base text-stone-100 outline-none transition focus:border-amber-400 disabled:cursor-not-allowed disabled:border-white/6 disabled:bg-white/[0.04] disabled:text-stone-500"
                 />
               </label>
 
-              <label className="text-sm font-medium text-stone-700">
+              <label className="text-sm font-medium text-stone-300">
                 Игровой номер
                 <input
                   type="number"
@@ -1697,11 +1697,11 @@ function TeamMembersSectionContent({
                     savingTeamMemberKey === 'create' ||
                     savingTeamMemberKey === selectedSavingKey
                   }
-                  className="mt-2 w-full rounded-2xl border border-stone-300 bg-white px-4 py-3 text-base text-stone-950 outline-none transition focus:border-stone-500 disabled:cursor-not-allowed disabled:bg-stone-100"
+                  className="mt-2 w-full rounded-2xl border border-white/10 bg-[#0b0f13] px-4 py-3 text-base text-stone-100 outline-none transition focus:border-amber-400 disabled:cursor-not-allowed disabled:border-white/6 disabled:bg-white/[0.04] disabled:text-stone-500"
                 />
               </label>
 
-              <label className="text-sm font-medium text-stone-700">
+              <label className="text-sm font-medium text-stone-300">
                 Joined at
                 <input
                   type="date"
@@ -1715,14 +1715,14 @@ function TeamMembersSectionContent({
                     savingTeamMemberKey === 'create' ||
                     savingTeamMemberKey === selectedSavingKey
                   }
-                  className="mt-2 w-full rounded-2xl border border-stone-300 bg-white px-4 py-3 text-base text-stone-950 outline-none transition focus:border-stone-500 disabled:cursor-not-allowed disabled:bg-stone-100"
+                  className="mt-2 w-full rounded-2xl border border-white/10 bg-[#0b0f13] px-4 py-3 text-base text-stone-100 outline-none transition focus:border-amber-400 disabled:cursor-not-allowed disabled:border-white/6 disabled:bg-white/[0.04] disabled:text-stone-500"
                 />
               </label>
             </div>
 
             {isTeamEditable ? (
               <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-                <p className="text-sm text-stone-600">
+                <p className="text-sm text-stone-400">
                   {isTeamMemberCreateMode
                     ? 'После создания запись состава сразу появляется в списке слева.'
                     : 'PATCH меняет статус, позицию, номер и дату вступления без ручной перезагрузки.'}
@@ -1750,7 +1750,7 @@ function TeamMembersSectionContent({
             ) : null}
           </div>
         ) : (
-          <p className="rounded-2xl border border-dashed border-stone-300 bg-white p-5 text-sm text-stone-600">
+          <p className="rounded-2xl border border-dashed border-white/10 bg-black/20 p-5 text-sm text-stone-400">
             Выберите запись состава слева или создайте новую.
           </p>
         )}
@@ -1902,7 +1902,7 @@ function TrainingsSectionContent({
 
   function renderReadonlyValue(value: string) {
     return (
-      <div className="mt-2 rounded-2xl border border-stone-300 bg-white px-4 py-3 text-sm text-stone-800">
+      <div className="mt-2 rounded-[1.25rem] border border-white/10 bg-black/20 px-4 py-3 text-sm text-stone-200">
         {value}
       </div>
     );
@@ -1912,7 +1912,7 @@ function TrainingsSectionContent({
     <div className="grid gap-5 xl:grid-cols-[0.92fr_1.08fr]">
       <div className="space-y-4">
         <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-1">
-          <label className="text-sm font-medium text-stone-700">
+          <label className="text-sm font-medium text-stone-300">
             Фильтр по активности
             <select
               value={trainingActivityFilter}
@@ -1922,7 +1922,7 @@ function TrainingsSectionContent({
                 );
                 setTrainingFeedback(null);
               }}
-              className="mt-2 w-full rounded-2xl border border-stone-300 bg-white px-4 py-3 text-base text-stone-950 outline-none transition focus:border-stone-500"
+              className="mt-2 w-full rounded-2xl border border-white/10 bg-[#0b0f13] px-4 py-3 text-base text-stone-100 outline-none transition focus:border-amber-400"
             >
               {trainingActivityFilterOptions.map((option) => (
                 <option key={option.value} value={option.value}>
@@ -1932,7 +1932,7 @@ function TrainingsSectionContent({
             </select>
           </label>
 
-          <label className="text-sm font-medium text-stone-700">
+          <label className="text-sm font-medium text-stone-300">
             Фильтр по городу
             <select
               value={trainingCityFilter}
@@ -1940,7 +1940,7 @@ function TrainingsSectionContent({
                 setTrainingCityFilter(event.target.value);
                 setTrainingFeedback(null);
               }}
-              className="mt-2 w-full rounded-2xl border border-stone-300 bg-white px-4 py-3 text-base text-stone-950 outline-none transition focus:border-stone-500"
+              className="mt-2 w-full rounded-2xl border border-white/10 bg-[#0b0f13] px-4 py-3 text-base text-stone-100 outline-none transition focus:border-amber-400"
             >
               <option value="ALL">Все города ({trainingFilterCityOptions.length})</option>
               {trainingFilterCityOptions.map((city) => (
@@ -1965,23 +1965,23 @@ function TrainingsSectionContent({
               <button
                 type="button"
                 onClick={handleTrainingCreateCancel}
-                className="rounded-full border border-stone-300 px-5 py-3 text-sm font-semibold text-stone-700 transition hover:border-stone-500 hover:text-stone-950"
+                className="rounded-full border border-white/12 bg-black/20 px-5 py-3 text-sm font-semibold text-stone-200 transition hover:border-white/20 hover:bg-white/6 hover:text-white"
               >
                 Вернуться к списку
               </button>
             ) : null}
           </div>
         ) : (
-          <p className="rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
+          <p className="rounded-2xl border border-amber-300/30 bg-amber-400/10 px-4 py-3 text-sm text-amber-100">
             В этом модуле TRAINER видит только свои тренировки. Глобальное
             создание и редактирование доступно только MANAGER и ADMIN.
           </p>
         )}
 
         {filteredTrainings.length === 0 ? (
-          <div className="rounded-2xl border border-dashed border-stone-300 bg-stone-50 p-8 text-center">
+          <div className="rounded-[1.5rem] border border-white/8 bg-white/[0.04] p-8 text-center">
             <p className="text-3xl">🏋️</p>
-            <p className="mt-3 text-sm font-medium text-stone-700">
+            <p className="mt-3 text-sm font-medium text-stone-300">
               {overview.trainings.length === 0
                 ? 'Тренировок пока нет'
                 : 'По текущим фильтрам тренировок нет'}
@@ -2006,7 +2006,7 @@ function TrainingsSectionContent({
                   className={`w-full rounded-2xl border p-4 text-left transition ${
                     isSelected
                       ? 'border-stone-950 bg-stone-950 text-white shadow-[0_18px_45px_-35px_rgba(0,0,0,0.45)]'
-                      : 'border-stone-200 bg-stone-50 hover:border-stone-400 hover:bg-white'
+                      : 'border-white/8 bg-white/[0.035] hover:border-white/16 hover:bg-white/[0.06]'
                   }`}
                 >
                   <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
@@ -2014,7 +2014,7 @@ function TrainingsSectionContent({
                       <p className="font-semibold">{training.name}</p>
                       <p
                         className={`mt-1 text-sm ${
-                          isSelected ? 'text-stone-300' : 'text-stone-600'
+                          isSelected ? 'text-stone-300' : 'text-stone-400'
                         }`}
                       >
                         {training.city.name} /{' '}
@@ -2022,7 +2022,7 @@ function TrainingsSectionContent({
                       </p>
                       <div
                         className={`mt-2 grid gap-1 text-sm ${
-                          isSelected ? 'text-stone-300' : 'text-stone-700'
+                          isSelected ? 'text-stone-300' : 'text-stone-300'
                         }`}
                       >
                         <p>Тренер: {formatUserIdentity(training.coach)}</p>
@@ -2035,8 +2035,8 @@ function TrainingsSectionContent({
                           isSelected
                             ? 'bg-white/15 text-white'
                             : training.isActive
-                              ? 'bg-emerald-100 text-emerald-700'
-                              : 'bg-stone-200 text-stone-700'
+                              ? 'bg-emerald-500/15 text-emerald-100'
+                              : 'border border-white/10 bg-black/20 text-stone-300'
                         }`}
                       >
                         {training.isActive ? 'Активна' : 'Неактивна'}
@@ -2057,13 +2057,13 @@ function TrainingsSectionContent({
         )}
       </div>
 
-      <div className="rounded-[24px] border border-stone-200 bg-stone-50 p-5">
+      <div className="rounded-[1.5rem] border border-white/8 bg-white/[0.04] p-5">
         {trainingFeedback ? (
           <p
             className={`mb-5 rounded-2xl border px-4 py-3 text-sm ${
               trainingFeedback.tone === 'success'
-                ? 'border-emerald-200 bg-emerald-50 text-emerald-700'
-                : 'border-rose-200 bg-rose-50 text-rose-700'
+                ? 'border-emerald-400/30 bg-emerald-500/12 text-emerald-100'
+                : 'border-rose-400/30 bg-rose-500/12 text-rose-100'
             }`}
           >
             {trainingFeedback.message}
@@ -2077,10 +2077,10 @@ function TrainingsSectionContent({
                 <p className="text-xs font-semibold uppercase tracking-[0.16em] text-stone-500">
                   Создание тренировки
                 </p>
-                <h3 className="mt-2 text-xl font-semibold text-stone-950">
+                <h3 className="mt-2 text-xl font-semibold text-white">
                   Новая тренировка
                 </h3>
-                <p className="mt-2 text-sm text-stone-600">
+                <p className="mt-2 text-sm text-stone-400">
                   По текущему API при создании нужно сразу задать время начала,
                   время окончания и место проведения.
                 </p>
@@ -2091,7 +2091,7 @@ function TrainingsSectionContent({
             </div>
 
             <div className="grid gap-4 sm:grid-cols-2">
-              <label className="text-sm font-medium text-stone-700">
+              <label className="text-sm font-medium text-stone-300">
                 Название
                 <input
                   value={activeTrainingEditor.name}
@@ -2099,11 +2099,11 @@ function TrainingsSectionContent({
                     updateCreateEditor({ name: event.target.value })
                   }
                   disabled={savingTrainingKey === 'create'}
-                  className="mt-2 w-full rounded-2xl border border-stone-300 bg-white px-4 py-3 text-base text-stone-950 outline-none transition focus:border-stone-500 disabled:cursor-not-allowed disabled:bg-stone-100"
+                  className="mt-2 w-full rounded-2xl border border-white/10 bg-[#0b0f13] px-4 py-3 text-base text-stone-100 outline-none transition focus:border-amber-400 disabled:cursor-not-allowed disabled:border-white/6 disabled:bg-white/[0.04] disabled:text-stone-500"
                 />
               </label>
 
-              <label className="text-sm font-medium text-stone-700">
+              <label className="text-sm font-medium text-stone-300">
                 Город
                 <select
                   value={activeTrainingEditor.cityId}
@@ -2111,7 +2111,7 @@ function TrainingsSectionContent({
                     updateCreateEditor({ cityId: event.target.value })
                   }
                   disabled={savingTrainingKey === 'create'}
-                  className="mt-2 w-full rounded-2xl border border-stone-300 bg-white px-4 py-3 text-base text-stone-950 outline-none transition focus:border-stone-500 disabled:cursor-not-allowed disabled:bg-stone-100"
+                  className="mt-2 w-full rounded-2xl border border-white/10 bg-[#0b0f13] px-4 py-3 text-base text-stone-100 outline-none transition focus:border-amber-400 disabled:cursor-not-allowed disabled:border-white/6 disabled:bg-white/[0.04] disabled:text-stone-500"
                 >
                   <option value="">Выберите город</option>
                   {trainingCityOptions.map((city) => (
@@ -2122,7 +2122,7 @@ function TrainingsSectionContent({
                 </select>
               </label>
 
-              <label className="text-sm font-medium text-stone-700">
+              <label className="text-sm font-medium text-stone-300">
                 Тренер
                 <select
                   value={activeTrainingEditor.coachId}
@@ -2130,7 +2130,7 @@ function TrainingsSectionContent({
                     updateCreateEditor({ coachId: event.target.value })
                   }
                   disabled={savingTrainingKey === 'create'}
-                  className="mt-2 w-full rounded-2xl border border-stone-300 bg-white px-4 py-3 text-base text-stone-950 outline-none transition focus:border-stone-500 disabled:cursor-not-allowed disabled:bg-stone-100"
+                  className="mt-2 w-full rounded-2xl border border-white/10 bg-[#0b0f13] px-4 py-3 text-base text-stone-100 outline-none transition focus:border-amber-400 disabled:cursor-not-allowed disabled:border-white/6 disabled:bg-white/[0.04] disabled:text-stone-500"
                 >
                   <option value="">Без закреплённого тренера</option>
                   {trainingCoachOptions.map((coach) => (
@@ -2141,7 +2141,7 @@ function TrainingsSectionContent({
                 </select>
               </label>
 
-              <label className="text-sm font-medium text-stone-700">
+              <label className="text-sm font-medium text-stone-300">
                 Тип тренировки
                 <input
                   value={activeTrainingEditor.trainingType}
@@ -2150,11 +2150,11 @@ function TrainingsSectionContent({
                   }
                   disabled={savingTrainingKey === 'create'}
                   placeholder="general / group / private"
-                  className="mt-2 w-full rounded-2xl border border-stone-300 bg-white px-4 py-3 text-base text-stone-950 outline-none transition focus:border-stone-500 disabled:cursor-not-allowed disabled:bg-stone-100"
+                  className="mt-2 w-full rounded-2xl border border-white/10 bg-[#0b0f13] px-4 py-3 text-base text-stone-100 outline-none transition focus:border-amber-400 disabled:cursor-not-allowed disabled:border-white/6 disabled:bg-white/[0.04] disabled:text-stone-500"
                 />
               </label>
 
-              <label className="text-sm font-medium text-stone-700">
+              <label className="text-sm font-medium text-stone-300">
                 Вместимость
                 <input
                   type="number"
@@ -2164,11 +2164,11 @@ function TrainingsSectionContent({
                     updateCreateEditor({ capacity: event.target.value })
                   }
                   disabled={savingTrainingKey === 'create'}
-                  className="mt-2 w-full rounded-2xl border border-stone-300 bg-white px-4 py-3 text-base text-stone-950 outline-none transition focus:border-stone-500 disabled:cursor-not-allowed disabled:bg-stone-100"
+                  className="mt-2 w-full rounded-2xl border border-white/10 bg-[#0b0f13] px-4 py-3 text-base text-stone-100 outline-none transition focus:border-amber-400 disabled:cursor-not-allowed disabled:border-white/6 disabled:bg-white/[0.04] disabled:text-stone-500"
                 />
               </label>
 
-              <label className="flex items-center gap-3 rounded-2xl border border-stone-300 bg-white px-4 py-3 text-sm font-medium text-stone-700">
+              <label className="flex items-center gap-3 rounded-[1.25rem] border border-white/10 bg-black/20 px-4 py-3 text-sm font-medium text-stone-300">
                 <input
                   type="checkbox"
                   checked={activeTrainingEditor.isActive}
@@ -2176,12 +2176,12 @@ function TrainingsSectionContent({
                     updateCreateEditor({ isActive: event.target.checked })
                   }
                   disabled={savingTrainingKey === 'create'}
-                  className="h-4 w-4 rounded border-stone-300 text-stone-950 focus:ring-stone-500"
+                  className="h-4 w-4 rounded border-stone-300 text-white focus:ring-stone-500"
                 />
                 Активна и доступна для записи
               </label>
 
-              <label className="text-sm font-medium text-stone-700">
+              <label className="text-sm font-medium text-stone-300">
                 Начало
                 <input
                   type="datetime-local"
@@ -2190,11 +2190,11 @@ function TrainingsSectionContent({
                     updateCreateEditor({ startTime: event.target.value })
                   }
                   disabled={savingTrainingKey === 'create'}
-                  className="mt-2 w-full rounded-2xl border border-stone-300 bg-white px-4 py-3 text-base text-stone-950 outline-none transition focus:border-stone-500 disabled:cursor-not-allowed disabled:bg-stone-100"
+                  className="mt-2 w-full rounded-2xl border border-white/10 bg-[#0b0f13] px-4 py-3 text-base text-stone-100 outline-none transition focus:border-amber-400 disabled:cursor-not-allowed disabled:border-white/6 disabled:bg-white/[0.04] disabled:text-stone-500"
                 />
               </label>
 
-              <label className="text-sm font-medium text-stone-700">
+              <label className="text-sm font-medium text-stone-300">
                 Окончание
                 <input
                   type="datetime-local"
@@ -2203,11 +2203,11 @@ function TrainingsSectionContent({
                     updateCreateEditor({ endTime: event.target.value })
                   }
                   disabled={savingTrainingKey === 'create'}
-                  className="mt-2 w-full rounded-2xl border border-stone-300 bg-white px-4 py-3 text-base text-stone-950 outline-none transition focus:border-stone-500 disabled:cursor-not-allowed disabled:bg-stone-100"
+                  className="mt-2 w-full rounded-2xl border border-white/10 bg-[#0b0f13] px-4 py-3 text-base text-stone-100 outline-none transition focus:border-amber-400 disabled:cursor-not-allowed disabled:border-white/6 disabled:bg-white/[0.04] disabled:text-stone-500"
                 />
               </label>
 
-              <label className="text-sm font-medium text-stone-700 sm:col-span-2">
+              <label className="text-sm font-medium text-stone-300 sm:col-span-2">
                 Место проведения
                 <input
                   value={activeTrainingEditor.location}
@@ -2216,11 +2216,11 @@ function TrainingsSectionContent({
                   }
                   disabled={savingTrainingKey === 'create'}
                   placeholder="Ледовая арена / зал / адрес"
-                  className="mt-2 w-full rounded-2xl border border-stone-300 bg-white px-4 py-3 text-base text-stone-950 outline-none transition focus:border-stone-500 disabled:cursor-not-allowed disabled:bg-stone-100"
+                  className="mt-2 w-full rounded-2xl border border-white/10 bg-[#0b0f13] px-4 py-3 text-base text-stone-100 outline-none transition focus:border-amber-400 disabled:cursor-not-allowed disabled:border-white/6 disabled:bg-white/[0.04] disabled:text-stone-500"
                 />
               </label>
 
-              <label className="text-sm font-medium text-stone-700 sm:col-span-2">
+              <label className="text-sm font-medium text-stone-300 sm:col-span-2">
                 Описание
                 <textarea
                   value={activeTrainingEditor.description}
@@ -2230,13 +2230,13 @@ function TrainingsSectionContent({
                   rows={4}
                   disabled={savingTrainingKey === 'create'}
                   placeholder="Необязательное описание тренировки"
-                  className="mt-2 w-full rounded-2xl border border-stone-300 bg-white px-4 py-3 text-base text-stone-950 outline-none transition focus:border-stone-500 disabled:cursor-not-allowed disabled:bg-stone-100"
+                  className="mt-2 w-full rounded-2xl border border-white/10 bg-[#0b0f13] px-4 py-3 text-base text-stone-100 outline-none transition focus:border-amber-400 disabled:cursor-not-allowed disabled:border-white/6 disabled:bg-white/[0.04] disabled:text-stone-500"
                 />
               </label>
             </div>
 
             <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-              <p className="text-sm text-stone-600">
+              <p className="text-sm text-stone-400">
                 После сохранения новая тренировка сразу попадёт в общий список
                 слева без ручной перезагрузки.
               </p>
@@ -2257,7 +2257,7 @@ function TrainingsSectionContent({
         ) : selectedTraining && activeTrainingEditor ? (
           <div className="space-y-5">
             {!isTrainingEditable ? (
-              <p className="rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
+              <p className="rounded-2xl border border-amber-300/30 bg-amber-400/10 px-4 py-3 text-sm text-amber-100">
                 Доступен только просмотр своих тренировок. Глобальное
                 staff-редактирование здесь открыто только для MANAGER и ADMIN.
               </p>
@@ -2268,10 +2268,10 @@ function TrainingsSectionContent({
                 <p className="text-xs font-semibold uppercase tracking-[0.16em] text-stone-500">
                   Тренировка #{selectedTraining.id}
                 </p>
-                <h3 className="mt-2 text-xl font-semibold text-stone-950">
+                <h3 className="mt-2 text-xl font-semibold text-white">
                   {selectedTraining.name}
                 </h3>
-                <p className="mt-2 text-sm text-stone-600">
+                <p className="mt-2 text-sm text-stone-400">
                   {selectedTraining.city.name} /{' '}
                   {formatUserIdentity(selectedTraining.coach)}
                 </p>
@@ -2279,8 +2279,8 @@ function TrainingsSectionContent({
               <span
                 className={`rounded-full px-3 py-1 text-xs font-medium ${
                   selectedTraining.isActive
-                    ? 'bg-emerald-100 text-emerald-700'
-                    : 'bg-stone-200 text-stone-700'
+                    ? 'bg-emerald-500/15 text-emerald-100'
+                    : 'border border-white/10 bg-black/20 text-stone-300'
                 }`}
               >
                 {selectedTraining.isActive ? 'Активна' : 'Неактивна'}
@@ -2288,26 +2288,26 @@ function TrainingsSectionContent({
             </div>
 
             <div className="grid gap-3 sm:grid-cols-2">
-              <div className="rounded-2xl bg-white p-4">
+              <div className="rounded-2xl border border-white/10 bg-black/20 p-4">
                 <p className="text-xs font-semibold uppercase tracking-[0.14em] text-stone-500">
                   Создана
                 </p>
-                <p className="mt-2 text-sm text-stone-800">
+                <p className="mt-2 text-sm text-stone-200">
                   {formatDateTime(selectedTraining.createdAt)}
                 </p>
               </div>
-              <div className="rounded-2xl bg-white p-4">
+              <div className="rounded-2xl border border-white/10 bg-black/20 p-4">
                 <p className="text-xs font-semibold uppercase tracking-[0.14em] text-stone-500">
                   Обновлена
                 </p>
-                <p className="mt-2 text-sm text-stone-800">
+                <p className="mt-2 text-sm text-stone-200">
                   {formatDateTime(selectedTraining.updatedAt)}
                 </p>
               </div>
             </div>
 
             <div className="grid gap-4 sm:grid-cols-2">
-              <label className="text-sm font-medium text-stone-700">
+              <label className="text-sm font-medium text-stone-300">
                 Название
                 {isTrainingEditable ? (
                   <input
@@ -2316,14 +2316,14 @@ function TrainingsSectionContent({
                       updateSelectedEditor({ name: event.target.value })
                     }
                     disabled={savingTrainingKey === selectedSavingKey}
-                    className="mt-2 w-full rounded-2xl border border-stone-300 bg-white px-4 py-3 text-base text-stone-950 outline-none transition focus:border-stone-500 disabled:cursor-not-allowed disabled:bg-stone-100"
+                    className="mt-2 w-full rounded-2xl border border-white/10 bg-[#0b0f13] px-4 py-3 text-base text-stone-100 outline-none transition focus:border-amber-400 disabled:cursor-not-allowed disabled:border-white/6 disabled:bg-white/[0.04] disabled:text-stone-500"
                   />
                 ) : (
                   renderReadonlyValue(selectedTraining.name)
                 )}
               </label>
 
-              <label className="text-sm font-medium text-stone-700">
+              <label className="text-sm font-medium text-stone-300">
                 Город
                 {isTrainingEditable ? (
                   <select
@@ -2332,7 +2332,7 @@ function TrainingsSectionContent({
                       updateSelectedEditor({ cityId: event.target.value })
                     }
                     disabled={savingTrainingKey === selectedSavingKey}
-                    className="mt-2 w-full rounded-2xl border border-stone-300 bg-white px-4 py-3 text-base text-stone-950 outline-none transition focus:border-stone-500 disabled:cursor-not-allowed disabled:bg-stone-100"
+                    className="mt-2 w-full rounded-2xl border border-white/10 bg-[#0b0f13] px-4 py-3 text-base text-stone-100 outline-none transition focus:border-amber-400 disabled:cursor-not-allowed disabled:border-white/6 disabled:bg-white/[0.04] disabled:text-stone-500"
                   >
                     <option value="">Выберите город</option>
                     {trainingCityOptions.map((city) => (
@@ -2346,7 +2346,7 @@ function TrainingsSectionContent({
                 )}
               </label>
 
-              <label className="text-sm font-medium text-stone-700">
+              <label className="text-sm font-medium text-stone-300">
                 Тренер
                 {isTrainingEditable ? (
                   <select
@@ -2355,7 +2355,7 @@ function TrainingsSectionContent({
                       updateSelectedEditor({ coachId: event.target.value })
                     }
                     disabled={savingTrainingKey === selectedSavingKey}
-                    className="mt-2 w-full rounded-2xl border border-stone-300 bg-white px-4 py-3 text-base text-stone-950 outline-none transition focus:border-stone-500 disabled:cursor-not-allowed disabled:bg-stone-100"
+                    className="mt-2 w-full rounded-2xl border border-white/10 bg-[#0b0f13] px-4 py-3 text-base text-stone-100 outline-none transition focus:border-amber-400 disabled:cursor-not-allowed disabled:border-white/6 disabled:bg-white/[0.04] disabled:text-stone-500"
                   >
                     <option value="">Без закреплённого тренера</option>
                     {trainingCoachOptions.map((coach) => (
@@ -2369,7 +2369,7 @@ function TrainingsSectionContent({
                 )}
               </label>
 
-              <label className="text-sm font-medium text-stone-700">
+              <label className="text-sm font-medium text-stone-300">
                 Тип тренировки
                 {isTrainingEditable ? (
                   <input
@@ -2379,7 +2379,7 @@ function TrainingsSectionContent({
                     }
                     disabled={savingTrainingKey === selectedSavingKey}
                     placeholder="general / group / private"
-                    className="mt-2 w-full rounded-2xl border border-stone-300 bg-white px-4 py-3 text-base text-stone-950 outline-none transition focus:border-stone-500 disabled:cursor-not-allowed disabled:bg-stone-100"
+                    className="mt-2 w-full rounded-2xl border border-white/10 bg-[#0b0f13] px-4 py-3 text-base text-stone-100 outline-none transition focus:border-amber-400 disabled:cursor-not-allowed disabled:border-white/6 disabled:bg-white/[0.04] disabled:text-stone-500"
                   />
                 ) : (
                   renderReadonlyValue(
@@ -2388,7 +2388,7 @@ function TrainingsSectionContent({
                 )}
               </label>
 
-              <label className="text-sm font-medium text-stone-700">
+              <label className="text-sm font-medium text-stone-300">
                 Вместимость
                 {isTrainingEditable ? (
                   <input
@@ -2399,7 +2399,7 @@ function TrainingsSectionContent({
                       updateSelectedEditor({ capacity: event.target.value })
                     }
                     disabled={savingTrainingKey === selectedSavingKey}
-                    className="mt-2 w-full rounded-2xl border border-stone-300 bg-white px-4 py-3 text-base text-stone-950 outline-none transition focus:border-stone-500 disabled:cursor-not-allowed disabled:bg-stone-100"
+                    className="mt-2 w-full rounded-2xl border border-white/10 bg-[#0b0f13] px-4 py-3 text-base text-stone-100 outline-none transition focus:border-amber-400 disabled:cursor-not-allowed disabled:border-white/6 disabled:bg-white/[0.04] disabled:text-stone-500"
                   />
                 ) : (
                   renderReadonlyValue(String(selectedTraining.capacity))
@@ -2407,7 +2407,7 @@ function TrainingsSectionContent({
               </label>
 
               {isTrainingEditable ? (
-                <label className="flex items-center gap-3 rounded-2xl border border-stone-300 bg-white px-4 py-3 text-sm font-medium text-stone-700">
+                <label className="flex items-center gap-3 rounded-[1.25rem] border border-white/10 bg-black/20 px-4 py-3 text-sm font-medium text-stone-300">
                   <input
                     type="checkbox"
                     checked={activeTrainingEditor.isActive}
@@ -2415,12 +2415,12 @@ function TrainingsSectionContent({
                       updateSelectedEditor({ isActive: event.target.checked })
                     }
                     disabled={savingTrainingKey === selectedSavingKey}
-                    className="h-4 w-4 rounded border-stone-300 text-stone-950 focus:ring-stone-500"
+                    className="h-4 w-4 rounded border-stone-300 text-white focus:ring-stone-500"
                   />
                   Активна и доступна для записи
                 </label>
               ) : (
-                <div className="rounded-2xl border border-stone-300 bg-white px-4 py-3 text-sm text-stone-800">
+                <div className="rounded-[1.25rem] border border-white/10 bg-black/20 px-4 py-3 text-sm text-stone-200">
                   {selectedTraining.isActive
                     ? 'Активна и доступна для записи'
                     : 'Неактивна и скрыта из активного потока'}
@@ -2430,7 +2430,7 @@ function TrainingsSectionContent({
 
             {isTrainingEditable ? (
               <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-                <p className="text-sm text-stone-600">
+                <p className="text-sm text-stone-400">
                   В этом модуле PATCH меняет название, город, тренера, тип,
                   вместимость и активность. Изменения сразу отражаются в списке
                   слева.
@@ -2451,7 +2451,7 @@ function TrainingsSectionContent({
             ) : null}
           </div>
         ) : (
-          <p className="rounded-2xl border border-dashed border-stone-300 bg-white p-5 text-sm text-stone-600">
+          <p className="rounded-2xl border border-dashed border-white/10 bg-black/20 p-5 text-sm text-stone-400">
             {isTrainingEditable
               ? 'Выберите тренировку слева или создайте новую запись.'
               : 'Выберите тренировку слева, чтобы открыть её данные.'}
@@ -2546,7 +2546,7 @@ function RentalsSectionContent({
 
   function renderReadonlyValue(value: string) {
     return (
-      <div className="mt-2 rounded-2xl border border-stone-300 bg-white px-4 py-3 text-sm text-stone-800">
+      <div className="mt-2 rounded-[1.25rem] border border-white/10 bg-black/20 px-4 py-3 text-sm text-stone-200">
         {value}
       </div>
     );
@@ -2555,9 +2555,9 @@ function RentalsSectionContent({
   return (
     <div className="space-y-6">
       <div className="grid gap-3 md:grid-cols-3">
-        <div className="rounded-2xl bg-stone-100 p-4">
+        <div className="rounded-[1.35rem] border border-white/8 bg-white/[0.04] p-4">
           <p className="text-sm font-medium text-stone-500">Бронирования аренды</p>
-          <div className="mt-3 grid gap-1 text-sm text-stone-700">
+          <div className="mt-3 grid gap-1 text-sm text-stone-300">
             <p>Всего: {overview!.rentalBookings.length}</p>
             <p>Ждут подтверждения: {pendingRentalBookingsCount}</p>
             <p>
@@ -2570,9 +2570,9 @@ function RentalsSectionContent({
             </p>
           </div>
         </div>
-        <div className="rounded-2xl bg-stone-100 p-4">
+        <div className="rounded-[1.35rem] border border-white/8 bg-white/[0.04] p-4">
           <p className="text-sm font-medium text-stone-500">Слоты аренды</p>
-          <div className="mt-3 grid gap-1 text-sm text-stone-700">
+          <div className="mt-3 grid gap-1 text-sm text-stone-300">
             <p>Всего: {overview!.rentalSlots.length}</p>
             <p>Публично доступны: {availablePublicSlotsCount}</p>
             <p>
@@ -2584,9 +2584,9 @@ function RentalsSectionContent({
             </p>
           </div>
         </div>
-        <div className="rounded-2xl bg-stone-100 p-4">
+        <div className="rounded-[1.35rem] border border-white/8 bg-white/[0.04] p-4">
           <p className="text-sm font-medium text-stone-500">Инвентарь</p>
-          <div className="mt-3 grid gap-1 text-sm text-stone-700">
+          <div className="mt-3 grid gap-1 text-sm text-stone-300">
             <p>Площадок: {overview!.rentalFacilities.length}</p>
             <p>Ресурсов: {overview!.rentalResources.length}</p>
             <p>
@@ -2602,7 +2602,7 @@ function RentalsSectionContent({
       </div>
 
       {!isRentalOperationalEditable ? (
-        <p className="rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
+        <p className="rounded-2xl border border-amber-300/30 bg-amber-400/10 px-4 py-3 text-sm text-amber-100">
           В этом модуле TRAINER не получает глобальное управление арендой.
           Операционные действия по броням и слотам доступны только MANAGER и
           ADMIN.
@@ -2612,7 +2612,7 @@ function RentalsSectionContent({
       <div className="grid gap-5 xl:grid-cols-[0.92fr_1.08fr]">
         <div className="space-y-4">
           <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-1">
-            <label className="text-sm font-medium text-stone-700">
+            <label className="text-sm font-medium text-stone-300">
               Фильтр бронирований
               <select
                 value={rentalBookingStatusFilter}
@@ -2622,7 +2622,7 @@ function RentalsSectionContent({
                   );
                   setRentalBookingFeedback(null);
                 }}
-                className="mt-2 w-full rounded-2xl border border-stone-300 bg-white px-4 py-3 text-base text-stone-950 outline-none transition focus:border-stone-500"
+                className="mt-2 w-full rounded-2xl border border-white/10 bg-[#0b0f13] px-4 py-3 text-base text-stone-100 outline-none transition focus:border-amber-400"
               >
                 {rentalBookingFilterOptions.map((option) => (
                   <option key={option.value} value={option.value}>
@@ -2634,7 +2634,7 @@ function RentalsSectionContent({
           </div>
 
           {filteredRentalBookings.length === 0 ? (
-            <p className="rounded-2xl border border-dashed border-stone-300 bg-stone-50 p-5 text-sm text-stone-600">
+            <p className="rounded-[1.35rem] border border-white/8 bg-white/[0.04] p-5 text-sm text-stone-400">
               {overview!.rentalBookings.length === 0
                 ? 'Бронирований аренды пока нет.'
                 : 'По текущему фильтру бронирований нет.'}
@@ -2653,7 +2653,7 @@ function RentalsSectionContent({
                     className={`w-full rounded-2xl border p-4 text-left transition ${
                       isSelected
                         ? 'border-stone-950 bg-stone-950 text-white shadow-[0_18px_45px_-35px_rgba(0,0,0,0.45)]'
-                        : 'border-stone-200 bg-stone-50 hover:border-stone-400 hover:bg-white'
+                        : 'border-white/8 bg-white/[0.035] hover:border-white/16 hover:bg-white/[0.06]'
                     }`}
                   >
                     <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
@@ -2663,14 +2663,14 @@ function RentalsSectionContent({
                         </p>
                         <p
                           className={`mt-1 text-sm ${
-                            isSelected ? 'text-stone-300' : 'text-stone-600'
+                            isSelected ? 'text-stone-300' : 'text-stone-400'
                           }`}
                         >
                           {booking.city.name}
                         </p>
                         <div
                           className={`mt-2 grid gap-1 text-sm ${
-                            isSelected ? 'text-stone-300' : 'text-stone-700'
+                            isSelected ? 'text-stone-300' : 'text-stone-300'
                           }`}
                         >
                           <p>{formatDateTime(booking.rentalSlot.startsAt)}</p>
@@ -2700,17 +2700,17 @@ function RentalsSectionContent({
           )}
         </div>
 
-        <div className="rounded-[26px] border border-stone-200 bg-stone-50 p-5">
+        <div className="rounded-[1.5rem] border border-white/8 bg-white/[0.04] p-5">
           <div className="flex flex-col gap-2">
             <p className="text-xs font-semibold uppercase tracking-[0.18em] text-stone-500">
               Бронирование
             </p>
-            <h3 className="text-xl font-semibold text-stone-950">
+            <h3 className="text-xl font-semibold text-white">
               {selectedRentalBooking
                 ? `Бронь #${selectedRentalBooking.id}`
                 : 'Выберите бронирование слева'}
             </h3>
-            <p className="text-sm leading-6 text-stone-600">
+            <p className="text-sm leading-6 text-stone-400">
               Staff работает со статусом брони и manager note без ручного
               обновления страницы.
             </p>
@@ -2720,8 +2720,8 @@ function RentalsSectionContent({
             <div
               className={`mt-4 rounded-2xl border px-4 py-3 text-sm ${
                 rentalBookingFeedback.tone === 'success'
-                  ? 'border-emerald-200 bg-emerald-50 text-emerald-700'
-                  : 'border-rose-200 bg-rose-50 text-rose-700'
+                  ? 'border-emerald-400/30 bg-emerald-500/12 text-emerald-100'
+                  : 'border-rose-400/30 bg-rose-500/12 text-rose-100'
               }`}
             >
               {rentalBookingFeedback.message}
@@ -2731,8 +2731,8 @@ function RentalsSectionContent({
           {selectedRentalBooking && activeRentalBookingEditor ? (
             <div className="mt-5 space-y-5">
               <div className="grid gap-4 md:grid-cols-2">
-                <div className="rounded-2xl border border-stone-200 bg-white p-4 text-sm text-stone-700">
-                  <p className="font-semibold text-stone-950">
+                <div className="rounded-[1.35rem] border border-white/8 bg-black/18 p-4 text-sm text-stone-300">
+                  <p className="font-semibold text-white">
                     {selectedRentalBooking.resource.name}
                   </p>
                   <p className="mt-1">
@@ -2751,8 +2751,8 @@ function RentalsSectionContent({
                   </p>
                 </div>
 
-                <div className="rounded-2xl border border-stone-200 bg-white p-4 text-sm text-stone-700">
-                  <p className="font-semibold text-stone-950">
+                <div className="rounded-[1.35rem] border border-white/8 bg-black/18 p-4 text-sm text-stone-300">
+                  <p className="font-semibold text-white">
                     Заказчик: {formatUserIdentity(selectedRentalBooking.user)}
                   </p>
                   <p className="mt-2">
@@ -2774,18 +2774,18 @@ function RentalsSectionContent({
               </div>
 
               <div className="grid gap-4 md:grid-cols-2">
-                <div className="rounded-2xl border border-stone-200 bg-white p-4">
-                  <p className="text-sm font-medium text-stone-700">
+                <div className="rounded-[1.35rem] border border-white/8 bg-black/18 p-4">
+                  <p className="text-sm font-medium text-stone-300">
                     Комментарий пользователя
                   </p>
-                  <p className="mt-2 text-sm leading-6 text-stone-700">
+                  <p className="mt-2 text-sm leading-6 text-stone-300">
                     {selectedRentalBooking.noteFromUser?.trim() ||
                       'Пользователь не оставил комментарий.'}
                   </p>
                 </div>
 
-                <div className="rounded-2xl border border-stone-200 bg-white p-4 text-sm text-stone-700">
-                  <p className="font-medium text-stone-950">Таймлайн</p>
+                <div className="rounded-[1.35rem] border border-white/8 bg-black/18 p-4 text-sm text-stone-300">
+                  <p className="font-medium text-white">Таймлайн</p>
                   <p className="mt-2">
                     Создано: {formatDateTime(selectedRentalBooking.createdAt)}
                   </p>
@@ -2796,7 +2796,7 @@ function RentalsSectionContent({
               </div>
 
               <div className="grid gap-4">
-                <label className="text-sm font-medium text-stone-700">
+                <label className="text-sm font-medium text-stone-300">
                   Статус брони
                   {isRentalOperationalEditable ? (
                     <select
@@ -2808,7 +2808,7 @@ function RentalsSectionContent({
                         })
                       }
                       disabled={savingRentalBookingId === selectedRentalBooking.id}
-                      className="mt-2 w-full rounded-2xl border border-stone-300 bg-white px-4 py-3 text-base text-stone-950 outline-none transition focus:border-stone-500 disabled:cursor-not-allowed disabled:bg-stone-100"
+                      className="mt-2 w-full rounded-2xl border border-white/10 bg-[#0b0f13] px-4 py-3 text-base text-stone-100 outline-none transition focus:border-amber-400 disabled:cursor-not-allowed disabled:border-white/6 disabled:bg-white/[0.04] disabled:text-stone-500"
                     >
                       {staffManagedRentalBookingStatusOptions.map((option) => (
                         <option key={option.value} value={option.value}>
@@ -2821,7 +2821,7 @@ function RentalsSectionContent({
                   )}
                 </label>
 
-                <label className="text-sm font-medium text-stone-700">
+                <label className="text-sm font-medium text-stone-300">
                   Manager note
                   {isRentalOperationalEditable ? (
                     <textarea
@@ -2834,7 +2834,7 @@ function RentalsSectionContent({
                       rows={4}
                       disabled={savingRentalBookingId === selectedRentalBooking.id}
                       placeholder="Внутренняя заметка по бронированию"
-                      className="mt-2 w-full rounded-2xl border border-stone-300 bg-white px-4 py-3 text-base text-stone-950 outline-none transition focus:border-stone-500 disabled:cursor-not-allowed disabled:bg-stone-100"
+                      className="mt-2 w-full rounded-2xl border border-white/10 bg-[#0b0f13] px-4 py-3 text-base text-stone-100 outline-none transition focus:border-amber-400 disabled:cursor-not-allowed disabled:border-white/6 disabled:bg-white/[0.04] disabled:text-stone-500"
                     />
                   ) : (
                     renderReadonlyValue(
@@ -2847,7 +2847,7 @@ function RentalsSectionContent({
 
               {isRentalOperationalEditable ? (
                 <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-                  <p className="text-sm text-stone-600">
+                  <p className="text-sm text-stone-400">
                     PATCH меняет статус и manager note. После сохранения список и
                     detail-часть синхронизируются без ручной перезагрузки.
                   </p>
@@ -2868,7 +2868,7 @@ function RentalsSectionContent({
               ) : null}
             </div>
           ) : (
-            <p className="mt-5 rounded-2xl border border-dashed border-stone-300 bg-white p-5 text-sm text-stone-600">
+            <p className="mt-5 rounded-2xl border border-dashed border-white/10 bg-black/20 p-5 text-sm text-stone-400">
               Выберите бронирование слева, чтобы открыть данные и рабочие
               действия staff.
             </p>
@@ -2879,7 +2879,7 @@ function RentalsSectionContent({
       <div className="grid gap-5 xl:grid-cols-[0.92fr_1.08fr]">
         <div className="space-y-4">
           <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-1">
-            <label className="text-sm font-medium text-stone-700">
+            <label className="text-sm font-medium text-stone-300">
               Фильтр слотов
               <select
                 value={rentalSlotStatusFilter}
@@ -2889,7 +2889,7 @@ function RentalsSectionContent({
                   );
                   setRentalSlotFeedback(null);
                 }}
-                className="mt-2 w-full rounded-2xl border border-stone-300 bg-white px-4 py-3 text-base text-stone-950 outline-none transition focus:border-stone-500"
+                className="mt-2 w-full rounded-2xl border border-white/10 bg-[#0b0f13] px-4 py-3 text-base text-stone-100 outline-none transition focus:border-amber-400"
               >
                 {rentalSlotFilterOptions.map((option) => (
                   <option key={option.value} value={option.value}>
@@ -2913,7 +2913,7 @@ function RentalsSectionContent({
                 <button
                   type="button"
                   onClick={handleRentalSlotCreateCancel}
-                  className="rounded-full border border-stone-300 px-5 py-3 text-sm font-semibold text-stone-700 transition hover:border-stone-500 hover:text-stone-950"
+                  className="rounded-full border border-white/12 bg-black/20 px-5 py-3 text-sm font-semibold text-stone-200 transition hover:border-white/20 hover:bg-white/6 hover:text-white"
                 >
                   Вернуться к слотам
                 </button>
@@ -2922,7 +2922,7 @@ function RentalsSectionContent({
           ) : null}
 
           {filteredRentalSlots.length === 0 ? (
-            <p className="rounded-2xl border border-dashed border-stone-300 bg-stone-50 p-5 text-sm text-stone-600">
+            <p className="rounded-[1.35rem] border border-white/8 bg-white/[0.04] p-5 text-sm text-stone-400">
               {overview!.rentalSlots.length === 0
                 ? 'Слотов аренды пока нет.'
                 : 'По текущему фильтру слотов нет.'}
@@ -2941,7 +2941,7 @@ function RentalsSectionContent({
                     className={`w-full rounded-2xl border p-4 text-left transition ${
                       isSelected
                         ? 'border-stone-950 bg-stone-950 text-white shadow-[0_18px_45px_-35px_rgba(0,0,0,0.45)]'
-                        : 'border-stone-200 bg-stone-50 hover:border-stone-400 hover:bg-white'
+                        : 'border-white/8 bg-white/[0.035] hover:border-white/16 hover:bg-white/[0.06]'
                     }`}
                   >
                     <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
@@ -2951,14 +2951,14 @@ function RentalsSectionContent({
                         </p>
                         <p
                           className={`mt-1 text-sm ${
-                            isSelected ? 'text-stone-300' : 'text-stone-600'
+                            isSelected ? 'text-stone-300' : 'text-stone-400'
                           }`}
                         >
                           {slot.city.name}
                         </p>
                         <div
                           className={`mt-2 grid gap-1 text-sm ${
-                            isSelected ? 'text-stone-300' : 'text-stone-700'
+                            isSelected ? 'text-stone-300' : 'text-stone-300'
                           }`}
                         >
                           <p>
@@ -2994,19 +2994,19 @@ function RentalsSectionContent({
           )}
         </div>
 
-        <div className="rounded-[26px] border border-stone-200 bg-stone-50 p-5">
+        <div className="rounded-[1.5rem] border border-white/8 bg-white/[0.04] p-5">
           <div className="flex flex-col gap-2">
             <p className="text-xs font-semibold uppercase tracking-[0.18em] text-stone-500">
               Слот аренды
             </p>
-            <h3 className="text-xl font-semibold text-stone-950">
+            <h3 className="text-xl font-semibold text-white">
               {isRentalSlotCreateMode
                 ? 'Создание нового слота'
                 : selectedRentalSlot
                   ? `Слот #${selectedRentalSlot.id}`
                   : 'Выберите слот слева'}
             </h3>
-            <p className="text-sm leading-6 text-stone-600">
+            <p className="text-sm leading-6 text-stone-400">
               Staff управляет слотами через GET / POST / PATCH. Ресурс
               выбирается при создании, а дальше редактируются время, статус и
               публичность.
@@ -3017,8 +3017,8 @@ function RentalsSectionContent({
             <div
               className={`mt-4 rounded-2xl border px-4 py-3 text-sm ${
                 rentalSlotFeedback.tone === 'success'
-                  ? 'border-emerald-200 bg-emerald-50 text-emerald-700'
-                  : 'border-rose-200 bg-rose-50 text-rose-700'
+                  ? 'border-emerald-400/30 bg-emerald-500/12 text-emerald-100'
+                  : 'border-rose-400/30 bg-rose-500/12 text-rose-100'
               }`}
             >
               {rentalSlotFeedback.message}
@@ -3030,8 +3030,8 @@ function RentalsSectionContent({
             <div className="mt-5 space-y-5">
               {!isRentalSlotCreateMode && selectedRentalSlot ? (
                 <div className="grid gap-4 md:grid-cols-2">
-                  <div className="rounded-2xl border border-stone-200 bg-white p-4 text-sm text-stone-700">
-                    <p className="font-semibold text-stone-950">
+                  <div className="rounded-[1.35rem] border border-white/8 bg-black/18 p-4 text-sm text-stone-300">
+                    <p className="font-semibold text-white">
                       {selectedRentalSlot.resource.name}
                     </p>
                     <p className="mt-1">
@@ -3048,8 +3048,8 @@ function RentalsSectionContent({
                     </p>
                   </div>
 
-                  <div className="rounded-2xl border border-stone-200 bg-white p-4 text-sm text-stone-700">
-                    <p className="font-semibold text-stone-950">
+                  <div className="rounded-[1.35rem] border border-white/8 bg-black/18 p-4 text-sm text-stone-300">
+                    <p className="font-semibold text-white">
                       Активная бронь
                     </p>
                     {selectedRentalSlot.activeBookingSummary ? (
@@ -3084,7 +3084,7 @@ function RentalsSectionContent({
               ) : null}
 
               <div className="grid gap-4 md:grid-cols-2">
-                <label className="text-sm font-medium text-stone-700">
+                <label className="text-sm font-medium text-stone-300">
                   Ресурс аренды
                   {isRentalSlotCreateMode ? (
                     <select
@@ -3095,7 +3095,7 @@ function RentalsSectionContent({
                         })
                       }
                       disabled={savingRentalSlotKey === 'create'}
-                      className="mt-2 w-full rounded-2xl border border-stone-300 bg-white px-4 py-3 text-base text-stone-950 outline-none transition focus:border-stone-500 disabled:cursor-not-allowed disabled:bg-stone-100"
+                      className="mt-2 w-full rounded-2xl border border-white/10 bg-[#0b0f13] px-4 py-3 text-base text-stone-100 outline-none transition focus:border-amber-400 disabled:cursor-not-allowed disabled:border-white/6 disabled:bg-white/[0.04] disabled:text-stone-500"
                     >
                       <option value="">Выберите ресурс</option>
                       {rentalSlotResourceOptions.map((resource) => (
@@ -3114,7 +3114,7 @@ function RentalsSectionContent({
                   )}
                 </label>
 
-                <label className="text-sm font-medium text-stone-700">
+                <label className="text-sm font-medium text-stone-300">
                   Статус слота
                   {isRentalOperationalEditable ? (
                     isRentalSlotCreateMode ? (
@@ -3127,7 +3127,7 @@ function RentalsSectionContent({
                           })
                         }
                         disabled={savingRentalSlotKey === 'create'}
-                        className="mt-2 w-full rounded-2xl border border-stone-300 bg-white px-4 py-3 text-base text-stone-950 outline-none transition focus:border-stone-500 disabled:cursor-not-allowed disabled:bg-stone-100"
+                        className="mt-2 w-full rounded-2xl border border-white/10 bg-[#0b0f13] px-4 py-3 text-base text-stone-100 outline-none transition focus:border-amber-400 disabled:cursor-not-allowed disabled:border-white/6 disabled:bg-white/[0.04] disabled:text-stone-500"
                       >
                         {createRentalSlotStatusOptions.map((option) => (
                           <option key={option.value} value={option.value}>
@@ -3136,7 +3136,7 @@ function RentalsSectionContent({
                         ))}
                       </select>
                     ) : selectedRentalSlotHasActiveBooking ? (
-                      <div className="mt-2 rounded-2xl border border-sky-200 bg-sky-50 px-4 py-3 text-sm text-sky-800">
+                      <div className="mt-2 rounded-2xl border border-sky-400/30 bg-sky-500/12 px-4 py-3 text-sm text-sky-100">
                         У слота есть активная бронь, поэтому статус фиксирован
                         как BOOKED.
                       </div>
@@ -3150,7 +3150,7 @@ function RentalsSectionContent({
                           })
                         }
                         disabled={savingRentalSlotKey === selectedRentalSlotSavingKey}
-                        className="mt-2 w-full rounded-2xl border border-stone-300 bg-white px-4 py-3 text-base text-stone-950 outline-none transition focus:border-stone-500 disabled:cursor-not-allowed disabled:bg-stone-100"
+                        className="mt-2 w-full rounded-2xl border border-white/10 bg-[#0b0f13] px-4 py-3 text-base text-stone-100 outline-none transition focus:border-amber-400 disabled:cursor-not-allowed disabled:border-white/6 disabled:bg-white/[0.04] disabled:text-stone-500"
                       >
                         {editableRentalSlotStatusOptions.map((option) => (
                           <option key={option.value} value={option.value}>
@@ -3168,7 +3168,7 @@ function RentalsSectionContent({
                   )}
                 </label>
 
-                <label className="text-sm font-medium text-stone-700">
+                <label className="text-sm font-medium text-stone-300">
                   Время начала
                   <input
                     type="datetime-local"
@@ -3186,11 +3186,11 @@ function RentalsSectionContent({
                       savingRentalSlotKey === 'create' ||
                       savingRentalSlotKey === selectedRentalSlotSavingKey
                     }
-                    className="mt-2 w-full rounded-2xl border border-stone-300 bg-white px-4 py-3 text-base text-stone-950 outline-none transition focus:border-stone-500 disabled:cursor-not-allowed disabled:bg-stone-100"
+                    className="mt-2 w-full rounded-2xl border border-white/10 bg-[#0b0f13] px-4 py-3 text-base text-stone-100 outline-none transition focus:border-amber-400 disabled:cursor-not-allowed disabled:border-white/6 disabled:bg-white/[0.04] disabled:text-stone-500"
                   />
                 </label>
 
-                <label className="text-sm font-medium text-stone-700">
+                <label className="text-sm font-medium text-stone-300">
                   Время окончания
                   <input
                     type="datetime-local"
@@ -3208,12 +3208,12 @@ function RentalsSectionContent({
                       savingRentalSlotKey === 'create' ||
                       savingRentalSlotKey === selectedRentalSlotSavingKey
                     }
-                    className="mt-2 w-full rounded-2xl border border-stone-300 bg-white px-4 py-3 text-base text-stone-950 outline-none transition focus:border-stone-500 disabled:cursor-not-allowed disabled:bg-stone-100"
+                    className="mt-2 w-full rounded-2xl border border-white/10 bg-[#0b0f13] px-4 py-3 text-base text-stone-100 outline-none transition focus:border-amber-400 disabled:cursor-not-allowed disabled:border-white/6 disabled:bg-white/[0.04] disabled:text-stone-500"
                   />
                 </label>
               </div>
 
-              <label className="flex items-center gap-3 rounded-2xl border border-stone-300 bg-white px-4 py-3 text-sm font-medium text-stone-700">
+              <label className="flex items-center gap-3 rounded-[1.25rem] border border-white/10 bg-black/20 px-4 py-3 text-sm font-medium text-stone-300">
                 <input
                   type="checkbox"
                   checked={activeRentalSlotEditor.visibleToPublic}
@@ -3230,14 +3230,14 @@ function RentalsSectionContent({
                     savingRentalSlotKey === 'create' ||
                     savingRentalSlotKey === selectedRentalSlotSavingKey
                   }
-                  className="h-4 w-4 rounded border-stone-300 text-stone-950 focus:ring-stone-500"
+                  className="h-4 w-4 rounded border-stone-300 text-white focus:ring-stone-500"
                 />
                 Показать слот в публичной аренде
               </label>
 
               {isRentalOperationalEditable ? (
                 <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-                  <p className="text-sm text-stone-600">
+                  <p className="text-sm text-stone-400">
                     {isRentalSlotCreateMode
                       ? 'POST создаёт слот и сразу добавляет его в список слева.'
                       : 'PATCH обновляет время, статус и публичность слота без ручной перезагрузки.'}
@@ -3266,7 +3266,7 @@ function RentalsSectionContent({
               ) : null}
             </div>
           ) : (
-            <p className="mt-5 rounded-2xl border border-dashed border-stone-300 bg-white p-5 text-sm text-stone-600">
+            <p className="mt-5 rounded-2xl border border-dashed border-white/10 bg-black/20 p-5 text-sm text-stone-400">
               {isRentalOperationalEditable
                 ? 'Выберите слот слева или создайте новый, чтобы открыть рабочую форму.'
                 : 'Выберите слот слева, чтобы открыть его данные.'}
@@ -3276,11 +3276,11 @@ function RentalsSectionContent({
       </div>
 
       <div className="grid gap-4 lg:grid-cols-2">
-        <div className="rounded-2xl border border-stone-200 bg-stone-50 p-5">
-          <h3 className="text-base font-semibold text-stone-950">
+        <div className="rounded-[1.5rem] border border-white/8 bg-white/[0.04] p-5">
+          <h3 className="text-base font-semibold text-white">
             Площадки аренды
           </h3>
-          <p className="mt-2 text-sm leading-6 text-stone-600">
+          <p className="mt-2 text-sm leading-6 text-stone-400">
             В этой итерации staff видит инвентарь и использует его как контекст
             для слотов и бронирований.
           </p>
@@ -3296,9 +3296,9 @@ function RentalsSectionContent({
               return (
                 <div
                   key={facility.id}
-                  className="rounded-2xl border border-stone-200 bg-white p-4 text-sm text-stone-700"
+                  className="rounded-[1.35rem] border border-white/8 bg-black/18 p-4 text-sm text-stone-300"
                 >
-                  <p className="font-semibold text-stone-950">{facility.name}</p>
+                  <p className="font-semibold text-white">{facility.name}</p>
                   <p className="mt-1">{facility.city.name}</p>
                   <p className="mt-2">
                     Ресурсов: {resourcesCount} / Слотов: {slotsCount}
@@ -3310,18 +3310,18 @@ function RentalsSectionContent({
               );
             })}
             {overview!.rentalFacilities.length === 0 ? (
-              <p className="rounded-2xl border border-dashed border-stone-300 bg-white p-5 text-sm text-stone-600">
+              <p className="rounded-2xl border border-dashed border-white/10 bg-black/20 p-5 text-sm text-stone-400">
                 Площадок аренды пока нет.
               </p>
             ) : null}
           </div>
         </div>
 
-        <div className="rounded-2xl border border-stone-200 bg-stone-50 p-5">
-          <h3 className="text-base font-semibold text-stone-950">
+        <div className="rounded-[1.5rem] border border-white/8 bg-white/[0.04] p-5">
+          <h3 className="text-base font-semibold text-white">
             Ресурсы аренды
           </h3>
-          <p className="mt-2 text-sm leading-6 text-stone-600">
+          <p className="mt-2 text-sm leading-6 text-stone-400">
             Ресурсы используются в качестве опорных сущностей для создания и
             редактирования слотов.
           </p>
@@ -3334,9 +3334,9 @@ function RentalsSectionContent({
               return (
                 <div
                   key={resource.id}
-                  className="rounded-2xl border border-stone-200 bg-white p-4 text-sm text-stone-700"
+                  className="rounded-[1.35rem] border border-white/8 bg-black/18 p-4 text-sm text-stone-300"
                 >
-                  <p className="font-semibold text-stone-950">{resource.name}</p>
+                  <p className="font-semibold text-white">{resource.name}</p>
                   <p className="mt-1">
                     {resource.facility.name} / {resource.facility.city.name}
                   </p>
@@ -3350,7 +3350,7 @@ function RentalsSectionContent({
               );
             })}
             {overview!.rentalResources.length === 0 ? (
-              <p className="rounded-2xl border border-dashed border-stone-300 bg-white p-5 text-sm text-stone-600">
+              <p className="rounded-2xl border border-dashed border-white/10 bg-black/20 p-5 text-sm text-stone-400">
                 Ресурсов аренды пока нет.
               </p>
             ) : null}
@@ -3367,6 +3367,8 @@ export default function AdminPage() {
   const [currentUser, setCurrentUser] = useState<CurrentUserSummary | null>(null);
   const [overview, setOverview] = useState<AdminOverview | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [activeAdminSection, setActiveAdminSection] =
+    useState<AdminSectionId>('overview');
   const [teamCityFilter, setTeamCityFilter] = useState<string>('ALL');
   const [selectedTeamId, setSelectedTeamId] = useState<number | null>(null);
   const [teamEditorMode, setTeamEditorMode] = useState<TeamFormMode>('edit');
@@ -3689,9 +3691,7 @@ export default function AdminPage() {
   const selectedTeam =
     teamEditorMode === 'create'
       ? null
-      : filteredTeams.find((team) => team.id === selectedTeamId) ??
-        filteredTeams[0] ??
-        null;
+      : filteredTeams.find((team) => team.id === selectedTeamId) ?? null;
   const activeTeamId = selectedTeam?.id ?? null;
   const isTeamCreateMode = teamEditorMode === 'create';
   const activeTeamEditor = isTeamCreateMode
@@ -3750,9 +3750,7 @@ export default function AdminPage() {
       ? null
       : filteredTeamMembers.find(
           (teamMember) => teamMember.id === selectedTeamMemberId
-        ) ??
-        filteredTeamMembers[0] ??
-        null;
+        ) ?? null;
   const activeTeamMemberId = selectedTeamMember?.id ?? null;
   const isTeamMemberCreateMode = teamMemberEditorMode === 'create';
   const activeTeamMemberEditor = isTeamMemberCreateMode
@@ -3889,12 +3887,101 @@ export default function AdminPage() {
       detail: string;
     } => Boolean(card)
   );
+  const adminNavItems: Array<{
+    id: AdminSectionId;
+    label: string;
+    description: string;
+    badge: number | null;
+  }> = [
+    {
+      id: 'overview' as const,
+      label: 'Обзор',
+      description: 'Сводка роли и текущих зон ответственности.',
+      badge: summaryCards.length || null,
+    },
+    currentUserCapabilities.isTrainer
+      ? {
+          id: 'trainerWorkspace' as const,
+          label: 'Моя зона',
+          description: 'Заявки и тренировки в одном trainer-first режиме.',
+          badge: pendingApplicationsCount + activeTrainingsCount,
+        }
+      : null,
+    visibleAdminSectionIds.has('teams')
+      ? {
+          id: 'teams' as const,
+          label: 'Команды',
+          description: 'Список и редактирование по выбору.',
+          badge: overview?.teams.length ?? null,
+        }
+      : null,
+    visibleAdminSectionIds.has('teams')
+      ? {
+          id: 'roster' as const,
+          label: 'Состав',
+          description: 'Участники команд и статус состава.',
+          badge: overview?.teamMembers.length ?? null,
+        }
+      : null,
+    visibleAdminSectionIds.has('teamApplications')
+      ? {
+          id: 'teamApplications' as const,
+          label: 'Заявки',
+          description: 'Очередь заявок и review flow.',
+          badge: overview?.teamApplications.length ?? null,
+        }
+      : null,
+    visibleAdminSectionIds.has('trainings')
+      ? {
+          id: 'trainings' as const,
+          label: 'Тренировки',
+          description: 'График, фильтры и редактор по запросу.',
+          badge: overview?.trainings.length ?? null,
+        }
+      : null,
+    visibleAdminSectionIds.has('rentals')
+      ? {
+          id: 'rentals' as const,
+          label: 'Аренда',
+          description: 'Брони и слоты без перегрузки экрана.',
+          badge: overview?.rentalBookings.length ?? null,
+        }
+      : null,
+    visibleAdminSectionIds.has('promoTickets')
+      ? {
+          id: 'promoTickets' as const,
+          label: 'Промо',
+          description: 'Призы и билеты promo-модуля.',
+          badge: null,
+        }
+      : null,
+  ].filter(Boolean) as Array<{
+    id: AdminSectionId;
+    label: string;
+    description: string;
+    badge: number | null;
+  }>;
+  const activeAdminItem =
+    adminNavItems.find((item) => item.id === activeAdminSection) ?? adminNavItems[0];
   const responsibilitySummary =
     currentUserCapabilities.role === 'TRAINER'
       ? 'Отвечает только за свои тренировки и заявки по закреплённым командам.'
       : currentUserCapabilities.role === 'MANAGER'
         ? 'Отвечает за операционный staff-контур: команды, заявки, тренировки и аренду.'
         : 'Отвечает за полный staff/admin контур платформы и foundation под управление ролями.';
+  const adminMeta = currentUser ? (
+    <div className="flex flex-wrap gap-2">
+      <span className="rounded-full border border-white/10 bg-white/8 px-3 py-1 text-xs font-semibold uppercase tracking-[0.14em] text-stone-100">
+        {currentUserCapabilities.roleLabel}
+      </span>
+      <span className="rounded-full border border-white/10 bg-white/8 px-3 py-1 text-xs font-semibold text-stone-200">
+        {currentUserCapabilities.adminAccessLabel}
+      </span>
+      <span className="rounded-full border border-white/10 bg-white/8 px-3 py-1 text-xs font-semibold text-stone-200">
+        Путь: {currentUserCapabilities.primaryEntryPath}
+      </span>
+    </div>
+  ) : null;
   const isTeamApplicationEditable =
     currentUserCapabilities.isAdmin || currentUserCapabilities.isManager;
   const teamApplicationTeamOptions = Array.from(
@@ -3931,9 +4018,7 @@ export default function AdminPage() {
   const selectedTeamApplication =
     filteredTeamApplications.find(
       (application) => application.id === selectedTeamApplicationId
-    ) ??
-    filteredTeamApplications[0] ??
-    null;
+    ) ?? null;
   const activeSelectedTeamApplicationId = selectedTeamApplication?.id ?? null;
   const activeTeamApplicationEditor =
     selectedTeamApplication &&
@@ -3998,7 +4083,6 @@ export default function AdminPage() {
     trainingEditorMode === 'create'
       ? null
       : filteredTrainings.find((training) => training.id === selectedTrainingId) ??
-        filteredTrainings[0] ??
         null;
   const activeTrainingId = selectedTraining?.id ?? null;
   const isTrainingCreateMode = trainingEditorMode === 'create';
@@ -4068,7 +4152,6 @@ export default function AdminPage() {
     );
   const selectedRentalBooking =
     filteredRentalBookings.find((booking) => booking.id === selectedRentalBookingId) ??
-    filteredRentalBookings[0] ??
     null;
   const activeSelectedRentalBookingId = selectedRentalBooking?.id ?? null;
   const activeRentalBookingEditor =
@@ -4111,7 +4194,6 @@ export default function AdminPage() {
     rentalSlotEditorMode === 'create'
       ? null
       : filteredRentalSlots.find((slot) => slot.id === selectedRentalSlotId) ??
-        filteredRentalSlots[0] ??
         null;
   const activeRentalSlotId = selectedRentalSlot?.id ?? null;
   const isRentalSlotCreateMode = rentalSlotEditorMode === 'create';
@@ -4147,6 +4229,41 @@ export default function AdminPage() {
     activeRentalSlotEditor.resourceId.length > 0 &&
     activeRentalSlotEditor.startsAt.length > 0 &&
     activeRentalSlotEditor.endsAt.length > 0;
+  const activeAdminPrimaryAction =
+    activeAdminSection === 'teams' && isTeamEditable ? (
+      <button
+        type="button"
+        onClick={handleTeamCreateStart}
+        className="rounded-full bg-amber-400 px-4 py-2 text-sm font-black text-black transition hover:bg-amber-300"
+      >
+        Создать команду
+      </button>
+    ) : activeAdminSection === 'roster' && isTeamEditable ? (
+      <button
+        type="button"
+        onClick={handleTeamMemberCreateStart}
+        className="rounded-full bg-amber-400 px-4 py-2 text-sm font-black text-black transition hover:bg-amber-300"
+      >
+        Добавить в состав
+      </button>
+    ) : (activeAdminSection === 'trainings' || activeAdminSection === 'trainerWorkspace') &&
+      isTrainingEditable ? (
+      <button
+        type="button"
+        onClick={handleTrainingCreateStart}
+        className="rounded-full bg-amber-400 px-4 py-2 text-sm font-black text-black transition hover:bg-amber-300"
+      >
+        Создать тренировку
+      </button>
+    ) : activeAdminSection === 'rentals' && isRentalOperationalEditable ? (
+      <button
+        type="button"
+        onClick={handleRentalSlotCreateStart}
+        className="rounded-full bg-amber-400 px-4 py-2 text-sm font-black text-black transition hover:bg-amber-300"
+      >
+        Создать слот
+      </button>
+    ) : null;
 
   function handleTeamSelect(team: AdminTeamSummary) {
     setSelectedTeamId(team.id);
@@ -5336,66 +5453,105 @@ export default function AdminPage() {
   }
 
   return (
-    <main className="min-h-screen bg-[radial-gradient(circle_at_top,#f4efe4_0%,#ede6d8_45%,#e4ddcf_100%)] px-4 py-8 text-stone-900">
-      <div className="mx-auto flex w-full max-w-6xl flex-col gap-6">
-        <header className="rounded-[30px] border border-stone-300/70 bg-[#171411] px-6 py-7 text-stone-100 shadow-[0_30px_80px_-45px_rgba(0,0,0,0.5)]">
-          <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
-            <div>
-              <p className="text-xs font-semibold uppercase tracking-[0.28em] text-stone-400">
-                {currentUserCapabilities.isTrainer ? '🏋️ Тренерская рабочая зона' : 'Staff / admin'}
-              </p>
-              <h1 className="mt-3 text-3xl font-semibold tracking-tight">
-                {currentUserCapabilities.isTrainer ? 'Мой рабочий кабинет тренера' : 'Staff/admin кабинет'}
-              </h1>
-              <p className="mt-2 max-w-2xl text-sm leading-6 text-stone-300">
-                {currentUserCapabilities.isTrainer
-                  ? 'Ваша рабочая зона: заявки по ваших командам и список ваших тренировок. Все остальные модули доступны только менеджерам и администраторам.'
-                  : 'Рабочая зона staff с role-aware доступом к командам, заявкам, тренировкам и аренде.'}
-              </p>
-              {currentUser ? (
-                <p className="mt-3 text-sm text-stone-300">
-                  Пользователь: {formatPersonName(currentUser.profile)} ({currentUserCapabilities.roleLabel}){' '}
-                  {currentUserCapabilities.isTrainer && (
-                    <span className="block mt-1 text-xs text-stone-400">
-                      💡 Совет: используйте фильтры, чтобы найти нужные заявки и тренировки.
-                    </span>
-                  )}
-                </p>
-              ) : null}
-            </div>
-            <div className="flex flex-wrap gap-3">
+    <main className="min-h-screen bg-[radial-gradient(circle_at_top,#1a2633_0%,#0d1218_38%,#06080b_100%)] px-4 py-8 text-stone-100">
+      <div className="mx-auto flex w-full max-w-[1280px] flex-col gap-6">
+        <WorkspaceHero
+          eyebrow={
+            currentUserCapabilities.isTrainer
+              ? 'Тренерская рабочая зона'
+              : 'Staff / admin'
+          }
+          title={
+            currentUserCapabilities.isTrainer
+              ? 'Мой рабочий кабинет тренера'
+              : 'Staff/admin кабинет Gorilla'
+          }
+          description={
+            currentUserCapabilities.isTrainer
+              ? 'Заявки по вашим командам и ваш тренировочный график.'
+              : 'Операционный workspace для команд, состава, тренировок, аренды и promo.'
+          }
+          asideLabel="Как работает staff-зона"
+          meta={adminMeta}
+          actions={
+            <>
               <Link
                 href="/cabinet"
-                className="rounded-full border border-stone-600 px-4 py-2 text-sm font-medium text-stone-200 transition hover:border-stone-300 hover:text-white"
+                className="rounded-full border border-white/12 bg-white/6 px-4 py-2 text-sm font-medium text-stone-100 transition hover:bg-white/10 hover:text-white"
               >
                 {currentUserCapabilities.isTrainer ? 'Мой профиль' : 'Пользовательский кабинет'}
               </Link>
               <Link
                 href="/dev/login"
-                className="rounded-full border border-stone-600 px-4 py-2 text-sm font-medium text-stone-200 transition hover:border-stone-300 hover:text-white"
+                className="rounded-full border border-white/12 bg-white/6 px-4 py-2 text-sm font-medium text-stone-100 transition hover:bg-white/10 hover:text-white"
               >
                 Сменить пользователя
               </Link>
-            </div>
-          </div>
-        </header>
+            </>
+          }
+          aside={
+            <>
+              <p className="text-xs font-semibold uppercase tracking-[0.18em] text-amber-300">
+                Рабочий принцип
+              </p>
+              <p className="mt-2">
+                По умолчанию интерфейс показывает обзор, списки и статусы. Создание и
+                редактирование открываются только по действию внутри активной
+                секции.
+              </p>
+            </>
+          }
+        />
 
         {status === 'loading' ? (
-          <section className="rounded-[28px] border border-stone-300/70 bg-white/90 p-6 text-sm text-stone-600 shadow-[0_24px_70px_-40px_rgba(0,0,0,0.35)]">
+          <section className="rounded-[1.9rem] border border-white/7 bg-white/[0.04] p-6 text-sm text-stone-300 shadow-[0_28px_70px_-46px_rgba(0,0,0,0.62)]">
             Проверяем доступ и загружаем staff/admin обзор...
           </section>
         ) : null}
 
         {status === 'error' ? (
-          <section className="rounded-[28px] border border-rose-300 bg-rose-50 p-6 text-sm text-rose-700 shadow-[0_24px_70px_-40px_rgba(0,0,0,0.35)]">
+          <section className="rounded-[1.9rem] border border-rose-400/30 bg-rose-500/12 p-6 text-sm text-rose-100 shadow-[0_28px_70px_-46px_rgba(15,23,42,0.34)]">
             {error}
           </section>
         ) : null}
 
         {status === 'ready' && overview && currentUser ? (
-          <>
-            <section className="grid gap-4 lg:grid-cols-[1.1fr_0.9fr]">
-              <article className="rounded-[28px] border border-stone-300/70 bg-white p-6 shadow-[0_24px_70px_-40px_rgba(0,0,0,0.35)]">
+          <WorkspaceCanvas className="space-y-10">
+            <section className="space-y-5 border-b border-white/8 pb-6">
+              <div className="flex flex-col gap-4 xl:flex-row xl:items-end xl:justify-between">
+                <div className="max-w-3xl">
+                  <p className="text-[11px] font-semibold uppercase tracking-[0.26em] text-amber-300">
+                    Active workspace
+                  </p>
+                  <h2 className="mt-3 text-[2rem] font-semibold tracking-[-0.05em] text-white">
+                    {activeAdminItem.label}
+                  </h2>
+                </div>
+                <div className="flex flex-wrap items-center gap-3">
+                  {activeAdminPrimaryAction}
+                  <span className="rounded-full bg-white/8 px-3 py-1 text-xs font-semibold uppercase tracking-[0.14em] text-stone-100 ring-1 ring-white/10">
+                    {currentUserCapabilities.accessBadge}
+                  </span>
+                  <span className="rounded-full bg-white/8 px-3 py-1 text-xs font-semibold text-stone-300 ring-1 ring-white/10">
+                    {currentUserCapabilities.adminAccessLabel}
+                  </span>
+                  <WorkspaceDisclosure label="Подсказка" className="min-w-[180px]">
+                    {activeAdminItem.description}
+                  </WorkspaceDisclosure>
+                </div>
+              </div>
+              <WorkspaceSectionNav
+                items={adminNavItems}
+                activeId={activeAdminSection}
+                onChange={setActiveAdminSection}
+              />
+            </section>
+
+            <div className="min-w-0 space-y-10">
+
+            {activeAdminSection === 'overview' ? (
+              <section className="grid gap-4 lg:grid-cols-[1.1fr_0.9fr]">
+              <WorkspaceInset className="p-6">
                 <p className="text-xs font-semibold uppercase tracking-[0.24em] text-stone-500">
                   Role-native workspace
                 </p>
@@ -5403,95 +5559,108 @@ export default function AdminPage() {
                   <span className="rounded-full bg-stone-950 px-3 py-1 text-xs font-semibold uppercase tracking-[0.16em] text-white">
                     {currentUserCapabilities.accessBadge}
                   </span>
-                  <span className="text-sm font-medium text-stone-600">
+                  <span className="text-sm font-medium text-stone-400">
                     {currentUserCapabilities.adminAccessLabel}
                   </span>
                 </div>
-                <h2 className="mt-4 text-2xl font-semibold tracking-tight text-stone-950">
+                <h2 className="mt-4 text-2xl font-semibold tracking-tight text-white">
                   {currentUserCapabilities.isTrainer
                     ? 'Ваша рабочая зона как тренера'
                     : `/admin является рабочей зоной роли ${currentUserCapabilities.roleLabel}`}
                 </h2>
-                <p className="mt-3 max-w-3xl text-sm leading-6 text-stone-700">
+                <p className="mt-3 max-w-3xl text-sm leading-6 text-stone-300">
                   {currentUserCapabilities.isTrainer
-                    ? 'В этой рабочей зоне вы управляете заявками по вашим тренируемым командам и отслеживаете свой график тренировок. Все остальные разделы (глобальное управление командами, аренда, управление пользователями) открыты только для менеджеров и администраторов.'
-                    : currentUserCapabilities.adminDescription}
+                    ? 'Здесь вы ведёте заявки по своим командам и следите за расписанием.'
+                    : 'Работайте с командами, составом, тренировками, арендой и promo из одного workspace.'}
                 </p>
+                <WorkspaceDisclosure label="Права и роли" className="mt-4 max-w-2xl">
+                  {currentUserCapabilities.isTrainer
+                    ? 'Глобальные разделы управления командами, арендой и пользователями доступны только менеджерам и администраторам.'
+                    : currentUserCapabilities.adminDescription}
+                </WorkspaceDisclosure>
                 {currentUserCapabilities.isTrainer && (
-                  <div className="mt-4 rounded-2xl bg-amber-50 p-3 text-xs text-amber-800 border border-amber-200">
-                    <p className="font-semibold">💡 Начало работы:</p>
-                    <ul className="mt-2 space-y-1">
-                      <li>• Смотрите заявки в команду в левой части экрана</li>
-                      <li>• Фильтруйте по статусу и команде для быстрого поиска</li>
-                      <li>• Просмотрите все свои тренировки в разделе &quot;Тренировки&quot;</li>
+                  <WorkspaceDisclosure label="С чего начать" className="mt-4 max-w-xl">
+                    <ul className="space-y-1">
+                      <li>• Откройте «Заявки в команду» для текущих входящих запросов.</li>
+                      <li>• Используйте фильтры, чтобы быстро найти нужную заявку.</li>
+                      <li>• Во вкладке «Тренировки» виден ваш рабочий график.</li>
                     </ul>
-                  </div>
+                  </WorkspaceDisclosure>
                 )}
-              </article>
+              </WorkspaceInset>
 
-              <article className="rounded-[28px] border border-stone-300/70 bg-white p-6 shadow-[0_24px_70px_-40px_rgba(0,0,0,0.35)]">
+              <WorkspaceInset className="p-6">
                 <p className="text-sm font-medium text-stone-500">
                   {currentUserCapabilities.isTrainer ? 'Ваш профиль' : 'Role / access summary'}
                 </p>
                 <div className="mt-4 grid gap-3 sm:grid-cols-3">
-                  <div className="rounded-2xl bg-stone-100 p-4">
+                  <WorkspaceInset tone="muted" className="p-4">
                     <p className="text-xs font-semibold uppercase tracking-[0.14em] text-stone-500">
                       Текущая роль
                     </p>
-                    <p className="mt-2 text-base font-semibold text-stone-950">
+                    <p className="mt-2 text-base font-semibold text-white">
                       {currentUserCapabilities.roleLabel}
                     </p>
-                  </div>
-                  <div className="rounded-2xl bg-stone-100 p-4">
+                  </WorkspaceInset>
+                  <WorkspaceInset tone="muted" className="p-4">
                     <p className="text-xs font-semibold uppercase tracking-[0.14em] text-stone-500">
                       Уровень доступа
                     </p>
-                    <p className="mt-2 text-base font-semibold text-stone-950">
+                    <p className="mt-2 text-base font-semibold text-white">
                       {currentUserCapabilities.adminAccessLabel}
                     </p>
-                  </div>
-                  <div className="rounded-2xl bg-stone-100 p-4">
+                  </WorkspaceInset>
+                  <WorkspaceInset tone="muted" className="p-4">
                     <p className="text-xs font-semibold uppercase tracking-[0.14em] text-stone-500">
                       Рабочий маршрут
                     </p>
-                    <p className="mt-2 text-base font-semibold text-stone-950">
+                    <p className="mt-2 text-base font-semibold text-white">
                       {currentUserCapabilities.primaryEntryPath}
                     </p>
-                  </div>
+                  </WorkspaceInset>
                 </div>
-                <p className="mt-4 text-sm leading-6 text-stone-700">
-                  {responsibilitySummary}
-                </p>
                 {visibleAdminSections.length > 0 ? (
                   <div className="mt-4 flex flex-wrap gap-2">
                     {visibleAdminSections.map((section) => (
                       <span
                         key={section.id}
-                        className="rounded-full bg-stone-100 px-3 py-1 text-xs font-semibold uppercase tracking-[0.12em] text-stone-700"
+                        className="rounded-full border border-white/8 bg-white/[0.06] px-3 py-1 text-xs font-semibold uppercase tracking-[0.12em] text-stone-200"
                       >
                         {section.label}
                       </span>
                     ))}
                   </div>
                 ) : null}
-              </article>
-            </section>
-
-            {summaryCards.length > 0 ? (
-              <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
-                {summaryCards.map((card) => (
-                  <SummaryCard
-                    key={card.title}
-                    title={card.title}
-                    value={card.value}
-                    detail={card.detail}
-                  />
-                ))}
+                <WorkspaceDisclosure label="Зона ответственности" className="mt-4">
+                  {responsibilitySummary}
+                </WorkspaceDisclosure>
+              </WorkspaceInset>
               </section>
             ) : null}
 
-            <div className="grid gap-6 xl:grid-cols-2">
-              {visibleAdminSectionIds.has('teams') ? (
+                {activeAdminSection === 'overview' && summaryCards.length > 0 ? (
+                  <WorkspaceScoreStrip
+                    items={summaryCards.map((card, index) => ({
+                      label: card.title,
+                      value: card.value,
+                      detail: card.detail,
+                      accent:
+                        index === 1
+                          ? 'amber'
+                          : index === 2
+                            ? 'sky'
+                            : index === 3
+                              ? 'emerald'
+                              : 'default',
+                    }))}
+                    compact
+                  />
+                ) : null}
+
+                {activeAdminSection !== 'overview' ? (
+                  <div className="space-y-8">
+              {visibleAdminSectionIds.has('teams') &&
+              activeAdminSection === 'teams' ? (
                 <SectionCard
                   title="Команды"
                   description={
@@ -5528,7 +5697,8 @@ export default function AdminPage() {
                 </SectionCard>
               ) : null}
 
-              {visibleAdminSectionIds.has('teams') ? (
+              {visibleAdminSectionIds.has('teams') &&
+              activeAdminSection === 'roster' ? (
                 <SectionCard
                   title="Состав"
                   description={
@@ -5569,7 +5739,7 @@ export default function AdminPage() {
                   description="Короткий обзор всех команд, доступных staff/admin через текущий backend."
                 >
                   {(overview?.teams ?? []).length === 0 ? (
-                    <p className="rounded-2xl border border-dashed border-stone-300 bg-stone-50 p-5 text-sm text-stone-600">
+                    <p className="rounded-[1.35rem] border border-white/8 bg-white/[0.04] p-5 text-sm text-stone-400">
                       Команд пока нет.
                     </p>
                   ) : (
@@ -5577,14 +5747,14 @@ export default function AdminPage() {
                       {(overview?.teams ?? []).slice(0, 5).map((team) => (
                         <article
                           key={team.id}
-                          className="rounded-2xl border border-stone-200 bg-stone-50 p-4"
+                          className="rounded-[1.35rem] border border-white/8 bg-white/[0.04] p-4"
                         >
                           <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
                             <div>
-                              <p className="font-semibold text-stone-950">
+                              <p className="font-semibold text-white">
                                 {team.name}
                               </p>
-                              <p className="mt-1 text-sm text-stone-600">
+                              <p className="mt-1 text-sm text-stone-400">
                                 {team.city?.name || 'Город не указан'}
                                 {team.slug ? ` / ${team.slug}` : ''}
                               </p>
@@ -5593,7 +5763,7 @@ export default function AdminPage() {
                               {formatDate(team.updatedAt)}
                             </p>
                           </div>
-                          <p className="mt-3 text-sm leading-6 text-stone-700">
+                          <p className="mt-3 text-sm leading-6 text-stone-300">
                             {team.description || 'Описание не заполнено.'}
                           </p>
                         </article>
@@ -5603,7 +5773,9 @@ export default function AdminPage() {
                 </SectionCard>
               ) : null}
 
-              {visibleAdminSectionIds.has('teamApplications') ? (
+              {visibleAdminSectionIds.has('teamApplications') &&
+              (activeAdminSection === 'teamApplications' ||
+                activeAdminSection === 'trainerWorkspace') ? (
                 <SectionCard
                   title="Заявки в команду"
                   description={
@@ -5613,9 +5785,9 @@ export default function AdminPage() {
                   }
                 >
                   {overview.teamApplications.length === 0 ? (
-                    <div className="rounded-2xl border border-dashed border-stone-300 bg-stone-50 p-8 text-center">
+                    <div className="rounded-[1.5rem] border border-white/8 bg-white/[0.04] p-8 text-center">
                       <p className="text-3xl">📭</p>
-                      <p className="mt-3 text-sm font-medium text-stone-700">
+                      <p className="mt-3 text-sm font-medium text-stone-300">
                         {currentUserCapabilities.isTrainer ? 'Нет заявок в ваши команды' : 'Заявок пока нет'}
                       </p>
                       <p className="mt-1 text-xs text-stone-500">
@@ -5628,7 +5800,7 @@ export default function AdminPage() {
                     <div className="grid gap-5 xl:grid-cols-[0.92fr_1.08fr]">
                       <div className="space-y-4">
                         <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-1">
-                          <label className="text-sm font-medium text-stone-700">
+                          <label className="text-sm font-medium text-stone-300">
                             Фильтр по статусу
                             <select
                               value={teamApplicationStatusFilter}
@@ -5638,7 +5810,7 @@ export default function AdminPage() {
                                 );
                                 setTeamApplicationFeedback(null);
                               }}
-                              className="mt-2 w-full rounded-2xl border border-stone-300 bg-white px-4 py-3 text-base text-stone-950 outline-none transition focus:border-stone-500"
+                              className="mt-2 w-full rounded-2xl border border-white/10 bg-[#0b0f13] px-4 py-3 text-base text-stone-100 outline-none transition focus:border-amber-400"
                             >
                               {teamApplicationFilterOptions.map((option) => (
                                 <option key={option.value} value={option.value}>
@@ -5648,7 +5820,7 @@ export default function AdminPage() {
                             </select>
                           </label>
 
-                          <label className="text-sm font-medium text-stone-700">
+                          <label className="text-sm font-medium text-stone-300">
                             Фильтр по команде
                             <select
                               value={teamApplicationTeamFilter}
@@ -5656,7 +5828,7 @@ export default function AdminPage() {
                                 setTeamApplicationTeamFilter(event.target.value);
                                 setTeamApplicationFeedback(null);
                               }}
-                              className="mt-2 w-full rounded-2xl border border-stone-300 bg-white px-4 py-3 text-base text-stone-950 outline-none transition focus:border-stone-500"
+                              className="mt-2 w-full rounded-2xl border border-white/10 bg-[#0b0f13] px-4 py-3 text-base text-stone-100 outline-none transition focus:border-amber-400"
                             >
                               <option value="ALL">Все команды ({teamApplicationTeamOptions.length})</option>
                               {teamApplicationTeamOptions.map((team) => (
@@ -5669,9 +5841,9 @@ export default function AdminPage() {
                         </div>
 
                         {filteredTeamApplications.length === 0 ? (
-                          <div className="rounded-2xl border border-dashed border-stone-300 bg-stone-50 p-8 text-center">
+                          <div className="rounded-[1.5rem] border border-white/8 bg-white/[0.04] p-8 text-center">
                             <p className="text-3xl">📋</p>
-                            <p className="mt-3 text-sm font-medium text-stone-700">По текущим фильтрам заявок нет</p>
+                            <p className="mt-3 text-sm font-medium text-stone-300">По текущим фильтрам заявок нет</p>
                             <p className="mt-1 text-xs text-stone-500">Дождитесь новых заявок или измените фильтры</p>
                           </div>
                         ) : (
@@ -5688,7 +5860,7 @@ export default function AdminPage() {
                                   className={`w-full rounded-2xl border p-4 text-left transition ${
                                     isSelected
                                       ? 'border-stone-950 bg-stone-950 text-white shadow-[0_18px_45px_-35px_rgba(0,0,0,0.45)]'
-                                      : 'border-stone-200 bg-stone-50 hover:border-stone-400 hover:bg-white'
+                                      : 'border-white/8 bg-white/[0.035] hover:border-white/16 hover:bg-white/[0.06]'
                                   }`}
                                 >
                                   <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
@@ -5698,7 +5870,7 @@ export default function AdminPage() {
                                       </p>
                                       <p
                                         className={`mt-1 text-sm ${
-                                          isSelected ? 'text-stone-300' : 'text-stone-600'
+                                          isSelected ? 'text-stone-300' : 'text-stone-400'
                                         }`}
                                       >
                                         {application.team.name} /{' '}
@@ -5706,7 +5878,7 @@ export default function AdminPage() {
                                       </p>
                                       <p
                                         className={`mt-2 text-sm ${
-                                          isSelected ? 'text-stone-300' : 'text-stone-700'
+                                          isSelected ? 'text-stone-300' : 'text-stone-300'
                                         }`}
                                       >
                                         {application.reviewedBy
@@ -5740,15 +5912,15 @@ export default function AdminPage() {
                         )}
                       </div>
 
-                      <div className="rounded-[24px] border border-stone-200 bg-stone-50 p-5">
+                      <div className="rounded-[1.5rem] border border-white/8 bg-white/[0.04] p-5">
                         {selectedTeamApplication && activeTeamApplicationEditor ? (
                           <div className="space-y-5">
                             {teamApplicationFeedback ? (
                               <p
                                 className={`rounded-2xl border px-4 py-3 text-sm ${
                                   teamApplicationFeedback.tone === 'success'
-                                    ? 'border-emerald-200 bg-emerald-50 text-emerald-700'
-                                    : 'border-rose-200 bg-rose-50 text-rose-700'
+                                    ? 'border-emerald-400/30 bg-emerald-500/12 text-emerald-100'
+                                    : 'border-rose-400/30 bg-rose-500/12 text-rose-100'
                                 }`}
                               >
                                 {teamApplicationFeedback.message}
@@ -5756,7 +5928,7 @@ export default function AdminPage() {
                             ) : null}
 
                             {!isTeamApplicationEditable ? (
-                              <p className="rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
+                              <p className="rounded-2xl border border-amber-300/30 bg-amber-400/10 px-4 py-3 text-sm text-amber-100">
                                 В этом модуле редактирование доступно только для
                                 MANAGER и ADMIN. Тренер видит заявки в режиме
                                 просмотра.
@@ -5768,13 +5940,13 @@ export default function AdminPage() {
                                 <p className="text-xs font-semibold uppercase tracking-[0.16em] text-stone-500">
                                   Заявка #{selectedTeamApplication.id}
                                 </p>
-                                <h3 className="mt-2 flex items-center gap-2 text-xl font-semibold text-stone-950">
+                                <h3 className="mt-2 flex items-center gap-2 text-xl font-semibold text-white">
                                   {formatPersonName(selectedTeamApplication.participant)}
                                   {isTeamApplicationDirty && (
                                     <span className="inline-block h-2 w-2 rounded-full bg-rose-500" title="Есть несохранённые изменения"></span>
                                   )}
                                 </h3>
-                                <p className="mt-2 text-sm text-stone-600">
+                                <p className="mt-2 text-sm text-stone-400">
                                   {selectedTeamApplication.team.name} /{' '}
                                   {selectedTeamApplication.team.city?.name ||
                                     'Город не указан'}
@@ -5790,27 +5962,27 @@ export default function AdminPage() {
                             </div>
 
                             <div className="grid gap-3 sm:grid-cols-2">
-                              <div className="rounded-2xl bg-white p-4">
+                              <div className="rounded-2xl border border-white/10 bg-black/20 p-4">
                                 <p className="text-xs font-semibold uppercase tracking-[0.14em] text-stone-500">
                                   Создана
                                 </p>
-                                <p className="mt-2 text-sm text-stone-800">
+                                <p className="mt-2 text-sm text-stone-200">
                                   {formatDateTime(selectedTeamApplication.createdAt)}
                                 </p>
                               </div>
-                              <div className="rounded-2xl bg-white p-4">
+                              <div className="rounded-2xl border border-white/10 bg-black/20 p-4">
                                 <p className="text-xs font-semibold uppercase tracking-[0.14em] text-stone-500">
                                   Обновлена
                                 </p>
-                                <p className="mt-2 text-sm text-stone-800">
+                                <p className="mt-2 text-sm text-stone-200">
                                   {formatDateTime(selectedTeamApplication.updatedAt)}
                                 </p>
                               </div>
-                              <div className="rounded-2xl bg-white p-4 sm:col-span-2">
+                              <div className="rounded-2xl border border-white/10 bg-black/20 p-4 sm:col-span-2">
                                 <p className="text-xs font-semibold uppercase tracking-[0.14em] text-stone-500">
                                   Кто обработал
                                 </p>
-                                <p className="mt-2 text-sm text-stone-800">
+                                <p className="mt-2 text-sm text-stone-200">
                                   {selectedTeamApplication.reviewedBy
                                     ? formatUserIdentity(selectedTeamApplication.reviewedBy)
                                     : 'Заявка ещё не обрабатывалась'}
@@ -5819,17 +5991,17 @@ export default function AdminPage() {
                             </div>
 
                             <div className="grid gap-4">
-                              <div className="rounded-2xl bg-white p-4">
+                              <div className="rounded-2xl border border-white/10 bg-black/20 p-4">
                                 <p className="text-xs font-semibold uppercase tracking-[0.14em] text-stone-500">
                                   Комментарий пользователя
                                 </p>
-                                <p className="mt-2 whitespace-pre-wrap text-sm leading-6 text-stone-800">
+                                <p className="mt-2 whitespace-pre-wrap text-sm leading-6 text-stone-200">
                                   {selectedTeamApplication.commentFromApplicant ||
                                     'Комментарий от заявителя не указан.'}
                                 </p>
                               </div>
 
-                              <label className="text-sm font-medium text-stone-700">
+                              <label className="text-sm font-medium text-stone-300">
                                 Статус заявки
                                 {canEditSelectedTeamApplicationStatus ? (
                                   <select
@@ -5854,7 +6026,7 @@ export default function AdminPage() {
                                       savingTeamApplicationId ===
                                       selectedTeamApplication.id
                                     }
-                                    className="mt-2 w-full rounded-2xl border border-stone-300 bg-white px-4 py-3 text-base text-stone-950 outline-none transition focus:border-stone-500 disabled:cursor-not-allowed disabled:bg-stone-100"
+                                    className="mt-2 w-full rounded-2xl border border-white/10 bg-[#0b0f13] px-4 py-3 text-base text-stone-100 outline-none transition focus:border-amber-400 disabled:cursor-not-allowed disabled:border-white/6 disabled:bg-white/[0.04] disabled:text-stone-500"
                                   >
                                     {staffManagedTeamApplicationStatusOptions.map(
                                       (option) => (
@@ -5865,7 +6037,7 @@ export default function AdminPage() {
                                     )}
                                   </select>
                                 ) : (
-                                  <div className="mt-2 rounded-2xl border border-stone-300 bg-white px-4 py-3 text-sm text-stone-800">
+                                  <div className="mt-2 rounded-[1.25rem] border border-white/10 bg-black/20 px-4 py-3 text-sm text-stone-200">
                                     {formatStatus(selectedTeamApplication.status)}
                                     {selectedTeamApplication.status === 'CANCELLED'
                                       ? ' — отменённые заявки в этом модуле меняются только через заметку.'
@@ -5874,7 +6046,7 @@ export default function AdminPage() {
                                 )}
                               </label>
 
-                              <label className="text-sm font-medium text-stone-700">
+                              <label className="text-sm font-medium text-stone-300">
                                 Internal note
                                 <textarea
                                   value={activeTeamApplicationEditor.internalNote}
@@ -5902,14 +6074,14 @@ export default function AdminPage() {
                                       selectedTeamApplication.id
                                   }
                                   placeholder="Внутренняя заметка staff"
-                                  className="mt-2 w-full rounded-2xl border border-stone-300 bg-white px-4 py-3 text-base text-stone-950 outline-none transition focus:border-stone-500 disabled:cursor-not-allowed disabled:bg-stone-100"
+                                  className="mt-2 w-full rounded-2xl border border-white/10 bg-[#0b0f13] px-4 py-3 text-base text-stone-100 outline-none transition focus:border-amber-400 disabled:cursor-not-allowed disabled:border-white/6 disabled:bg-white/[0.04] disabled:text-stone-500"
                                 />
                               </label>
                             </div>
 
                             {isTeamApplicationEditable ? (
                               <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-                                <p className="text-sm text-stone-600">
+                                <p className="text-sm text-stone-400">
                                   {selectedTeamApplication.reviewedBy
                                     ? 'После сохранения updatedAt и reviewedBy обновятся сразу в интерфейсе.'
                                     : 'После первого сохранения заявка получит reviewedBy без ручной перезагрузки.'}
@@ -5933,7 +6105,7 @@ export default function AdminPage() {
                             ) : null}
                           </div>
                         ) : (
-                          <p className="rounded-2xl border border-dashed border-stone-300 bg-white p-5 text-sm text-stone-600">
+                          <p className="rounded-2xl border border-dashed border-white/10 bg-black/20 p-5 text-sm text-stone-400">
                             Выберите заявку слева, чтобы открыть её данные.
                           </p>
                         )}
@@ -5943,7 +6115,9 @@ export default function AdminPage() {
                 </SectionCard>
               ) : null}
 
-              {visibleAdminSectionIds.has('trainings') ? (
+              {visibleAdminSectionIds.has('trainings') &&
+              (activeAdminSection === 'trainings' ||
+                activeAdminSection === 'trainerWorkspace') ? (
                 <SectionCard
                   title="Тренировки"
                   description={
@@ -5982,7 +6156,8 @@ export default function AdminPage() {
                 </SectionCard>
               ) : null}
 
-              {visibleAdminSectionIds.has('rentals') ? (
+              {visibleAdminSectionIds.has('rentals') &&
+              activeAdminSection === 'rentals' ? (
                 <SectionCard
                   title="Аренда"
                   description="Сводка по бронированиям и инвентарю аренды в текущем staff/admin контуре."
@@ -6031,8 +6206,20 @@ export default function AdminPage() {
                   />
                 </SectionCard>
               ) : null}
-            </div>
-          </>
+
+              {visibleAdminSectionIds.has('promoTickets') &&
+              activeAdminSection === 'promoTickets' ? (
+                <SectionCard
+                  title="Промо-билеты"
+                  description="Операционный staff-модуль: создание призов, выдача промо-билетов пользователям и контроль фиксированных результатов без платной gambling-механики."
+                >
+                  <PromoAdminModule />
+                </SectionCard>
+              ) : null}
+                  </div>
+                ) : null}
+              </div>
+          </WorkspaceCanvas>
         ) : null}
       </div>
     </main>

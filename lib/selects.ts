@@ -515,3 +515,63 @@ export const teamApplicationInclude = {
     select: teamApplicationTeamSelect,
   },
 } satisfies Prisma.TeamApplicationInclude;
+
+export const promoPrizeSelect = {
+  id: true,
+  symbol: true,
+  title: true,
+  description: true,
+  isActive: true,
+  createdAt: true,
+  updatedAt: true,
+} satisfies Prisma.PromoPrizeSelect;
+
+export const promoTicketOwnerSelect = {
+  id: true,
+  email: true,
+  phone: true,
+  telegramId: true,
+  profiles: {
+    orderBy: [{ createdAt: 'asc' }, { id: 'asc' }],
+    take: 1,
+    select: {
+      firstName: true,
+      lastName: true,
+      profileType: true,
+    },
+  },
+} satisfies Prisma.UserSelect;
+
+export const myPromoTicketSelect = {
+  id: true,
+  code: true,
+  campaignLabel: true,
+  status: true,
+  symbols: true,
+  openedAt: true,
+  expiresAt: true,
+  createdAt: true,
+  updatedAt: true,
+  prize: {
+    select: promoPrizeSelect,
+  },
+} satisfies Prisma.PromoTicketSelect;
+
+export const adminPromoTicketSelect = {
+  id: true,
+  code: true,
+  campaignLabel: true,
+  status: true,
+  sealedSymbols: true,
+  symbols: true,
+  openedAt: true,
+  expiresAt: true,
+  createdAt: true,
+  updatedAt: true,
+  prize: {
+    select: promoPrizeSelect,
+  },
+  user: {
+    select: promoTicketOwnerSelect,
+  },
+} satisfies Prisma.PromoTicketSelect;
