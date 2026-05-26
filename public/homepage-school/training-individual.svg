@@ -1,0 +1,28 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 900 700" fill="none">
+  <defs>
+    <linearGradient id="bg" x1="86" y1="22" x2="804" y2="642" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#151F2A"/>
+      <stop offset="1" stop-color="#040609"/>
+    </linearGradient>
+    <radialGradient id="gold" cx="0" cy="0" r="1" gradientUnits="userSpaceOnUse" gradientTransform="translate(280 150) rotate(45) scale(260 180)">
+      <stop stop-color="#FF9735" stop-opacity=".45"/>
+      <stop offset="1" stop-color="#FF9735" stop-opacity="0"/>
+    </radialGradient>
+  </defs>
+  <rect width="900" height="700" rx="40" fill="url(#bg)"/>
+  <path d="M0 0h900v700H0z" fill="url(#gold)"/>
+  <rect x="82" y="90" width="736" height="520" rx="44" fill="#081018" stroke="rgba(255,255,255,0.12)"/>
+  <g opacity=".72">
+    <circle cx="282" cy="320" r="32" fill="#0D1822"/>
+    <path d="M282 362c-34 0-62 24-76 60l-14 42h180l-12-42c-14-36-42-60-78-60Z" fill="#101C27"/>
+    <circle cx="602" cy="248" r="38" fill="#0D1822"/>
+    <path d="M602 296c-42 0-74 30-88 74l-14 44h204l-12-44c-14-44-46-74-90-74Z" fill="#101C27"/>
+  </g>
+  <path d="m464 466 162-118" stroke="#F8F1E1" stroke-width="18" stroke-linecap="round"/>
+  <path d="M450 480h220" stroke="#111B23" stroke-width="10" stroke-linecap="round"/>
+  <path d="M144 350h608" stroke="rgba(255,255,255,0.16)" stroke-width="4" stroke-dasharray="14 14"/>
+  <circle cx="450" cy="350" r="90" stroke="rgba(255,255,255,0.18)" stroke-width="4"/>
+  <text x="110" y="150" fill="#98B8CC" font-family="Arial, sans-serif" font-size="24" font-weight="700" letter-spacing="8">INDIVIDUAL</text>
+  <text x="110" y="220" fill="#F7F5EE" font-family="Arial, sans-serif" font-size="80" font-weight="900">FOCUS</text>
+  <text x="110" y="560" fill="#D4E7F3" font-family="Arial, sans-serif" font-size="28" font-weight="700">one-to-one / shooting / edges / repeat until clean</text>
+</svg>

@@ -1,0 +1,29 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 900 700" fill="none">
+  <defs>
+    <linearGradient id="bg" x1="70" y1="34" x2="820" y2="650" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#101720"/>
+      <stop offset=".7" stop-color="#05080C"/>
+      <stop offset="1" stop-color="#020304"/>
+    </linearGradient>
+    <radialGradient id="blue" cx="0" cy="0" r="1" gradientUnits="userSpaceOnUse" gradientTransform="translate(676 164) rotate(147) scale(250 190)">
+      <stop stop-color="#48D8FF" stop-opacity=".38"/>
+      <stop offset="1" stop-color="#48D8FF" stop-opacity="0"/>
+    </radialGradient>
+  </defs>
+  <rect width="900" height="700" rx="40" fill="url(#bg)"/>
+  <path d="M0 0h900v700H0z" fill="url(#blue)"/>
+  <rect x="78" y="96" width="744" height="508" rx="42" fill="#09111A" stroke="rgba(255,255,255,0.12)"/>
+  <path d="M120 310 310 220l168 120 166-84 136 88" stroke="rgba(255,255,255,0.22)" stroke-width="10" stroke-linecap="round"/>
+  <path d="M450 120v460" stroke="#F25757" stroke-opacity=".44" stroke-width="6"/>
+  <path d="M120 350h660" stroke="rgba(255,255,255,0.14)" stroke-width="4" stroke-dasharray="14 14"/>
+  <g transform="translate(476 198)">
+    <circle cx="92" cy="62" r="40" fill="#09111A"/>
+    <path d="M92 118c-46 0-82 32-98 78l-18 58h232l-18-58c-16-46-52-78-98-78Z" fill="#0F1B25"/>
+    <path d="m20 278 124-102 26 28-124 102H20Z" fill="#F7F3EA"/>
+    <path d="M8 294h276" stroke="#F8F1E1" stroke-width="18" stroke-linecap="round"/>
+    <path d="M8 304h276" stroke="#101922" stroke-width="8" stroke-linecap="round"/>
+  </g>
+  <text x="102" y="154" fill="#97B6C8" font-family="Arial, sans-serif" font-size="24" font-weight="700" letter-spacing="8">SENIOR GROUP</text>
+  <text x="100" y="220" fill="#F7F5EE" font-family="Arial, sans-serif" font-size="84" font-weight="900">SPEED</text>
+  <text x="100" y="562" fill="#D4E7F3" font-family="Arial, sans-serif" font-size="28" font-weight="700">tactics / speed / match pressure / finishing</text>
+</svg>

@@ -1,0 +1,28 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 900 700" fill="none">
+  <defs>
+    <linearGradient id="bg" x1="40" y1="24" x2="826" y2="662" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#162635"/>
+      <stop offset="1" stop-color="#06090D"/>
+    </linearGradient>
+    <radialGradient id="spot" cx="0" cy="0" r="1" gradientUnits="userSpaceOnUse" gradientTransform="translate(220 160) rotate(35.4) scale(280 220)">
+      <stop stop-color="#FF9A3C" stop-opacity=".46"/>
+      <stop offset="1" stop-color="#FF9A3C" stop-opacity="0"/>
+    </radialGradient>
+  </defs>
+  <rect width="900" height="700" rx="40" fill="url(#bg)"/>
+  <rect x="72" y="92" width="756" height="516" rx="44" fill="#0B1218" stroke="rgba(255,255,255,0.12)"/>
+  <path d="M72 92h756v516H72z" fill="url(#spot)"/>
+  <path d="M450 116v468" stroke="#FA5858" stroke-opacity=".48" stroke-width="6"/>
+  <path d="M112 350h676" stroke="rgba(255,255,255,0.14)" stroke-width="4" stroke-dasharray="14 14"/>
+  <circle cx="450" cy="350" r="88" stroke="rgba(255,255,255,0.18)" stroke-width="4"/>
+  <g transform="translate(516 192)">
+    <circle cx="76" cy="64" r="38" fill="#081018"/>
+    <path d="M74 104c-42 0-76 30-92 74l-14 42h214l-14-42c-16-44-50-74-94-74Z" fill="#0E1821"/>
+    <path d="m18 238 78-62 22 26-78 62H18Z" fill="#F8F1E1"/>
+    <path d="M0 250h238" stroke="#111B23" stroke-width="12" stroke-linecap="round"/>
+    <path d="M0 242h238" stroke="#F8F1E1" stroke-width="20" stroke-linecap="round"/>
+  </g>
+  <text x="118" y="166" fill="#8EB0C7" font-family="Arial, sans-serif" font-size="26" font-weight="700" letter-spacing="8">FIRST STEPS</text>
+  <text x="118" y="232" fill="#F7F5EE" font-family="Arial, sans-serif" font-size="90" font-weight="900">KIDS</text>
+  <text x="118" y="552" fill="#CFE5F2" font-family="Arial, sans-serif" font-size="28" font-weight="700">balance / skating / confidence</text>
+</svg>

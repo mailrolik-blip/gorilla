@@ -1,3 +1,5 @@
+import Image from 'next/image';
+import Link from 'next/link';
 import type { ReactNode } from 'react';
 
 type WorkspaceHeroProps = {
@@ -30,6 +32,29 @@ export function WorkspaceHero({
         className={`relative ${media ? 'grid gap-8 xl:grid-cols-[minmax(0,1.04fr)_minmax(360px,0.96fr)] xl:items-stretch' : 'flex flex-col gap-6 xl:flex-row xl:items-end xl:justify-between'}`}
       >
         <div className="flex min-w-0 flex-col justify-between">
+          <div className="mb-5">
+            <Link
+              href="/"
+              className="inline-flex items-center gap-3 rounded-full border border-white/10 bg-white/[0.04] px-3 py-2 backdrop-blur transition hover:bg-white/[0.07]"
+            >
+              <Image
+                src="/homepage-school/gorilla-logo.png"
+                alt="Gorilla Hockey"
+                width={56}
+                height={30}
+                className="h-auto w-14"
+                priority={false}
+              />
+              <div className="min-w-0">
+                <p className="truncate text-[11px] font-black uppercase tracking-[0.18em] text-white">
+                  Gorilla Hockey
+                </p>
+                <p className="truncate text-[10px] uppercase tracking-[0.24em] text-stone-500">
+                  staff / cabinet
+                </p>
+              </div>
+            </Link>
+          </div>
           <p className="text-[11px] font-semibold uppercase tracking-[0.34em] text-amber-300/90">
             {eyebrow}
           </p>

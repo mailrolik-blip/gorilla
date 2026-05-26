@@ -1,0 +1,21 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1000 760" fill="none">
+  <defs>
+    <linearGradient id="bg" x1="58" y1="34" x2="934" y2="714" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#13212F"/>
+      <stop offset=".55" stop-color="#080B10"/>
+      <stop offset="1" stop-color="#030507"/>
+    </linearGradient>
+  </defs>
+  <rect width="1000" height="760" rx="44" fill="url(#bg)"/>
+  <path d="M66 86h868v588H66z" rx="38" fill="#070B10" stroke="rgba(255,255,255,0.1)"/>
+  <path d="M116 470h768" stroke="rgba(255,255,255,0.16)" stroke-width="6"/>
+  <path d="M146 420 260 342l86 92 128-178 102 124 140-184 118 274H146Z" fill="rgba(248,162,69,0.18)"/>
+  <path d="M142 520h714" stroke="rgba(255,255,255,0.18)" stroke-width="6" stroke-dasharray="18 18"/>
+  <circle cx="500" cy="520" r="84" stroke="rgba(255,255,255,0.2)" stroke-width="4"/>
+  <text x="116" y="192" fill="#9AB6C8" font-family="Arial, sans-serif" font-size="28" font-weight="700" letter-spacing="10">MOSCOW</text>
+  <text x="114" y="274" fill="#F7F5EE" font-family="Arial, sans-serif" font-size="96" font-weight="900">TEAM</text>
+  <text x="116" y="342" fill="#F8A245" font-family="Arial, sans-serif" font-size="32" font-weight="800">LHL PRIZE WINNERS</text>
+  <text x="116" y="628" fill="#D8EBF5" font-family="Arial, sans-serif" font-size="30" font-weight="700">city pace / game reps / club signal</text>
+  <rect x="714" y="112" width="170" height="72" rx="24" fill="rgba(255,255,255,0.05)" stroke="rgba(255,255,255,0.12)"/>
+  <text x="756" y="158" fill="#F7F5EE" font-family="Arial, sans-serif" font-size="30" font-weight="700">6:3</text>
+</svg>

@@ -1,0 +1,11 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 820 560" fill="none">
+  <rect width="820" height="560" rx="34" fill="#09111A"/>
+  <path d="M86 116 220 78l112 66 148-54 88 84 128-18 38 116-60 100-138 30-84 92-150-28-118 16-108-92 24-132 72-92Z" fill="#101B25" stroke="rgba(255,255,255,0.12)" stroke-width="3"/>
+  <path d="M132 420 312 272 442 320 636 194" stroke="#5EDFFF" stroke-width="8" stroke-linecap="round"/>
+  <circle cx="636" cy="194" r="18" fill="#F8A245"/>
+  <circle cx="312" cy="272" r="12" fill="#F7F5EE"/>
+  <circle cx="442" cy="320" r="12" fill="#F7F5EE"/>
+  <rect x="86" y="70" width="196" height="64" rx="22" fill="rgba(255,255,255,0.06)" stroke="rgba(255,255,255,0.12)"/>
+  <text x="126" y="112" fill="#F7F5EE" font-family="Arial, sans-serif" font-size="28" font-weight="800">MOSCOW</text>
+  <text x="86" y="514" fill="#A9C1D0" font-family="Arial, sans-serif" font-size="24" font-weight="700">route preview / school access</text>
+</svg>

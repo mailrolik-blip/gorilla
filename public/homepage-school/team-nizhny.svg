@@ -1,0 +1,26 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1000 760" fill="none">
+  <defs>
+    <linearGradient id="bg" x1="84" y1="22" x2="912" y2="706" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#10161D"/>
+      <stop offset=".6" stop-color="#08121A"/>
+      <stop offset="1" stop-color="#020305"/>
+    </linearGradient>
+    <radialGradient id="blue" cx="0" cy="0" r="1" gradientUnits="userSpaceOnUse" gradientTransform="translate(738 198) rotate(142) scale(250 190)">
+      <stop stop-color="#59DEFF" stop-opacity=".34"/>
+      <stop offset="1" stop-color="#59DEFF" stop-opacity="0"/>
+    </radialGradient>
+  </defs>
+  <rect width="1000" height="760" rx="44" fill="url(#bg)"/>
+  <path d="M0 0h1000v760H0z" fill="url(#blue)"/>
+  <rect x="72" y="86" width="856" height="588" rx="38" fill="#070C11" stroke="rgba(255,255,255,0.1)"/>
+  <path d="M130 498h744" stroke="rgba(255,255,255,0.16)" stroke-width="6"/>
+  <path d="M152 448 294 372l108 62 96-122 122 72 108-138 124 202H152Z" fill="rgba(90,217,255,0.16)"/>
+  <path d="M136 548h730" stroke="rgba(255,255,255,0.18)" stroke-width="6" stroke-dasharray="18 18"/>
+  <circle cx="500" cy="548" r="82" stroke="rgba(255,255,255,0.2)" stroke-width="4"/>
+  <text x="120" y="192" fill="#9AB6C8" font-family="Arial, sans-serif" font-size="28" font-weight="700" letter-spacing="10">NIZHNY NOVGOROD</text>
+  <text x="118" y="274" fill="#F7F5EE" font-family="Arial, sans-serif" font-size="84" font-weight="900">TEAM</text>
+  <text x="120" y="340" fill="#F8A245" font-family="Arial, sans-serif" font-size="32" font-weight="800">LHL MEDAL ROUTE</text>
+  <text x="120" y="636" fill="#D8EBF5" font-family="Arial, sans-serif" font-size="30" font-weight="700">games / camps / structured growth</text>
+  <rect x="724" y="112" width="162" height="72" rx="24" fill="rgba(255,255,255,0.05)" stroke="rgba(255,255,255,0.12)"/>
+  <text x="760" y="158" fill="#F7F5EE" font-family="Arial, sans-serif" font-size="30" font-weight="700">4:2</text>
+</svg>

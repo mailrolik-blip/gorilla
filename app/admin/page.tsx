@@ -5471,7 +5471,7 @@ export default function AdminPage() {
               ? 'Заявки по вашим командам и ваш тренировочный график.'
               : 'Операционный workspace для команд, состава, тренировок, аренды и promo.'
           }
-          asideLabel="Как работает staff-зона"
+          asideLabel="Режим"
           meta={adminMeta}
           actions={
             <>
@@ -5491,14 +5491,7 @@ export default function AdminPage() {
           }
           aside={
             <>
-              <p className="text-xs font-semibold uppercase tracking-[0.18em] text-amber-300">
-                Рабочий принцип
-              </p>
-              <p className="mt-2">
-                По умолчанию интерфейс показывает обзор, списки и статусы. Создание и
-                редактирование открываются только по действию внутри активной
-                секции.
-              </p>
+              <p className="mt-2">Создание и редактирование открываются только внутри активной секции.</p>
             </>
           }
         />

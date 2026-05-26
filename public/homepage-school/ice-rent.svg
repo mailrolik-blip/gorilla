@@ -1,0 +1,26 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 840" fill="none">
+  <defs>
+    <linearGradient id="bg" x1="86" y1="36" x2="1112" y2="780" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#13212F"/>
+      <stop offset=".62" stop-color="#070B10"/>
+      <stop offset="1" stop-color="#030506"/>
+    </linearGradient>
+  </defs>
+  <rect width="1200" height="840" rx="48" fill="url(#bg)"/>
+  <rect x="118" y="110" width="964" height="620" rx="56" fill="#09111A" stroke="rgba(255,255,255,0.12)" stroke-width="4"/>
+  <path d="M600 124v592" stroke="#F25656" stroke-opacity=".48" stroke-width="8"/>
+  <path d="M190 420h820" stroke="rgba(255,255,255,0.16)" stroke-width="4" stroke-dasharray="18 18"/>
+  <circle cx="600" cy="420" r="120" stroke="rgba(255,255,255,0.18)" stroke-width="4"/>
+  <rect x="180" y="184" width="188" height="110" rx="30" fill="rgba(255,255,255,0.06)" stroke="rgba(255,255,255,0.12)"/>
+  <text x="220" y="236" fill="#F7F5EE" font-family="Arial, sans-serif" font-size="34" font-weight="800">ICE A</text>
+  <text x="220" y="276" fill="#A7C0D0" font-family="Arial, sans-serif" font-size="22" font-weight="700">booking slots</text>
+  <rect x="824" y="544" width="188" height="110" rx="30" fill="rgba(255,255,255,0.06)" stroke="rgba(255,255,255,0.12)"/>
+  <text x="856" y="596" fill="#F7F5EE" font-family="Arial, sans-serif" font-size="34" font-weight="800">60 MIN</text>
+  <text x="856" y="636" fill="#F8A245" font-family="Arial, sans-serif" font-size="22" font-weight="700">private / team / skill</text>
+  <g>
+    <circle cx="294" cy="474" r="18" fill="#F8A245"/>
+    <circle cx="456" cy="474" r="18" fill="#5BD9FF"/>
+    <circle cx="618" cy="474" r="18" fill="#F8A245"/>
+    <circle cx="780" cy="474" r="18" fill="#5BD9FF"/>
+  </g>
+</svg>

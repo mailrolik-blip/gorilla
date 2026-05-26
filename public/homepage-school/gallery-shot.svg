@@ -1,0 +1,10 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 520 360" fill="none">
+  <rect width="520" height="360" rx="30" fill="#081018"/>
+  <rect x="38" y="58" width="444" height="244" rx="28" fill="#0A1219" stroke="rgba(255,255,255,0.12)"/>
+  <circle cx="338" cy="170" r="68" stroke="rgba(255,255,255,0.2)" stroke-width="4"/>
+  <path d="M86 246c34-36 76-54 126-54 50 0 98 18 146 54" stroke="#59DCFF" stroke-opacity=".54" stroke-width="10" stroke-linecap="round"/>
+  <path d="m112 216 86-72 22 24-86 72h-22Z" fill="#F8F1E1"/>
+  <circle cx="210" cy="142" r="20" fill="#0E1821"/>
+  <path d="M210 170c-24 0-42 16-50 40l-10 28h120l-10-28c-8-24-26-40-50-40Z" fill="#14212C"/>
+  <text x="54" y="322" fill="#F7F5EE" font-family="Arial, sans-serif" font-size="24" font-weight="700">SHOT</text>
+</svg>

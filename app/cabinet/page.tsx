@@ -11,8 +11,10 @@ import {
   WorkspaceInset,
   WorkspaceScoreStrip,
 } from '@/components/workspace-frame';
+import { useGorillaAccount } from '@/components/gorilla-account-provider';
 import { PromoTicketWorkspace } from '@/components/promo-ticket-workspace';
 import { WorkspaceSectionNav } from '@/components/workspace-section-nav';
+import { homepageSchoolContent } from '@/content/homepage-school';
 import { getRoleCapabilities } from '@/lib/app-access';
 
 type CitySummary = {
@@ -191,14 +193,14 @@ const roleLabels: Record<string, string> = {
 
 const profileTypeLabels: Record<string, string> = {
   PLAYER: 'Игрок',
-  CHILD: 'Ребенок',
+  CHILD: 'Ребёнок',
   PARENT: 'Родитель',
   ADULT: 'Взрослый',
 };
 
 const participantProfileKindLabels: Record<ParticipantProfileKind, string> = {
   SELF: 'Свой профиль',
-  CHILD: 'Ребенок',
+  CHILD: 'Ребёнок',
 };
 
 const trainingTypeLabels: Record<string, string> = {
@@ -250,7 +252,7 @@ function translateErrorMessage(message: string) {
     'Failed to fetch public rental slots': 'Не удалось загрузить список слотов аренды.',
     'Failed to fetch current user rental bookings':
       'Не удалось загрузить ваши бронирования аренды.',
-    'Failed to save participant': 'Не удалось сохранить участника.',
+    'Failed to save participant': 'Не удалось сохранить профиль.',
     'Failed to book training': 'Не удалось оформить запись на тренировку.',
     'Failed to cancel training booking': 'Не удалось отменить запись на тренировку.',
     'Failed to create team application': 'Не удалось отправить заявку в команду.',
@@ -259,7 +261,7 @@ function translateErrorMessage(message: string) {
     'Failed to cancel rental booking': 'Не удалось отменить бронирование аренды.',
     'Current user is not authenticated': 'Пользователь не авторизован.',
     'User not found': 'Пользователь не найден.',
-    'Participant not found': 'Участник не найден.',
+    'Participant not found': 'Профиль не найден.',
     'Team not found': 'Команда не найдена.',
     'Rental slot not found': 'Слот аренды не найден.',
     'Training not found': 'Тренировка не найдена.',
@@ -268,9 +270,9 @@ function translateErrorMessage(message: string) {
     'Rental slot is unavailable': 'Слот аренды сейчас недоступен.',
     'Rental slot is not available': 'Этот слот аренды сейчас недоступен для бронирования.',
     'Rental slot is already booked': 'Этот слот аренды уже забронирован.',
-    'Already booked': 'Участник уже записан на эту тренировку.',
+    'Already booked': 'Этот профиль уже записан на эту тренировку.',
     'Active team application already exists':
-      'Для выбранного участника уже есть активная заявка в эту команду.',
+      'Для выбранного профиля уже есть активная заявка в эту команду.',
     'Training booking not found': 'Запись на тренировку не найдена.',
     'Training booking is already cancelled': 'Запись на тренировку уже отменена.',
     'Team application not found': 'Заявка в команду не найдена.',
@@ -282,18 +284,18 @@ function translateErrorMessage(message: string) {
     'Invalid rental slot id': 'Некорректный слот аренды.',
     'Invalid rental booking id': 'Некорректное бронирование аренды.',
     'training id and participantId must be positive integers':
-      'Некорректно указаны тренировка или участник.',
+      'Некорректно указаны тренировка или профиль.',
     'participantId must be a positive integer':
-      'Выберите корректного участника.',
+      'Выберите корректный профиль.',
     'commentFromApplicant must be a string':
       'Комментарий к заявке указан некорректно.',
     'noteFromUser must be a string':
       'Комментарий к бронированию указан некорректно.',
     'userId and profileType are required':
-      'Не удалось создать участника: не хватает обязательных данных.',
+      'Не удалось создать профиль: не хватает обязательных данных.',
     'profileType cannot be empty': 'Тип профиля не может быть пустым.',
     'birthDate must be a valid date': 'Укажите корректную дату рождения.',
-    'No valid fields provided for update': 'Нет данных для обновления участника.',
+    'No valid fields provided for update': 'Нет данных для обновления профиля.',
     'Invalid relation provided': 'Связанные данные указаны некорректно.',
     'Parent participant not found': 'Родительский профиль не найден.',
     'City not found': 'Город не найден.',
@@ -345,7 +347,7 @@ function formatProfileType(profileType: string | null) {
 
 function formatPersonName(person: PersonSummary | null) {
   if (!person) {
-    return 'Участник не указан';
+    return 'Профиль не указан';
   }
 
   const fullName = [person.firstName, person.lastName].filter(Boolean).join(' ');
@@ -603,6 +605,7 @@ function SectionCard(props: {
 }
 
 export default function CabinetPage() {
+  const { pointsBalance, nextReward, unlockedRewards } = useGorillaAccount();
   const router = useRouter();
   const [dashboard, setDashboard] = useState<DashboardPayload | null>(null);
   const [status, setStatus] = useState<'loading' | 'ready' | 'error'>('loading');
@@ -1395,7 +1398,7 @@ export default function CabinetPage() {
     const lastName = participantForm.lastName.trim();
 
     if (!firstName || !lastName) {
-      setParticipantError('Укажите имя и фамилию участника.');
+      setParticipantError('Укажите имя и фамилию.');
       setParticipantSuccess(null);
       return;
     }
@@ -1418,7 +1421,7 @@ export default function CabinetPage() {
 
     try {
       if (participantFormMode === 'edit' && !editingParticipantId) {
-        throw new Error('Участник для редактирования не выбран.');
+        throw new Error('Профиль для редактирования не выбран.');
       }
 
       const request =
@@ -1462,13 +1465,13 @@ export default function CabinetPage() {
       const reloadWasSuccessful = await reloadDashboard(true);
 
       if (!reloadWasSuccessful) {
-        throw new Error('Не удалось обновить список участников.');
+        throw new Error('Не удалось обновить список детей.');
       }
 
       const successMessage =
         participantFormMode === 'create'
-          ? 'Участник успешно добавлен.'
-          : 'Данные участника сохранены.';
+          ? 'Профиль добавлен.'
+          : 'Данные профиля сохранены.';
 
       resetParticipantForm({ preserveSuccess: true });
       setIsParticipantFormOpen(false);
@@ -1477,7 +1480,7 @@ export default function CabinetPage() {
       setParticipantError(
         saveError instanceof Error
           ? saveError.message
-          : 'Не удалось сохранить участника.'
+          : 'Не удалось сохранить профиль.'
       );
     } finally {
       setParticipantStatus('idle');
@@ -1509,7 +1512,7 @@ export default function CabinetPage() {
       setTrainingFeedback({
         scope: 'catalog',
         tone: 'error',
-        message: 'Сначала добавьте участника в разделе «Мои участники».',
+        message: 'Сначала добавьте профиль в разделе «Дети».',
       });
       return;
     }
@@ -1520,7 +1523,7 @@ export default function CabinetPage() {
       setTrainingFeedback({
         scope: 'catalog',
         tone: 'error',
-        message: 'Выберите участника для записи на тренировку.',
+        message: 'Выберите профиль для записи на тренировку.',
       });
       return;
     }
@@ -1535,7 +1538,7 @@ export default function CabinetPage() {
       setTrainingFeedback({
         scope: 'catalog',
         tone: 'error',
-        message: 'Выбранный участник уже записан на эту тренировку.',
+        message: 'Этот профиль уже записан на эту тренировку.',
       });
       return;
     }
@@ -1659,7 +1662,7 @@ export default function CabinetPage() {
       setTeamFeedback({
         scope: 'catalog',
         tone: 'error',
-        message: 'Сначала добавьте участника в разделе «Мои участники».',
+        message: 'Сначала добавьте профиль в разделе «Дети».',
       });
       return;
     }
@@ -1670,7 +1673,7 @@ export default function CabinetPage() {
       setTeamFeedback({
         scope: 'catalog',
         tone: 'error',
-        message: 'Выберите участника для заявки в команду.',
+        message: 'Выберите профиль для заявки в команду.',
       });
       return;
     }
@@ -1937,7 +1940,7 @@ export default function CabinetPage() {
     currentUserCapabilities?.cabinetViewMode === 'secondary';
   const cabinetDescription =
     currentUserCapabilities?.cabinetDescription ??
-    'Единая точка входа для ваших участников, записей на тренировки, заявок в команду и бронирований.';
+    'Единая точка входа для ваших детей, записей на тренировки, заявок в команду и бронирований.';
   const cabinetNavItems = [
     {
       id: 'overview' as const,
@@ -1947,7 +1950,7 @@ export default function CabinetPage() {
     },
     {
       id: 'participants' as const,
-      label: 'Участники',
+      label: 'Дети',
       description: 'Список и редактирование по запросу.',
       badge: dashboard ? dashboard.participants.length : null,
     },
@@ -1979,7 +1982,7 @@ export default function CabinetPage() {
   const cabinetMetrics = dashboard
     ? [
         {
-          label: 'Участники',
+          label: 'Дети',
           value: String(dashboard.participants.length),
           detail: 'Профили игроков и детей, привязанные к вашему кабинету.',
         },
@@ -2009,7 +2012,7 @@ export default function CabinetPage() {
         onClick={openParticipantCreateForm}
         className="rounded-full bg-amber-400 px-4 py-2 text-sm font-black text-black transition hover:bg-amber-300"
       >
-        Новый участник
+        Добавить ребенка
       </button>
     ) : activeCabinetSection === 'promo' ? (
       <Link
@@ -2027,6 +2030,9 @@ export default function CabinetPage() {
       <span className="rounded-full border border-white/10 bg-white/8 px-3 py-1 text-xs font-semibold text-stone-200">
         Город: {dashboard.currentUser.preferredCity?.name || 'не указан'}
       </span>
+      <span className="rounded-full border border-amber-300/24 bg-amber-400/10 px-3 py-1 text-xs font-semibold uppercase tracking-[0.14em] text-amber-200">
+        Gorilla Points: {pointsBalance} GP
+      </span>
     </div>
   ) : null;
 
@@ -2037,7 +2043,7 @@ export default function CabinetPage() {
           eyebrow={isStaffSecondaryView ? 'Пользовательский контур' : 'Личный кабинет'}
           title={isStaffSecondaryView ? 'Пользовательский кабинет' : 'Ваш кабинет Gorilla'}
           description={cabinetDescription}
-          asideLabel="Как работает кабинет"
+          asideLabel="Режим"
           meta={currentUserMeta}
           actions={
             <>
@@ -2060,24 +2066,11 @@ export default function CabinetPage() {
           aside={
             isStaffSecondaryView ? (
               <>
-                <p className="text-xs font-semibold uppercase tracking-[0.18em] text-amber-300">
-                  Staff note
-                </p>
-                <p className="mt-2">
-                  Основной рабочий вход для staff-ролей находится в <code>/admin</code>.
-                  Этот экран остаётся вторичным пользовательским видом для проверки
-                  user-flow.
-                </p>
+                <p className="mt-2">Основной staff-вход находится в <code>/admin</code>.</p>
               </>
             ) : (
               <>
-                <p className="text-xs font-semibold uppercase tracking-[0.18em] text-amber-300">
-                  Рабочий принцип
-                </p>
-                <p className="mt-2">
-                  По умолчанию вы видите обзор, списки и статусы. Формы открытия,
-                  добавления и редактирования появляются только по действию.
-                </p>
+                <p className="mt-2">Формы и действия открываются только внутри нужного сценария.</p>
               </>
             )
           }
@@ -2155,7 +2148,7 @@ export default function CabinetPage() {
                           onClick={openParticipantCreateForm}
                           className="rounded-full bg-amber-400 px-4 py-2 text-sm font-black text-black transition hover:bg-amber-300"
                         >
-                          Новый участник
+                          Добавить ребенка
                         </button>
                         <Link
                           href="/promo-tickets"
@@ -2185,6 +2178,35 @@ export default function CabinetPage() {
                           Телеграм: {dashboard.currentUser.telegramId || 'Не указан'}
                         </p>
                       </WorkspaceInset>
+                      <WorkspaceInset tone="accent" className="p-4">
+                        <p className="text-sm font-medium text-amber-100">Gorilla Points</p>
+                        <p className="mt-3 text-3xl font-semibold tracking-[-0.04em] text-white">
+                          {pointsBalance} GP
+                        </p>
+                        <p className="mt-2 text-sm text-stone-300">
+                          {nextReward
+                            ? `Следующая фиксированная награда откроется на ${nextReward.cost} GP.`
+                            : 'Базовые награды уже открыты. Можно переходить к обмену через школу.'}
+                        </p>
+                        {nextReward ? (
+                          <p className="mt-3 text-sm text-amber-100">{nextReward.title}</p>
+                        ) : null}
+                        {unlockedRewards.length > 0 ? (
+                          <div className="mt-4 flex flex-wrap gap-2">
+                            {unlockedRewards.slice(-2).map((reward) => (
+                              <a
+                                key={reward.id}
+                                href={homepageSchoolContent.site.telegramHref}
+                                target="_blank"
+                                rel="noreferrer"
+                                className="rounded-full border border-amber-300/24 bg-black/18 px-3 py-1.5 text-[11px] font-semibold uppercase tracking-[0.16em] text-amber-100 transition hover:bg-black/28"
+                              >
+                                {reward.title}
+                              </a>
+                            ))}
+                          </div>
+                        ) : null}
+                      </WorkspaceInset>
                     </div>
                   </div>
                 </SectionCard>
@@ -2207,8 +2229,8 @@ export default function CabinetPage() {
                 >
               <SectionCard
                 className={activeCabinetSection === 'participants' ? '' : 'hidden'}
-                eyebrow="Участники"
-                title="Мои участники"
+                eyebrow="Дети"
+                title="Мои дети"
               >
                   <div className="grid gap-6 lg:grid-cols-[1.1fr_0.9fr]">
                     <div className="space-y-4">
@@ -2221,7 +2243,7 @@ export default function CabinetPage() {
                         onClick={openParticipantCreateForm}
                         className="rounded-full border border-white/12 bg-black/20 px-4 py-2 text-sm font-medium text-stone-200 transition hover:border-white/20 hover:bg-white/6 hover:text-white"
                       >
-                        Новый участник
+                        Добавить ребенка
                       </button>
                     </div>
 
@@ -2239,7 +2261,7 @@ export default function CabinetPage() {
 
                     {dashboard.participants.length === 0 ? (
                       <div className="rounded-[1.35rem] border border-white/8 bg-white/[0.04] p-5 text-sm text-stone-400">
-                        У вас пока нет участников. Откройте форму по кнопке «Новый участник», чтобы добавить первого.
+                        У вас пока нет добавленных детей. Откройте форму по кнопке «Добавить ребенка», чтобы создать первый профиль.
                       </div>
                     ) : (
                       <div className="space-y-3">
@@ -2290,17 +2312,17 @@ export default function CabinetPage() {
                         <div>
                           <p className="text-sm font-medium text-stone-500">
                             {participantFormMode === 'create'
-                              ? 'Новый участник'
-                              : `Редактирование участника #${editingParticipantId}`}
+                              ? 'Новый профиль'
+                              : `Редактирование профиля #${editingParticipantId}`}
                           </p>
                           <h3 className="mt-2 text-lg font-semibold text-white">
                             {participantFormMode === 'create'
-                              ? 'Добавить участника'
-                              : 'Изменить данные участника'}
+                              ? 'Добавить профиль'
+                              : 'Изменить данные профиля'}
                           </h3>
                           <p className="mt-1 text-sm text-stone-400">
                             {participantFormMode === 'create'
-                              ? 'Заполните основные данные участника. После сохранения список обновится автоматически.'
+                              ? 'Заполните основные данные профиля. После сохранения список обновится автоматически.'
                               : 'Измените поля и сохраните обновленные данные без перезагрузки страницы.'}
                           </p>
                         </div>
@@ -2355,7 +2377,7 @@ export default function CabinetPage() {
                             className="rounded-2xl border border-white/10 bg-[#0b0f13] px-4 py-3 text-base text-stone-100 outline-none transition focus:border-amber-400"
                           >
                             <option value="SELF">Свой профиль</option>
-                            <option value="CHILD">Ребенок</option>
+                            <option value="CHILD">Ребёнок</option>
                           </select>
                         </label>
 
@@ -2386,7 +2408,7 @@ export default function CabinetPage() {
                             {participantStatus === 'saving'
                               ? 'Сохраняем...'
                               : participantFormMode === 'create'
-                                ? 'Добавить участника'
+                                ? 'Добавить профиль'
                                 : 'Сохранить изменения'}
                           </button>
                           <button
@@ -2403,10 +2425,10 @@ export default function CabinetPage() {
                   ) : (
                     <div className="rounded-[24px] border border-dashed border-white/10 bg-black/20 p-5">
                       <p className="text-sm font-medium text-stone-300">
-                        Форма скрыта. Откройте её по действию, когда нужно добавить или изменить участника.
+                        Форма скрыта. Откройте её по действию, когда нужно добавить или изменить профиль.
                       </p>
                       <p className="mt-2 text-sm text-stone-400">
-                        Для новой записи используйте кнопку «Новый участник». Для изменения уже созданного профиля выберите «Редактировать» в списке.
+                        Для нового профиля используйте кнопку «Добавить ребенка». Для изменения уже созданного профиля выберите «Редактировать» в списке.
                       </p>
                       <button
                         type="button"
@@ -2428,7 +2450,7 @@ export default function CabinetPage() {
                 <div className="space-y-4">
                   <WorkspaceDisclosure label="Как записаться">
                     Выберите день, откройте тренировку и подтвердите запись для себя или
-                    участника.
+                    ребенка.
                   </WorkspaceDisclosure>
 
                   {trainingFeedback?.scope === 'catalog' ? (
@@ -2654,7 +2676,7 @@ export default function CabinetPage() {
                               
                               <div className="space-y-4">
                                 <label className="block text-sm font-medium text-stone-300">
-                                  Выберите участника
+                                  Выберите профиль
                                   <select
                                     value={selectedParticipantId ? String(selectedParticipantId) : ''}
                                     onChange={(event) =>
@@ -2664,7 +2686,7 @@ export default function CabinetPage() {
                                     className="mt-2 w-full rounded-2xl border border-white/10 bg-[#0b0f13] px-4 py-3 text-base text-stone-100 outline-none transition focus:border-amber-400 disabled:cursor-not-allowed disabled:border-white/6 disabled:bg-white/[0.04] disabled:text-stone-500"
                                   >
                                     {dashboard.participants.length === 0 ? (
-                                      <option value="">Сначала добавьте участника</option>
+                                      <option value="">Сначала добавьте профиль</option>
                                     ) : (
                                       dashboard.participants.map((participant) => (
                                         <option key={participant.id} value={participant.id}>
@@ -2677,7 +2699,7 @@ export default function CabinetPage() {
 
                                 {dashboard.participants.length === 0 && (
                                   <p className="text-sm text-stone-400">
-                                    Чтобы записаться на тренировку, сначала добавьте участника в разделе «Мои участники».
+                                    Чтобы записаться на тренировку, сначала добавьте профиль в разделе «Дети».
                                   </p>
                                 )}
 
@@ -2776,7 +2798,7 @@ export default function CabinetPage() {
               >
                 <div className="space-y-4">
                   <WorkspaceDisclosure label="Как подать заявку">
-                    Откройте нужную команду, выберите участника и отправьте заявку.
+                    Откройте нужную команду, выберите профиль и отправьте заявку.
                   </WorkspaceDisclosure>
 
                   {teamFeedback?.scope === 'catalog' ? (
@@ -2862,7 +2884,7 @@ export default function CabinetPage() {
                                 <>
                                   <div className="grid gap-3">
                                 <label className="text-sm font-medium text-stone-300">
-                                  Участник
+                                  Профиль
                                   <select
                                     value={
                                       selectedParticipantId
@@ -2882,7 +2904,7 @@ export default function CabinetPage() {
                                   >
                                     {dashboard.participants.length === 0 ? (
                                       <option value="">
-                                        Сначала добавьте участника
+                                        Сначала добавьте профиль
                                       </option>
                                     ) : (
                                       dashboard.participants.map((participant) => (
@@ -2916,8 +2938,8 @@ export default function CabinetPage() {
                                     <div className="space-y-2">
                                       {dashboard.participants.length === 0 ? (
                                         <p className="text-sm text-stone-400">
-                                          Чтобы отправить заявку, сначала добавьте участника
-                                          в разделе «Мои участники».
+                                          Чтобы отправить заявку, сначала добавьте профиль
+                                          в разделе «Дети».
                                         </p>
                                       ) : null}
                                       {existingActiveApplication && selectedParticipant ? (
@@ -3044,7 +3066,7 @@ export default function CabinetPage() {
               >
                 <div className="space-y-4">
                   <WorkspaceDisclosure label="Как оформить бронь">
-                    Откройте слот, выберите участника при необходимости и подтвердите
+                    Откройте слот, выберите профиль при необходимости и подтвердите
                     бронирование.
                   </WorkspaceDisclosure>
 
