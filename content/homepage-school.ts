@@ -19,6 +19,21 @@ export type HomepageNewsSection = {
   ctaHref: string;
 };
 
+export type HomepageLiveStream = {
+  title: string;
+  date: string;
+  status: 'upcoming' | 'replay';
+  href: string;
+  detail: string;
+};
+
+export type HomepageLiveStreamsSection = {
+  eyebrow: string;
+  title: string;
+  description: string;
+  items: HomepageLiveStream[];
+};
+
 export type HomepageStatItem = {
   value: string;
   label: string;
@@ -91,7 +106,7 @@ export type HomepageFooterLinkGroup = {
 export const homepageSchoolContent = {
   site: {
     brand: 'Gorilla Hockey',
-    logoSrc: '/homepage-school/gorilla-logo.png',
+    logoSrc: '/homepage-school/gorilla-logo-v2.png',
     logoAlt: 'Логотип Gorilla Hockey',
     phoneLabel: '+7 (910) 130-17-77',
     phoneHref: 'tel:+79101301777',
@@ -108,6 +123,7 @@ export const homepageSchoolContent = {
   menu: [
     { label: 'О школе', href: '#hero', mobileLabel: 'Главная' },
     { label: 'Новости', href: '#news', mobileLabel: 'Новости' },
+    { label: 'Трансляции', href: '#live', mobileLabel: 'Live' },
     { label: 'Тренировки', href: '#trainings', mobileLabel: 'Лёд' },
     { label: 'Команды', href: '#teams', mobileLabel: 'Команды' },
     { label: 'Тренеры', href: '#trainers' },
@@ -120,9 +136,38 @@ export const homepageSchoolContent = {
     title: 'Последние новости Gorilla Hockey Academy',
     description:
       'Показываем свежие посты школы прямо на главной: наборы, результаты матчей, расписание и важные клубные обновления.',
-    ctaLabel: 'Читать в Telegram',
+    ctaLabel: 'Открыть канал',
     ctaHref: 'https://t.me/Gorillahockeyacademy',
   } satisfies HomepageNewsSection,
+  liveStreams: {
+    eyebrow: 'Трансляции',
+    title: 'Матчи и записи клуба',
+    description:
+      'Предстоящие эфиры и записи игр Gorilla Hockey в одном блоке.',
+    items: [
+      {
+        title: 'Gorilla Hockey Moscow - домашний матч',
+        date: 'Суббота - 18:30',
+        status: 'upcoming',
+        href: 'https://t.me/Gorillahockeyacademy',
+        detail: 'Прямой эфир появится в канале перед стартовым вбрасыванием.',
+      },
+      {
+        title: 'Разбор тура ЛХЛ',
+        date: 'Воскресенье - 12:00',
+        status: 'upcoming',
+        href: 'https://t.me/Gorillahockeyacademy',
+        detail: 'Короткий эфир с тренерскими комментариями и планом на неделю.',
+      },
+      {
+        title: 'Gorilla Hockey Nizhny - игровой день',
+        date: 'Запись от 18 мая',
+        status: 'replay',
+        href: 'https://t.me/Gorillahockeyacademy',
+        detail: 'Полная запись матча и главные эпизоды для родителей и игроков.',
+      },
+    ],
+  } satisfies HomepageLiveStreamsSection,
   hero: {
     eyebrow: 'Набор в сезон 2026/27',
     title: 'Детская хоккейная школа Gorilla Hockey',

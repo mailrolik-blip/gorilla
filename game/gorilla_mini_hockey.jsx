@@ -1,7 +1,6 @@
 'use client';
 
-import Link from 'next/link';
-import { useEffect, useEffectEvent, useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 
 import { useGorillaAccount } from '@/components/gorilla-account-provider';
 
@@ -20,60 +19,6 @@ function clamp(value, min, max) {
 
 function length(x, y) {
   return Math.sqrt(x * x + y * y);
-}
-
-function getFullscreenElement() {
-  if (typeof document === 'undefined') {
-    return null;
-  }
-
-  return document.fullscreenElement ?? document.webkitFullscreenElement ?? null;
-}
-
-function supportsBrowserFullscreen(element) {
-  if (!element || typeof document === 'undefined') {
-    return false;
-  }
-
-  return Boolean(
-    document.fullscreenEnabled ||
-      document.webkitFullscreenEnabled ||
-      element.requestFullscreen ||
-      element.webkitRequestFullscreen
-  );
-}
-
-async function requestElementFullscreen(element) {
-  if (!element) {
-    return false;
-  }
-
-  if (element.requestFullscreen) {
-    await element.requestFullscreen();
-    return true;
-  }
-
-  if (element.webkitRequestFullscreen) {
-    element.webkitRequestFullscreen();
-    return true;
-  }
-
-  return false;
-}
-
-async function exitBrowserFullscreen() {
-  if (typeof document === 'undefined') {
-    return;
-  }
-
-  if (document.fullscreenElement && document.exitFullscreen) {
-    await document.exitFullscreen();
-    return;
-  }
-
-  if (document.webkitFullscreenElement && document.webkitExitFullscreen) {
-    document.webkitExitFullscreen();
-  }
 }
 
 async function tryLockLandscapeOrientation() {
@@ -107,24 +52,35 @@ function unlockLandscapeOrientation() {
 
 function getDefaultMessage(isAuthenticated) {
   return isAuthenticated
-    ? 'Игровой режим готов. Старт матча открывается на весь экран.'
-    : 'Играть можно и гостем, но для сохранения Gorilla Points нужен вход в кабинет.';
+    ? 'Матч готов. Каждый гол дает +1 Gorilla Point.'
+    : 'Гостевой режим считает голы в этой сессии. Войдите, чтобы сохранять Gorilla Points.';
 }
 
 function getFinishedMessage(score, isAuthenticated) {
   if (score.user > score.bot) {
     return isAuthenticated
       ? 'Победа. Баллы за голы уже в аккаунте.'
-      : 'Победа. Войдите, чтобы сохранять Gorilla Points после следующих матчей.';
+      : 'Победа. Войдите, чтобы сохранять Gorilla Points в следующих матчах.';
   }
 
   if (score.user === score.bot) {
     return isAuthenticated
-      ? 'Ничья. Баллы за голы всё равно сохранены.'
-      : 'Ничья. Голы засчитаны только в гостевой сессии.';
+      ? 'Ничья. Баллы за голы сохранены.'
+      : 'Ничья. Голы засчитаны в гостевой сессии.';
   }
 
-  return 'Матч завершён. Сыграй ещё и добери Gorilla Points.';
+  return 'Матч завершен. Сыграйте еще, чтобы добрать Gorilla Points.';
+}
+
+function getResetPuck(withKickoff) {
+  const direction = Math.random() > 0.5 ? 1 : -1;
+
+  return {
+    x: ARENA_W / 2,
+    y: ARENA_H / 2 + (Math.random() * 80 - 40),
+    vx: withKickoff ? 240 * direction : 0,
+    vy: withKickoff ? Math.random() * 140 - 70 : 0,
+  };
 }
 
 function VirtualJoystick({ onAxisChange }) {
@@ -150,7 +106,6 @@ function VirtualJoystick({ onAxisChange }) {
     const centerX = rect.left + rect.width / 2;
     const centerY = rect.top + rect.height / 2;
     const radius = rect.width / 2 - 18;
-
     let dx = clientX - centerX;
     let dy = clientY - centerY;
     const distance = Math.max(length(dx, dy), 0.001);
@@ -175,9 +130,6 @@ function VirtualJoystick({ onAxisChange }) {
 
   return (
     <div className="pointer-events-auto flex flex-col items-start gap-2">
-      <p className="rounded-full border border-white/10 bg-black/34 px-3 py-1 text-[10px] font-bold uppercase tracking-[0.2em] text-white/74">
-        move
-      </p>
       <div
         ref={baseRef}
         onPointerDown={(event) => {
@@ -217,13 +169,13 @@ function VirtualJoystick({ onAxisChange }) {
             window.removeEventListener('pointercancel', handlePointerEnd);
           };
         }}
-        className="relative h-36 w-36 touch-none select-none rounded-full border border-white/12 bg-[radial-gradient(circle_at_center,rgba(255,255,255,0.08),rgba(0,0,0,0.28))] shadow-[0_20px_40px_rgba(0,0,0,0.22),inset_0_1px_0_rgba(255,255,255,0.08)]"
+        className="relative h-28 w-28 touch-none select-none rounded-full border border-white/12 bg-[radial-gradient(circle_at_center,rgba(255,255,255,0.1),rgba(0,0,0,0.34))] shadow-[0_20px_40px_rgba(0,0,0,0.22),inset_0_1px_0_rgba(255,255,255,0.08)] sm:h-36 sm:w-36"
       >
         <div className="absolute inset-4 rounded-full border border-white/8" />
         <div className="absolute left-1/2 top-1/2 h-px w-[74%] -translate-x-1/2 -translate-y-1/2 bg-white/8" />
         <div className="absolute left-1/2 top-1/2 h-[74%] w-px -translate-x-1/2 -translate-y-1/2 bg-white/8" />
         <div
-          className={`absolute left-1/2 top-1/2 h-16 w-16 -translate-x-1/2 -translate-y-1/2 rounded-full border border-amber-200/44 bg-[color:var(--gh-accent)] shadow-[0_14px_34px_rgba(245,158,11,0.32)] transition ${thumb.active ? 'scale-105' : ''}`}
+          className={`absolute left-1/2 top-1/2 h-14 w-14 -translate-x-1/2 -translate-y-1/2 rounded-full border border-amber-200/44 bg-[color:var(--gh-accent)] shadow-[0_14px_34px_rgba(245,158,11,0.32)] transition sm:h-16 sm:w-16 ${thumb.active ? 'scale-105' : ''}`}
           style={{
             transform: `translate(calc(-50% + ${thumb.x}px), calc(-50% + ${thumb.y}px))`,
           }}
@@ -235,16 +187,14 @@ function VirtualJoystick({ onAxisChange }) {
 
 export default function GorillaMiniHockey() {
   const {
-    authStatus,
     isAuthenticated,
     pointsBalance,
     guestPreviewPoints,
-    nextReward,
-    unlockedRewards,
     awardGoalPoint,
   } = useGorillaAccount();
 
   const [gameModeOpen, setGameModeOpen] = useState(false);
+  const [scrollMinimized, setScrollMinimized] = useState(false);
   const [running, setRunning] = useState(false);
   const [viewState, setViewState] = useState('ready');
   const [score, setScore] = useState({ user: 0, bot: 0 });
@@ -254,24 +204,13 @@ export default function GorillaMiniHockey() {
   const [pointsFlyKey, setPointsFlyKey] = useState(0);
   const [isMobileViewport, setIsMobileViewport] = useState(false);
   const [isLandscapeViewport, setIsLandscapeViewport] = useState(true);
-  const [isBrowserFullscreen, setIsBrowserFullscreen] = useState(false);
-  const [fullscreenNotice, setFullscreenNotice] = useState(null);
   const [arenaSnapshot, setArenaSnapshot] = useState({
-    player: {
-      x: 150,
-      y: ARENA_H / 2,
-    },
-    bot: {
-      x: ARENA_W - 150,
-      y: ARENA_H / 2,
-    },
-    puck: {
-      x: ARENA_W / 2,
-      y: ARENA_H / 2,
-    },
+    player: { x: 150, y: ARENA_H / 2 },
+    bot: { x: ARENA_W - 150, y: ARENA_H / 2 },
+    puck: { x: ARENA_W / 2, y: ARENA_H / 2 },
   });
 
-  const overlayRef = useRef(null);
+  const sectionRef = useRef(null);
   const rafRef = useRef(null);
   const lastTsRef = useRef(null);
   const countdownRef = useRef(0);
@@ -281,76 +220,32 @@ export default function GorillaMiniHockey() {
   const runningRef = useRef(running);
   const viewStateRef = useRef(viewState);
   const gameModeOpenRef = useRef(gameModeOpen);
-  const isBrowserFullscreenRef = useRef(isBrowserFullscreen);
   const isMobileViewportRef = useRef(isMobileViewport);
   const isLandscapeViewportRef = useRef(isLandscapeViewport);
   const isAuthenticatedRef = useRef(isAuthenticated);
-  const wasBrowserFullscreenRef = useRef(false);
-  const skipNextFullscreenChangeRef = useRef(false);
-  const pendingFullscreenRequestRef = useRef(false);
+  const goalPopupIdRef = useRef(0);
 
-  const playerRef = useRef({
-    x: 150,
-    y: ARENA_H / 2,
-    vx: 0,
-    vy: 0,
-  });
-  const botRef = useRef({
-    x: ARENA_W - 150,
-    y: ARENA_H / 2,
-    vx: 0,
-    vy: 0,
-  });
-  const puckRef = useRef({
-    x: ARENA_W / 2,
-    y: ARENA_H / 2,
-    vx: 0,
-    vy: 0,
-  });
+  const playerRef = useRef({ x: 150, y: ARENA_H / 2, vx: 0, vy: 0 });
+  const botRef = useRef({ x: ARENA_W - 150, y: ARENA_H / 2, vx: 0, vy: 0 });
+  const puckRef = useRef({ x: ARENA_W / 2, y: ARENA_H / 2, vx: 0, vy: 0 });
 
-  const visiblePointsBalance = isAuthenticated ? pointsBalance : guestPreviewPoints;
   const pointsLabel = isAuthenticated ? `${pointsBalance} GP` : `${guestPreviewPoints} GP`;
   const needsRotateHint = gameModeOpen && isMobileViewport && !isLandscapeViewport;
+  const hasProgress = viewState !== 'ready' || score.user > 0 || score.bot > 0 || timeLeft < GAME_TIME;
 
   function syncArenaSnapshot() {
     setArenaSnapshot({
-      player: {
-        x: playerRef.current.x,
-        y: playerRef.current.y,
-      },
-      bot: {
-        x: botRef.current.x,
-        y: botRef.current.y,
-      },
-      puck: {
-        x: puckRef.current.x,
-        y: puckRef.current.y,
-      },
+      player: { x: playerRef.current.x, y: playerRef.current.y },
+      bot: { x: botRef.current.x, y: botRef.current.y },
+      puck: { x: puckRef.current.x, y: puckRef.current.y },
     });
   }
 
   function resetBodies(withKickoff = true) {
-    playerRef.current = {
-      x: 150,
-      y: ARENA_H / 2,
-      vx: 0,
-      vy: 0,
-    };
-    botRef.current = {
-      x: ARENA_W - 150,
-      y: ARENA_H / 2,
-      vx: 0,
-      vy: 0,
-    };
+    playerRef.current = { x: 150, y: ARENA_H / 2, vx: 0, vy: 0 };
+    botRef.current = { x: ARENA_W - 150, y: ARENA_H / 2, vx: 0, vy: 0 };
 
-    const direction = Math.random() > 0.5 ? 1 : -1;
-
-    puckRef.current = {
-      x: ARENA_W / 2,
-      y: ARENA_H / 2 + (Math.random() * 80 - 40),
-      vx: withKickoff ? 240 * direction : 0,
-      vy: withKickoff ? Math.random() * 140 - 70 : 0,
-    };
+    puckRef.current = getResetPuck(withKickoff);
   }
 
   function resetMatch(nextMessage = getDefaultMessage(isAuthenticated)) {
@@ -360,7 +255,6 @@ export default function GorillaMiniHockey() {
     setTimeLeft(GAME_TIME);
     setMessage(nextMessage);
     setGoalPopup(null);
-    setFullscreenNotice(null);
     countdownRef.current = 0;
     lastTsRef.current = null;
     keysRef.current = { ...emptyKeys };
@@ -368,37 +262,6 @@ export default function GorillaMiniHockey() {
     scoreRef.current = { user: 0, bot: 0 };
     resetBodies(false);
     syncArenaSnapshot();
-  }
-
-  async function ensureBrowserFullscreen() {
-    if (!overlayRef.current) {
-      return false;
-    }
-
-    if (getFullscreenElement()) {
-      setIsBrowserFullscreen(true);
-      return true;
-    }
-
-    if (!supportsBrowserFullscreen(overlayRef.current)) {
-      setFullscreenNotice('Браузер не поддерживает системный fullscreen. Игра открыта в изолированном fullscreen-режиме поверх страницы.');
-      return false;
-    }
-
-    try {
-      const entered = await requestElementFullscreen(overlayRef.current);
-
-      if (entered) {
-        setIsBrowserFullscreen(true);
-        setFullscreenNotice(null);
-        return true;
-      }
-    } catch {
-      // Ignore and fall back to immersive overlay below.
-    }
-
-    setFullscreenNotice('Браузер не дал системный fullscreen, но игра уже открыта в отдельном игровом режиме без интерфейса страницы.');
-    return false;
   }
 
   function pauseMatch(reason = 'Пауза.') {
@@ -421,34 +284,63 @@ export default function GorillaMiniHockey() {
     setGoalPopup(null);
     setRunning(true);
     setViewState('playing');
-    setMessage('Матч начался. Забирай темп и дави на ворота.');
+    setMessage('Матч начался.');
   }
 
-  async function closeGameMode({ fromFullscreenExit = false } = {}) {
+  function closeGameMode(reason = 'Матч на паузе. Нажмите продолжить, чтобы вернуться.') {
     setGameModeOpen(false);
-    setIsBrowserFullscreen(false);
-    pendingFullscreenRequestRef.current = false;
-    resetMatch(getDefaultMessage(isAuthenticatedRef.current));
-    unlockLandscapeOrientation();
+    setScrollMinimized(true);
 
-    if (!fromFullscreenExit && getFullscreenElement()) {
-      skipNextFullscreenChangeRef.current = true;
-
-      try {
-        await exitBrowserFullscreen();
-      } catch {
-        skipNextFullscreenChangeRef.current = false;
-      }
+    if (runningRef.current) {
+      pauseMatch(reason);
     }
+
+    unlockLandscapeOrientation();
+  }
+
+  function openGameMode() {
+    setScrollMinimized(false);
+    setGameModeOpen(true);
+    window.requestAnimationFrame(() => {
+      sectionRef.current?.scrollIntoView({ block: 'start', behavior: 'smooth' });
+    });
+  }
+
+  async function beginMatchFlow() {
+    const needsRotate =
+      gameModeOpenRef.current &&
+      isMobileViewportRef.current &&
+      !isLandscapeViewportRef.current;
+
+    if (needsRotate) {
+      setMessage('Поверните устройство горизонтально, чтобы начать матч.');
+      return;
+    }
+
+    await tryLockLandscapeOrientation();
+    startMatch();
+  }
+
+  async function resumeMatch() {
+    const needsRotate =
+      gameModeOpenRef.current &&
+      isMobileViewportRef.current &&
+      !isLandscapeViewportRef.current;
+
+    if (needsRotate) {
+      setMessage('Поверните устройство горизонтально, чтобы продолжить матч.');
+      return;
+    }
+
+    await tryLockLandscapeOrientation();
+    setRunning(true);
+    setViewState('playing');
+    setMessage('Матч продолжается.');
   }
 
   function handleGoalFeedback(title, detail, tone) {
-    setGoalPopup({
-      id: Date.now(),
-      title,
-      detail,
-      tone,
-    });
+    goalPopupIdRef.current += 1;
+    setGoalPopup({ id: goalPopupIdRef.current, title, detail, tone });
   }
 
   function kickPuck(player, puck, boost = 1) {
@@ -478,40 +370,30 @@ export default function GorillaMiniHockey() {
   function scoreGoal(side) {
     if (side === 'user') {
       const awardResult = awardGoalPoint();
-      const nextScore = {
-        ...scoreRef.current,
-        user: scoreRef.current.user + 1,
-      };
+      const nextScore = { ...scoreRef.current, user: scoreRef.current.user + 1 };
 
       setScore(nextScore);
       scoreRef.current = nextScore;
       setPointsFlyKey((value) => value + 1);
 
       if (awardResult.savedToAccount) {
-        const unlockedTitle =
+        const detail =
           awardResult.unlockedRewards.length > 0
             ? awardResult.unlockedRewards[0].title
             : `Баланс: ${awardResult.nextBalance} GP`;
 
-        setMessage(
-          awardResult.unlockedRewards.length > 0
-            ? `Гол. Доступна новая награда: ${awardResult.unlockedRewards[0].title}.`
-            : `Гол. +1 GP уже в аккаунте.`
-        );
-        handleGoalFeedback('+1 Gorilla Point', unlockedTitle, awardResult.unlockedRewards.length > 0 ? 'accent' : 'success');
+        setMessage('+1 GP за гол.');
+        handleGoalFeedback('+1 Gorilla Point', detail, awardResult.unlockedRewards.length > 0 ? 'accent' : 'success');
       } else {
-        setMessage('Гол. Войдите, чтобы сохранять Gorilla Points после следующих матчей.');
+        setMessage('+1 GP в гостевой сессии.');
         handleGoalFeedback('+1 в сессии', 'Войдите, чтобы сохранить баллы', 'default');
       }
     } else {
-      const nextScore = {
-        ...scoreRef.current,
-        bot: scoreRef.current.bot + 1,
-      };
+      const nextScore = { ...scoreRef.current, bot: scoreRef.current.bot + 1 };
 
       setScore(nextScore);
       scoreRef.current = nextScore;
-      setMessage('Пропустили. Верните шайбу под контроль и отвечайте атакой.');
+      setMessage('Соперник забил.');
       handleGoalFeedback('Шайба у соперника', 'Есть время отыграться', 'default');
     }
 
@@ -525,7 +407,6 @@ export default function GorillaMiniHockey() {
     const puck = puckRef.current;
     const keys = keysRef.current;
     const axis = axisRef.current;
-
     const accel = 1500;
     const maxSpeed = 410;
     const friction = 0.9;
@@ -540,12 +421,10 @@ export default function GorillaMiniHockey() {
 
     player.vx += ax * dt;
     player.vy += ay * dt;
-
     player.vx *= Math.pow(friction, dt * 60 * 0.55);
     player.vy *= Math.pow(friction, dt * 60 * 0.55);
 
     const playerSpeed = length(player.vx, player.vy);
-
     if (playerSpeed > maxSpeed) {
       player.vx = (player.vx / playerSpeed) * maxSpeed;
       player.vy = (player.vy / playerSpeed) * maxSpeed;
@@ -559,17 +438,14 @@ export default function GorillaMiniHockey() {
     bot.vx += botAx * dt;
     bot.vy += botAy * dt;
 
-    const botMaxSpeed = 360;
     const botSpeed = length(bot.vx, bot.vy);
-
-    if (botSpeed > botMaxSpeed) {
-      bot.vx = (bot.vx / botSpeed) * botMaxSpeed;
-      bot.vy = (bot.vy / botSpeed) * botMaxSpeed;
+    if (botSpeed > 360) {
+      bot.vx = (bot.vx / botSpeed) * 360;
+      bot.vy = (bot.vy / botSpeed) * 360;
     }
 
     bot.vx *= Math.pow(0.92, dt * 60 * 0.5);
     bot.vy *= Math.pow(0.92, dt * 60 * 0.5);
-
     player.x += player.vx * dt;
     player.y += player.vy * dt;
     bot.x += bot.vx * dt;
@@ -583,10 +459,9 @@ export default function GorillaMiniHockey() {
     const dx = bot.x - player.x;
     const dy = bot.y - player.y;
     const dist = length(dx, dy);
-    const minDist = PLAYER_R * 2;
 
-    if (dist < minDist && dist > 0) {
-      const overlap = (minDist - dist) / 2;
+    if (dist < PLAYER_R * 2 && dist > 0) {
+      const overlap = (PLAYER_R * 2 - dist) / 2;
       const nx = dx / dist;
       const ny = dy / dist;
 
@@ -637,7 +512,7 @@ export default function GorillaMiniHockey() {
     }
   }
 
-  const stepFrame = useEffectEvent(function handleFrame(timestamp) {
+  function stepFrame(timestamp) {
     if (lastTsRef.current == null) {
       lastTsRef.current = timestamp;
     }
@@ -667,52 +542,7 @@ export default function GorillaMiniHockey() {
     }
 
     syncArenaSnapshot();
-    rafRef.current = requestAnimationFrame(handleFrame);
-  });
-
-  async function openGameMode() {
-    resetMatch('Открываем игровой режим. Матч стартует только после разворота на весь экран.');
-    setGameModeOpen(true);
-    pendingFullscreenRequestRef.current = true;
-  }
-
-  async function beginMatchFlow() {
-    const needsRotate =
-      gameModeOpenRef.current &&
-      isMobileViewportRef.current &&
-      !isLandscapeViewportRef.current;
-
-    if (needsRotate) {
-      setMessage('Поверните устройство горизонтально, чтобы начать матч.');
-      return;
-    }
-
-    if (!isBrowserFullscreenRef.current) {
-      await ensureBrowserFullscreen();
-    }
-
-    await tryLockLandscapeOrientation();
-    startMatch();
-  }
-
-  async function resumeMatch() {
-    const needsRotate =
-      gameModeOpenRef.current &&
-      isMobileViewportRef.current &&
-      !isLandscapeViewportRef.current;
-
-    if (needsRotate) {
-      setMessage('Поверните устройство горизонтально, чтобы продолжить матч.');
-      return;
-    }
-
-    if (!isBrowserFullscreenRef.current) {
-      await ensureBrowserFullscreen();
-    }
-
-    setRunning(true);
-    setViewState('playing');
-    setMessage('Матч продолжается. Возвращайтесь в темп.');
+    rafRef.current = requestAnimationFrame(stepFrame);
   }
 
   useEffect(() => {
@@ -732,10 +562,6 @@ export default function GorillaMiniHockey() {
   }, [gameModeOpen]);
 
   useEffect(() => {
-    isBrowserFullscreenRef.current = isBrowserFullscreen;
-  }, [isBrowserFullscreen]);
-
-  useEffect(() => {
     isMobileViewportRef.current = isMobileViewport;
   }, [isMobileViewport]);
 
@@ -745,11 +571,8 @@ export default function GorillaMiniHockey() {
 
   useEffect(() => {
     isAuthenticatedRef.current = isAuthenticated;
+    setMessage((current) => (viewStateRef.current === 'ready' ? getDefaultMessage(isAuthenticated) : current));
   }, [isAuthenticated]);
-
-  useEffect(() => {
-    wasBrowserFullscreenRef.current = isBrowserFullscreen;
-  }, [isBrowserFullscreen]);
 
   useEffect(() => {
     resetBodies(false);
@@ -795,6 +618,37 @@ export default function GorillaMiniHockey() {
   }, []);
 
   useEffect(() => {
+    const handleScrollState = () => {
+      if (!sectionRef.current) {
+        return;
+      }
+
+      const rect = sectionRef.current.getBoundingClientRect();
+      const viewportHeight = window.innerHeight || 1;
+      const inFocus = rect.top <= viewportHeight * 0.22 && rect.bottom >= viewportHeight * 0.62;
+      const outside = rect.bottom < viewportHeight * 0.2 || rect.top > viewportHeight * 0.82;
+
+      if (gameModeOpenRef.current && outside) {
+        closeGameMode('Матч свернут при прокрутке. Прогресс сохранен.');
+        return;
+      }
+
+      if (!gameModeOpenRef.current && !scrollMinimized && inFocus) {
+        setGameModeOpen(true);
+      }
+    };
+
+    handleScrollState();
+    window.addEventListener('scroll', handleScrollState, { passive: true });
+    window.addEventListener('resize', handleScrollState);
+
+    return () => {
+      window.removeEventListener('scroll', handleScrollState);
+      window.removeEventListener('resize', handleScrollState);
+    };
+  }, [scrollMinimized]);
+
+  useEffect(() => {
     if (!gameModeOpen) {
       document.documentElement.classList.remove('gorilla-game-mode');
       document.body.classList.remove('gorilla-game-mode');
@@ -810,81 +664,36 @@ export default function GorillaMiniHockey() {
     };
   }, [gameModeOpen]);
 
-  const handleFullscreenChange = useEffectEvent(() => {
-    const fullscreenElement = getFullscreenElement();
-    const isActive = Boolean(
-      fullscreenElement &&
-        overlayRef.current &&
-        (fullscreenElement === overlayRef.current ||
-          overlayRef.current.contains(fullscreenElement))
-    );
-
-    if (!isActive && skipNextFullscreenChangeRef.current) {
-      skipNextFullscreenChangeRef.current = false;
-    }
-
-    setIsBrowserFullscreen(isActive);
-
-    if (!isActive && wasBrowserFullscreenRef.current && gameModeOpenRef.current) {
-      void closeGameMode({ fromFullscreenExit: true });
-    }
-  });
-
   useEffect(() => {
-    document.addEventListener('fullscreenchange', handleFullscreenChange);
-    document.addEventListener('webkitfullscreenchange', handleFullscreenChange);
-
-    return () => {
-      document.removeEventListener('fullscreenchange', handleFullscreenChange);
-      document.removeEventListener('webkitfullscreenchange', handleFullscreenChange);
-    };
-  }, []);
-
-  useEffect(() => {
-    if (!gameModeOpen || !pendingFullscreenRequestRef.current) {
-      return;
-    }
-
-    pendingFullscreenRequestRef.current = false;
-
-    const frameId = window.requestAnimationFrame(() => {
-      void ensureBrowserFullscreen();
-      void tryLockLandscapeOrientation();
-    });
-
-    return () => window.cancelAnimationFrame(frameId);
-  }, [gameModeOpen]);
-
-  const handleKeyDown = useEffectEvent((event) => {
-    if (!gameModeOpenRef.current) {
-      return;
-    }
-
-    const key = event.key.toLowerCase();
-
-    if (['arrowup', 'arrowdown', 'arrowleft', 'arrowright', 'w', 'a', 's', 'd', 'ц', 'ф', 'ы', 'в', ' '].includes(key)) {
-      event.preventDefault();
-    }
-
-    if (key === 'arrowup' || key === 'w' || key === 'ц') keysRef.current.up = true;
-    if (key === 'arrowdown' || key === 's' || key === 'ы') keysRef.current.down = true;
-    if (key === 'arrowleft' || key === 'a' || key === 'ф') keysRef.current.left = true;
-    if (key === 'arrowright' || key === 'd' || key === 'в') keysRef.current.right = true;
-
-    if (key === ' ') {
-      if (viewStateRef.current === 'ready' || viewStateRef.current === 'finished') {
-        void beginMatchFlow();
-      } else if (viewStateRef.current === 'paused') {
-        void resumeMatch();
+    const handleKeyDown = (event) => {
+      if (!gameModeOpenRef.current) {
+        return;
       }
-    }
 
-    if (key === 'escape' && gameModeOpenRef.current) {
-      void closeGameMode();
-    }
-  });
+      const key = event.key.toLowerCase();
 
-  useEffect(() => {
+      if (['arrowup', 'arrowdown', 'arrowleft', 'arrowright', 'w', 'a', 's', 'd', 'ц', 'ф', 'ы', 'в', ' '].includes(key)) {
+        event.preventDefault();
+      }
+
+      if (key === 'arrowup' || key === 'w' || key === 'ц') keysRef.current.up = true;
+      if (key === 'arrowdown' || key === 's' || key === 'ы') keysRef.current.down = true;
+      if (key === 'arrowleft' || key === 'a' || key === 'ф') keysRef.current.left = true;
+      if (key === 'arrowright' || key === 'd' || key === 'в') keysRef.current.right = true;
+
+      if (key === ' ') {
+        if (viewStateRef.current === 'ready' || viewStateRef.current === 'finished') {
+          void beginMatchFlow();
+        } else if (viewStateRef.current === 'paused') {
+          void resumeMatch();
+        }
+      }
+
+      if (key === 'escape') {
+        closeGameMode();
+      }
+    };
+
     const handleKeyUp = (event) => {
       const key = event.key.toLowerCase();
 
@@ -930,10 +739,10 @@ export default function GorillaMiniHockey() {
     const { player, bot, puck } = snapshot;
 
     return (
-      <div className="relative h-full w-full overflow-hidden rounded-[1.7rem] border border-white/10 bg-[radial-gradient(circle_at_center,rgba(29,78,216,0.18),rgba(2,6,23,0.92)_42%,rgba(2,6,23,1)_100%)]">
+      <div className="relative h-full w-full overflow-hidden rounded-[1.1rem] border border-white/10 bg-[radial-gradient(circle_at_center,rgba(29,78,216,0.18),rgba(2,6,23,0.92)_42%,rgba(2,6,23,1)_100%)] sm:rounded-[1.7rem]">
         <div className="absolute inset-0">
           <div className="absolute left-1/2 top-0 h-full w-px -translate-x-1/2 bg-white/15" />
-          <div className="absolute left-1/2 top-1/2 h-40 w-40 -translate-x-1/2 -translate-y-1/2 rounded-full border border-white/15" />
+          <div className="absolute left-1/2 top-1/2 h-28 w-28 -translate-x-1/2 -translate-y-1/2 rounded-full border border-white/15 sm:h-40 sm:w-40" />
           <div className="absolute inset-x-0 top-1/2 h-px -translate-y-1/2 bg-white/10" />
           <div className="absolute left-0 top-1/2 h-[150px] w-5 -translate-y-1/2 rounded-r-xl border-y border-r border-cyan-300/30 bg-cyan-400/10" />
           <div className="absolute right-0 top-1/2 h-[150px] w-5 -translate-y-1/2 rounded-l-xl border-y border-l border-amber-300/30 bg-amber-400/10" />
@@ -951,7 +760,7 @@ export default function GorillaMiniHockey() {
           }}
         >
           <div className="flex h-full items-center justify-center text-xs font-black uppercase text-slate-950">
-            Ты
+            Вы
           </div>
         </div>
 
@@ -981,18 +790,11 @@ export default function GorillaMiniHockey() {
           }}
         />
 
-        <div className="absolute left-4 top-4 rounded-2xl border border-white/10 bg-black/35 px-4 py-2 text-sm font-black text-cyan-200 backdrop-blur-sm">
-          GORILLA
-        </div>
-        <div className="absolute right-4 top-4 rounded-2xl border border-white/10 bg-black/35 px-4 py-2 text-sm font-black text-amber-200 backdrop-blur-sm">
-          BOT
-        </div>
-
         {!preview && goalPopup ? (
-          <div className="pointer-events-none absolute inset-x-0 top-6 flex justify-center px-4">
+          <div className="pointer-events-none absolute inset-x-0 top-16 flex justify-center px-4">
             <div
               key={goalPopup.id}
-              className={`gorilla-goal-burst rounded-[1.4rem] border px-4 py-3 text-center shadow-[0_16px_44px_rgba(0,0,0,0.28)] ${
+              className={`gorilla-goal-burst rounded-[1.2rem] border px-4 py-3 text-center shadow-[0_16px_44px_rgba(0,0,0,0.28)] ${
                 goalPopup.tone === 'accent'
                   ? 'border-amber-300/24 bg-[rgba(245,158,11,0.16)]'
                   : goalPopup.tone === 'success'
@@ -1000,10 +802,10 @@ export default function GorillaMiniHockey() {
                     : 'border-white/12 bg-black/42'
               }`}
             >
-              <p className="text-sm font-black uppercase tracking-[0.16em] text-white">
+              <p className="text-xs font-black uppercase tracking-[0.16em] text-white sm:text-sm">
                 {goalPopup.title}
               </p>
-              <p className="mt-1 text-sm text-white/74">{goalPopup.detail}</p>
+              <p className="mt-1 text-xs text-white/74 sm:text-sm">{goalPopup.detail}</p>
             </div>
           </div>
         ) : null}
@@ -1016,32 +818,6 @@ export default function GorillaMiniHockey() {
             +1 GP
           </div>
         ) : null}
-
-        {preview ? (
-          <div className="absolute inset-0 bg-[linear-gradient(180deg,rgba(5,10,16,0.18),rgba(5,10,16,0.82))]">
-            <div className="flex h-full flex-col justify-between p-5">
-              <div className="flex items-start justify-between gap-3">
-                <span className="rounded-full border border-white/10 bg-black/34 px-4 py-2 text-[11px] font-bold uppercase tracking-[0.22em] text-white/74">
-                  fullscreen play mode
-                </span>
-                <span className="rounded-full border border-amber-300/20 bg-amber-400/10 px-4 py-2 text-[11px] font-bold uppercase tracking-[0.2em] text-amber-200">
-                  {pointsLabel}
-                </span>
-              </div>
-              <div className="max-w-md space-y-3">
-                <p className="text-xs font-semibold uppercase tracking-[0.28em] text-[color:var(--gh-accent)]">
-                  Gorilla Mini Match
-                </p>
-                <p className="text-3xl font-black uppercase tracking-[-0.05em] text-white">
-                  Матч открывается только на весь экран
-                </p>
-                <p className="text-sm leading-7 text-white/72">
-                  Нажмите старт, и мы переведём игру в отдельный игровой режим без интерфейса страницы.
-                </p>
-              </div>
-            </div>
-          </div>
-        ) : null}
       </div>
     );
   }
@@ -1050,15 +826,12 @@ export default function GorillaMiniHockey() {
     if (needsRotateHint) {
       return (
         <div className="absolute inset-0 flex items-center justify-center bg-[linear-gradient(180deg,rgba(5,10,16,0.24),rgba(5,10,16,0.88))] p-5">
-          <div className="max-w-sm rounded-[1.9rem] border border-white/10 bg-black/48 p-6 text-center backdrop-blur-md">
+          <div className="max-w-sm rounded-[1.2rem] border border-white/10 bg-black/48 p-6 text-center backdrop-blur-md">
             <p className="text-xs font-semibold uppercase tracking-[0.28em] text-[color:var(--gh-accent)]">
-              Landscape mode
+              Landscape
             </p>
-            <p className="mt-3 text-2xl font-black uppercase tracking-[-0.05em] text-white">
+            <p className="mt-3 text-2xl font-black uppercase text-white">
               Поверните устройство
-            </p>
-            <p className="mt-3 text-sm leading-7 text-white/72">
-              Для мобильного матча нужен горизонтальный режим. После поворота стартовый экран появится автоматически.
             </p>
           </div>
         </div>
@@ -1067,16 +840,13 @@ export default function GorillaMiniHockey() {
 
     if (viewState === 'ready') {
       return (
-        <div className="absolute inset-0 flex items-center justify-center bg-[linear-gradient(180deg,rgba(5,10,16,0.16),rgba(5,10,16,0.78))] p-5">
-          <div className="max-w-sm rounded-[1.9rem] border border-white/10 bg-black/48 p-6 text-center backdrop-blur-md">
-            <p className="text-xs font-semibold uppercase tracking-[0.28em] text-[color:var(--gh-accent)]">
+        <div className="absolute inset-0 flex items-center justify-center bg-[linear-gradient(180deg,rgba(5,10,16,0.12),rgba(5,10,16,0.72))] p-5">
+          <div className="max-w-sm rounded-[1.2rem] border border-white/10 bg-black/48 p-6 text-center backdrop-blur-md">
+            <p className="text-xs font-semibold uppercase tracking-[0.24em] text-[color:var(--gh-accent)]">
               Gorilla Mini Match
             </p>
-            <p className="mt-3 text-2xl font-black uppercase tracking-[-0.05em] text-white">
-              Забей больше шайб за 60 секунд
-            </p>
-            <p className="mt-3 text-sm leading-7 text-white/72">
-              Каждый гол приносит +1 Gorilla Point. Счёт, время и баланс уже в HUD.
+            <p className="mt-3 text-2xl font-black uppercase text-white">
+              60 секунд на голы
             </p>
             <button
               type="button"
@@ -1092,31 +862,22 @@ export default function GorillaMiniHockey() {
 
     if (viewState === 'paused') {
       return (
-        <div className="absolute inset-0 flex items-center justify-center bg-[linear-gradient(180deg,rgba(5,10,16,0.18),rgba(5,10,16,0.82))] p-5">
-          <div className="max-w-sm rounded-[1.9rem] border border-white/10 bg-black/48 p-6 text-center backdrop-blur-md">
-            <p className="text-xs font-semibold uppercase tracking-[0.28em] text-[color:var(--gh-accent)]">
+        <div className="absolute inset-0 flex items-center justify-center bg-[linear-gradient(180deg,rgba(5,10,16,0.14),rgba(5,10,16,0.78))] p-5">
+          <div className="max-w-sm rounded-[1.2rem] border border-white/10 bg-black/48 p-6 text-center backdrop-blur-md">
+            <p className="text-xs font-semibold uppercase tracking-[0.24em] text-[color:var(--gh-accent)]">
               Пауза
             </p>
-            <p className="mt-3 text-2xl font-black uppercase tracking-[-0.05em] text-white">
-              Матч остановлен
+            <p className="mt-3 text-2xl font-black uppercase text-white">
+              {score.user}:{score.bot}
             </p>
-            <p className="mt-3 text-sm leading-7 text-white/72">{message}</p>
-            <div className="mt-5 flex flex-wrap items-center justify-center gap-3">
-              <button
-                type="button"
-                onClick={() => void resumeMatch()}
-                className="inline-flex rounded-full bg-[color:var(--gh-accent)] px-6 py-3 text-xs font-black uppercase tracking-[0.18em] text-black transition hover:brightness-110"
-              >
-                Продолжить
-              </button>
-              <button
-                type="button"
-                onClick={() => void closeGameMode()}
-                className="inline-flex rounded-full border border-white/12 bg-white/6 px-6 py-3 text-xs font-bold uppercase tracking-[0.18em] text-white transition hover:bg-white/10"
-              >
-                Выход
-              </button>
-            </div>
+            <p className="mt-3 text-sm leading-6 text-white/72">{message}</p>
+            <button
+              type="button"
+              onClick={() => void resumeMatch()}
+              className="mt-5 inline-flex rounded-full bg-[color:var(--gh-accent)] px-6 py-3 text-xs font-black uppercase tracking-[0.18em] text-black transition hover:brightness-110"
+            >
+              Продолжить
+            </button>
           </div>
         </div>
       );
@@ -1124,32 +885,22 @@ export default function GorillaMiniHockey() {
 
     if (viewState === 'finished') {
       return (
-        <div className="absolute inset-0 flex items-center justify-center bg-[linear-gradient(180deg,rgba(5,10,16,0.22),rgba(5,10,16,0.86))] p-5">
-          <div className="max-w-sm rounded-[1.9rem] border border-white/10 bg-black/48 p-6 text-center backdrop-blur-md">
-            <p className="text-xs font-semibold uppercase tracking-[0.28em] text-[color:var(--gh-accent)]">
-              Итог матча
+        <div className="absolute inset-0 flex items-center justify-center bg-[linear-gradient(180deg,rgba(5,10,16,0.2),rgba(5,10,16,0.84))] p-5">
+          <div className="max-w-sm rounded-[1.2rem] border border-white/10 bg-black/48 p-6 text-center backdrop-blur-md">
+            <p className="text-xs font-semibold uppercase tracking-[0.24em] text-[color:var(--gh-accent)]">
+              Итог
             </p>
-            <p className="mt-3 text-4xl font-black uppercase tracking-[-0.05em] text-white">
+            <p className="mt-3 text-4xl font-black uppercase text-white">
               {score.user}:{score.bot}
             </p>
-            <p className="mt-3 text-sm leading-7 text-white/72">{message}</p>
-            <div className="mt-5 flex flex-wrap items-center justify-center gap-3">
-              <button
-                type="button"
-                onClick={() => void beginMatchFlow()}
-                className="inline-flex rounded-full bg-[color:var(--gh-accent)] px-6 py-3 text-xs font-black uppercase tracking-[0.18em] text-black transition hover:brightness-110"
-              >
-                Новый матч
-              </button>
-              {!isAuthenticated ? (
-                <Link
-                  href="/dev/login?next=/cabinet"
-                  className="inline-flex rounded-full border border-white/12 bg-white/6 px-6 py-3 text-xs font-bold uppercase tracking-[0.18em] text-white transition hover:bg-white/10"
-                >
-                  Войти и копить
-                </Link>
-              ) : null}
-            </div>
+            <p className="mt-3 text-sm leading-6 text-white/72">{message}</p>
+            <button
+              type="button"
+              onClick={() => void beginMatchFlow()}
+              className="mt-5 inline-flex rounded-full bg-[color:var(--gh-accent)] px-6 py-3 text-xs font-black uppercase tracking-[0.18em] text-black transition hover:brightness-110"
+            >
+              Новый матч
+            </button>
           </div>
         </div>
       );
@@ -1158,163 +909,87 @@ export default function GorillaMiniHockey() {
     return null;
   }
 
-  return (
-    <>
-      <div id="gorilla-mini-game" className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_320px]">
-        <div className="overflow-hidden rounded-[2.4rem] border border-white/10 bg-[radial-gradient(circle_at_top,rgba(19,49,78,0.92),rgba(6,14,22,0.98)_48%,rgba(3,7,12,1)_100%)] p-4 shadow-[0_24px_80px_rgba(8,12,16,0.34)] sm:p-5">
-          <div className="flex flex-wrap items-center justify-between gap-3">
+  function renderCompactPreview() {
+    return (
+      <div className="mx-auto flex min-h-[70dvh] w-full max-w-[1180px] items-center px-4 py-16 sm:px-6 lg:px-8">
+        <div className="grid w-full gap-5 rounded-[1.4rem] border border-white/10 bg-[radial-gradient(circle_at_top,rgba(19,49,78,0.92),rgba(6,14,22,0.98)_52%,rgba(3,7,12,1)_100%)] p-4 shadow-[0_24px_80px_rgba(8,12,16,0.34)] sm:p-5 lg:grid-cols-[minmax(0,1fr)_minmax(18rem,24rem)]">
+          <div className="aspect-[900/520] min-h-0 w-full">
+            {renderArenaSurface(arenaSnapshot, { preview: true })}
+          </div>
+
+          <div className="flex flex-col justify-between gap-5">
             <div>
-              <p className="text-xs font-semibold uppercase tracking-[0.28em] text-white/52">
+              <p className="text-xs font-semibold uppercase tracking-[0.24em] text-[color:var(--gh-accent)]">
                 Gorilla Mini Match
               </p>
-              <p className="mt-2 text-2xl font-black uppercase tracking-[-0.05em] text-white">
-                Игровой режим открывается на весь экран
-              </p>
-            </div>
-
-            <div className="flex flex-wrap gap-2 text-xs font-semibold uppercase tracking-[0.18em]">
-              <span className="rounded-full border border-white/10 bg-white/5 px-4 py-2 text-white/70">
-                счёт: {score.user}:{score.bot}
-              </span>
-              <span className="rounded-full border border-white/10 bg-white/5 px-4 py-2 text-white/70">
-                время: {timeLeft}с
-              </span>
-              <span className="rounded-full border border-amber-300/18 bg-amber-400/10 px-4 py-2 text-amber-200">
-                {pointsLabel}
-              </span>
-            </div>
-          </div>
-
-          <div className="mt-5 overflow-hidden rounded-[2rem] border border-white/10 bg-black/26 p-3 sm:p-4">
-            <div className="aspect-[900/520] w-full">
-              {renderArenaSurface(arenaSnapshot, { preview: true })}
-            </div>
-          </div>
-
-          <div className="mt-5 flex flex-wrap items-center gap-3">
-            <button
-              type="button"
-              onClick={() => void openGameMode()}
-              className="inline-flex rounded-full bg-[color:var(--gh-accent)] px-6 py-3.5 text-sm font-black uppercase tracking-[0.18em] text-black transition hover:brightness-110"
-            >
-              Старт матча
-            </button>
-            <button
-              type="button"
-              onClick={() => resetMatch(getDefaultMessage(isAuthenticated))}
-              className="inline-flex rounded-full border border-white/12 bg-white/5 px-6 py-3.5 text-sm font-bold uppercase tracking-[0.18em] text-white transition hover:bg-white/10"
-            >
-              Сбросить
-            </button>
-            <p className="text-sm text-white/62">
-              После старта откроем отдельный игровой режим. Desktop: клавиатура. Mobile: fullscreen + landscape + virtual stick.
-            </p>
-          </div>
-        </div>
-
-        <div className="space-y-4">
-          <div className="rounded-[2rem] border border-white/10 bg-black/34 p-5 shadow-[0_18px_48px_rgba(8,12,16,0.26)] backdrop-blur-sm">
-            <p className="text-xs font-semibold uppercase tracking-[0.28em] text-amber-300">
-              Статус матча
-            </p>
-            <p className="mt-3 text-2xl font-black leading-tight text-white">{message}</p>
-            <p className="mt-3 text-sm leading-7 text-white/68">
-              {authStatus === 'loading'
-                ? 'Проверяем вход, чтобы корректно связать матч и Gorilla Points.'
-                : gameModeOpen
-                ? isBrowserFullscreen
-                  ? 'Матч открыт в системном fullscreen-режиме.'
-                  : 'Матч открыт в игровом fullscreen-режиме поверх страницы.'
-                : 'Матч не стартует внутри embed-блока. Основная игра открывается только в fullscreen play mode.'}
-            </p>
-          </div>
-
-          <div className="rounded-[2rem] border border-white/10 bg-black/34 p-5 shadow-[0_18px_48px_rgba(8,12,16,0.26)] backdrop-blur-sm">
-            <p className="text-xs font-semibold uppercase tracking-[0.28em] text-amber-300">
-              Gorilla Points
-            </p>
-            <p className="mt-3 text-3xl font-black tracking-[-0.05em] text-white">
-              {visiblePointsBalance} GP
-            </p>
-            <p className="mt-3 text-sm leading-7 text-white/68">
-              {nextReward
-                ? `Следующая фиксированная награда откроется на ${nextReward.cost} GP.`
-                : 'Базовые награды уже открыты. Дальше — обмен через кабинет или Telegram школы.'}
-            </p>
-            {nextReward ? (
-              <div className="mt-4 rounded-[1.4rem] border border-white/10 bg-white/5 px-4 py-4">
-                <p className="text-sm font-black text-white">{nextReward.title}</p>
-                <p className="mt-2 text-sm leading-6 text-white/68">{nextReward.perk}</p>
+              <h2 className="mt-3 text-3xl font-black uppercase leading-none text-white sm:text-4xl">
+                {hasProgress ? 'Матч на паузе' : 'Игровой блок'}
+              </h2>
+              <div className="mt-5 grid grid-cols-3 gap-2 text-center text-xs font-black uppercase tracking-[0.14em] text-white/78">
+                <span className="rounded-xl border border-white/10 bg-white/5 px-3 py-3">
+                  {score.user}:{score.bot}
+                </span>
+                <span className="rounded-xl border border-white/10 bg-white/5 px-3 py-3">
+                  {timeLeft}с
+                </span>
+                <span className="rounded-xl border border-amber-300/18 bg-amber-400/10 px-3 py-3 text-amber-200">
+                  {pointsLabel}
+                </span>
               </div>
-            ) : null}
-            {unlockedRewards.length > 0 ? (
-              <div className="mt-4 flex flex-wrap gap-2">
-                {unlockedRewards.slice(-2).map((reward) => (
-                  <span
-                    key={reward.id}
-                    className="rounded-full border border-amber-300/24 bg-amber-400/10 px-3 py-1.5 text-[11px] font-bold uppercase tracking-[0.16em] text-amber-200"
-                  >
-                    {reward.title}
-                  </span>
-                ))}
-              </div>
-            ) : null}
-          </div>
-
-          <div className="rounded-[2rem] border border-white/10 bg-black/34 p-5 shadow-[0_18px_48px_rgba(8,12,16,0.26)] backdrop-blur-sm">
-            <p className="text-xs font-semibold uppercase tracking-[0.28em] text-amber-300">
-              Игровой flow
-            </p>
-            <div className="mt-4 space-y-3 text-sm leading-7 text-white/68">
-              <p>Старт на странице только открывает игровой fullscreen-режим.</p>
-              <p>Матч реально начинается уже внутри полноэкранного overlay/HUD.</p>
-              <p>На mobile нужен landscape. В portrait покажем rotate hint и не дадим стартовать поломанной сцене.</p>
             </div>
-            {!isAuthenticated ? (
-              <Link
-                href="/dev/login?next=/cabinet"
-                className="mt-5 inline-flex rounded-full bg-[color:var(--gh-accent)] px-5 py-3 text-xs font-black uppercase tracking-[0.18em] text-black transition hover:brightness-110"
+
+            <div className="flex flex-wrap gap-3">
+              <button
+                type="button"
+                onClick={openGameMode}
+                className="inline-flex rounded-full bg-[color:var(--gh-accent)] px-6 py-3 text-xs font-black uppercase tracking-[0.18em] text-black transition hover:brightness-110"
               >
-                Войти и копить баллы
-              </Link>
-            ) : (
-              <Link
-                href="/cabinet"
-                className="mt-5 inline-flex rounded-full border border-white/12 bg-white/6 px-5 py-3 text-xs font-bold uppercase tracking-[0.18em] text-white transition hover:bg-white/10"
-              >
-                Открыть кабинет
-              </Link>
-            )}
+                {hasProgress ? 'Продолжить' : 'Играть'}
+              </button>
+              {hasProgress ? (
+                <button
+                  type="button"
+                  onClick={() => resetMatch(getDefaultMessage(isAuthenticated))}
+                  className="inline-flex rounded-full border border-white/12 bg-white/6 px-6 py-3 text-xs font-bold uppercase tracking-[0.18em] text-white transition hover:bg-white/10"
+                >
+                  Сброс
+                </button>
+              ) : null}
+            </div>
           </div>
         </div>
       </div>
+    );
+  }
 
+  return (
+    <div
+      id="gorilla-mini-game"
+      ref={sectionRef}
+      className={`relative ${gameModeOpen ? 'min-h-[175dvh]' : 'min-h-[70dvh]'}`}
+    >
       {gameModeOpen ? (
-        <div className="fixed inset-0 z-[120] bg-[linear-gradient(180deg,rgba(2,6,12,0.98),rgba(3,8,14,1))] p-2 sm:p-3">
-          <div
-            ref={overlayRef}
-            className="relative flex h-full w-full flex-col overflow-hidden rounded-[2rem] border border-white/10 bg-[radial-gradient(circle_at_top,rgba(20,50,78,0.88),rgba(3,7,12,0.96)_48%,rgba(2,5,10,1))] shadow-[0_24px_80px_rgba(0,0,0,0.44)]"
-          >
-            <div className="flex items-center justify-between gap-3 border-b border-white/10 px-3 py-3 sm:px-5">
-              <div className="min-w-0">
-                <p className="text-[10px] font-semibold uppercase tracking-[0.22em] text-white/54 sm:text-[11px]">
-                  Gorilla Mini Match
-                </p>
-                <p className="mt-1 truncate text-lg font-black uppercase tracking-[-0.04em] text-white sm:text-xl">
-                  {score.user}:{score.bot} • {timeLeft}с
-                </p>
-              </div>
-
-              <div className="flex items-center gap-2 sm:gap-3">
-                <span className="rounded-full border border-amber-300/18 bg-amber-400/10 px-3 py-2 text-[11px] font-black uppercase tracking-[0.16em] text-amber-200 sm:px-4">
+        <div className="sticky top-0 z-30 flex h-[100dvh] w-full items-stretch overflow-hidden bg-[linear-gradient(180deg,rgba(2,6,12,0.98),rgba(3,8,14,1))] p-2 sm:p-3">
+          <div className="relative flex h-full w-full flex-col overflow-hidden rounded-[1.2rem] border border-white/10 bg-[radial-gradient(circle_at_top,rgba(20,50,78,0.88),rgba(3,7,12,0.96)_48%,rgba(2,5,10,1))] shadow-[0_24px_80px_rgba(0,0,0,0.44)]">
+            <div className="pointer-events-none absolute inset-x-0 top-0 z-20 flex items-start justify-between gap-3 p-3 sm:p-5">
+              <div className="flex flex-wrap gap-2 text-xs font-black uppercase tracking-[0.14em] text-white">
+                <span className="rounded-full border border-white/10 bg-black/42 px-3 py-2 backdrop-blur-sm">
+                  {score.user}:{score.bot}
+                </span>
+                <span className="rounded-full border border-white/10 bg-black/42 px-3 py-2 backdrop-blur-sm">
+                  {timeLeft}с
+                </span>
+                <span className="rounded-full border border-amber-300/18 bg-amber-400/10 px-3 py-2 text-amber-200 backdrop-blur-sm">
                   {pointsLabel}
                 </span>
+              </div>
 
+              <div className="pointer-events-auto flex flex-wrap justify-end gap-2">
                 {viewState === 'playing' ? (
                   <button
                     type="button"
-                    onClick={() => pauseMatch('Пауза. Вернитесь в матч, когда будете готовы.')}
-                    className="rounded-full border border-white/12 bg-white/6 px-3 py-2 text-[11px] font-bold uppercase tracking-[0.16em] text-white transition hover:bg-white/10 sm:px-4"
+                    onClick={() => pauseMatch('Пауза. Вернитесь, когда будете готовы.')}
+                    className="rounded-full border border-white/12 bg-black/42 px-3 py-2 text-[11px] font-bold uppercase tracking-[0.14em] text-white transition hover:bg-white/10"
                   >
                     Пауза
                   </button>
@@ -1322,7 +997,7 @@ export default function GorillaMiniHockey() {
                   <button
                     type="button"
                     onClick={() => void resumeMatch()}
-                    className="rounded-full border border-white/12 bg-white/6 px-3 py-2 text-[11px] font-bold uppercase tracking-[0.16em] text-white transition hover:bg-white/10 sm:px-4"
+                    className="rounded-full border border-white/12 bg-black/42 px-3 py-2 text-[11px] font-bold uppercase tracking-[0.14em] text-white transition hover:bg-white/10"
                   >
                     Продолжить
                   </button>
@@ -1330,23 +1005,17 @@ export default function GorillaMiniHockey() {
 
                 <button
                   type="button"
-                  onClick={() => void closeGameMode()}
-                  className="rounded-full border border-white/12 bg-white/6 px-3 py-2 text-[11px] font-bold uppercase tracking-[0.16em] text-white transition hover:bg-white/10 sm:px-4"
+                  onClick={() => closeGameMode()}
+                  className="rounded-full border border-white/12 bg-black/42 px-3 py-2 text-[11px] font-bold uppercase tracking-[0.14em] text-white transition hover:bg-white/10"
                 >
-                  Выход
+                  Выйти
                 </button>
               </div>
             </div>
 
-            {fullscreenNotice ? (
-              <div className="border-b border-white/8 bg-white/[0.03] px-3 py-2 text-center text-[11px] font-medium text-white/62 sm:px-5">
-                {fullscreenNotice}
-              </div>
-            ) : null}
-
             <div className="relative min-h-0 flex-1">
-              <div className="flex h-full items-center justify-center p-2 sm:p-4">
-                <div className="aspect-[900/520] h-full max-h-full w-auto max-w-full">
+              <div className="flex h-full items-center justify-center p-2 pt-16 sm:p-5 sm:pt-16">
+                <div className="aspect-[900/520] h-auto max-h-full w-full max-w-[min(100%,150vh)]">
                   {renderArenaSurface(arenaSnapshot)}
                 </div>
               </div>
@@ -1366,25 +1035,14 @@ export default function GorillaMiniHockey() {
                       WASD / стрелки
                     </div>
                   )}
-
-                  <div className="pointer-events-auto max-w-[18rem] rounded-[1.2rem] border border-white/10 bg-black/34 px-4 py-3 text-right backdrop-blur-sm">
-                    <p className="text-[10px] font-semibold uppercase tracking-[0.22em] text-[color:var(--gh-accent)]">
-                      Gorilla Points
-                    </p>
-                    <p className="mt-2 text-sm leading-6 text-white/68">
-                      {isAuthenticated
-                        ? nextReward
-                          ? `До следующей награды осталось ${Math.max(nextReward.cost - pointsBalance, 0)} GP.`
-                          : 'Все базовые награды уже открыты.'
-                        : 'Гостевой режим считает голы, но не сохраняет их в аккаунт.'}
-                    </p>
-                  </div>
                 </div>
               ) : null}
             </div>
           </div>
         </div>
-      ) : null}
-    </>
+      ) : (
+        renderCompactPreview()
+      )}
+    </div>
   );
 }

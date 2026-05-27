@@ -8,7 +8,7 @@ type HomeStatsProps = {
 
 export function HomeStats({ items }: HomeStatsProps) {
   return (
-    <section id="stats" className="scroll-mt-32 px-4 py-20 sm:px-6 lg:px-8">
+    <section id="stats" className="relative -mt-[18svh] scroll-mt-32 px-4 pb-20 pt-[22svh] sm:px-6 lg:px-8">
       <div className="home-ice-section mx-auto max-w-[1480px] p-6 sm:p-8">
         <HomeSectionHeading
           eyebrow="Цифры о нас"

@@ -236,19 +236,19 @@ export function HomeHeader({ menuItems, site }: HomeHeaderProps) {
       <header data-homepage-shell-nav="true" className="fixed inset-x-0 top-0 z-50 hidden md:block">
         <div className="mx-auto max-w-[1480px] px-4 pt-3 sm:px-6 lg:px-8">
           <div
-            className={`border border-[color:var(--gh-border)] transition-all duration-300 ${isCompact ? 'rounded-[1.45rem] bg-[rgba(10,18,28,0.84)] px-4 py-2.5 shadow-[0_18px_48px_rgba(0,0,0,0.24)] backdrop-blur-2xl' : 'rounded-[1.9rem] bg-[rgba(8,16,26,0.68)] px-5 py-3 shadow-[0_16px_44px_rgba(0,0,0,0.22)] backdrop-blur-xl'}`}
+            className={`transition-all duration-300 ${isCompact ? 'rounded-none border border-transparent bg-transparent px-0 py-0 shadow-none backdrop-blur-0' : 'rounded-[1.9rem] border border-[color:var(--gh-border)] bg-[rgba(8,16,26,0.68)] px-4 py-3 shadow-[0_16px_44px_rgba(0,0,0,0.22)] backdrop-blur-xl xl:px-5'}`}
           >
-            <div className="flex items-center gap-4">
+            <div className="flex items-center gap-2 xl:gap-3">
               <a
                 href="#hero"
-                className="flex min-w-0 items-center gap-3 rounded-full px-1 py-1 transition hover:opacity-90"
+                className={`flex min-w-0 shrink-0 items-center gap-2 rounded-full transition hover:opacity-90 xl:gap-3 ${isCompact ? 'border border-white/8 bg-black/30 px-2 py-1.5 backdrop-blur-xl' : 'px-1 py-1'}`}
               >
                 <Image
                   src={site.logoSrc}
                   alt={site.logoAlt}
                   width={54}
-                  height={28}
-                  className="h-auto w-[54px]"
+                  height={54}
+                  className={`${isCompact ? 'h-11 w-11' : 'h-12 w-12'} object-contain`}
                   priority
                 />
                 <div className="min-w-0">
@@ -256,18 +256,18 @@ export function HomeHeader({ menuItems, site }: HomeHeaderProps) {
                     {site.brand}
                   </p>
                   <p className="truncate text-[11px] uppercase tracking-[0.22em] text-[color:var(--gh-muted)]">
-                    school / team / ice
+                    хоккейный клуб
                   </p>
                 </div>
               </a>
 
               {!isCompact ? (
-                <nav className="hidden min-w-0 flex-1 items-center justify-center gap-1.5 lg:flex">
+                <nav className="hidden min-w-0 flex-1 items-center justify-center gap-0.5 lg:flex xl:gap-1">
                   {menuItems.map((item) => (
                     <a
                       key={item.href}
                       href={item.href}
-                      className="rounded-full px-4 py-2 text-sm font-semibold text-[color:var(--gh-muted)] transition hover:bg-[rgba(27,43,59,0.84)] hover:text-[color:var(--gh-text)]"
+                      className="whitespace-nowrap rounded-full px-2.5 py-2 text-[13px] font-semibold text-[color:var(--gh-muted)] transition hover:bg-[rgba(27,43,59,0.84)] hover:text-[color:var(--gh-text)] xl:px-3 xl:text-sm"
                     >
                       {item.label}
                     </a>
@@ -277,7 +277,7 @@ export function HomeHeader({ menuItems, site }: HomeHeaderProps) {
                 <div className="hidden flex-1 lg:block" />
               )}
 
-              <div className="ml-auto flex items-center gap-2">
+              <div className={`ml-auto flex items-center gap-2 ${isCompact ? 'rounded-full border border-white/8 bg-black/30 p-1.5 backdrop-blur-xl' : ''}`}>
                 {showAuthenticatedActions ? (
                   <>
                     <NotificationBellButton compact={isCompact} />
@@ -300,7 +300,7 @@ export function HomeHeader({ menuItems, site }: HomeHeaderProps) {
                       href={site.registerHref}
                       target="_blank"
                       rel="noreferrer"
-                      className={`${isCompact ? 'hidden xl:inline-flex px-4 py-2.5 text-xs' : 'px-5 py-3 text-sm'} rounded-full bg-[color:var(--gh-accent)] font-black uppercase tracking-[0.18em] text-black transition hover:brightness-110`}
+                      className={`${isCompact ? 'hidden 2xl:inline-flex px-4 py-2.5 text-xs' : 'hidden px-4 py-3 text-sm xl:inline-flex 2xl:px-5'} rounded-full bg-[color:var(--gh-accent)] font-black uppercase tracking-[0.18em] text-black transition hover:brightness-110`}
                     >
                       Регистрация
                     </a>

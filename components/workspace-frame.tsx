@@ -38,11 +38,11 @@ export function WorkspaceHero({
               className="inline-flex items-center gap-3 rounded-full border border-white/10 bg-white/[0.04] px-3 py-2 backdrop-blur transition hover:bg-white/[0.07]"
             >
               <Image
-                src="/homepage-school/gorilla-logo.png"
+                src="/homepage-school/gorilla-logo-v2.png"
                 alt="Gorilla Hockey"
                 width={56}
-                height={30}
-                className="h-auto w-14"
+                height={56}
+                className="h-12 w-12 object-contain"
                 priority={false}
               />
               <div className="min-w-0">
@@ -50,7 +50,7 @@ export function WorkspaceHero({
                   Gorilla Hockey
                 </p>
                 <p className="truncate text-[10px] uppercase tracking-[0.24em] text-stone-500">
-                  staff / cabinet
+                  хоккейный клуб
                 </p>
               </div>
             </Link>

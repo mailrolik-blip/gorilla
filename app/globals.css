@@ -7,7 +7,8 @@
   --gh-panel: rgba(255, 255, 255, 0.04);
   --gh-panel-strong: rgba(255, 255, 255, 0.08);
   --gh-border: rgba(255, 255, 255, 0.1);
-  --gh-accent: #ff9a35;
+  --gh-accent: #c9182b;
+  --gh-accent-hover: #f02f43;
   --gh-ice: #5dd6ff;
 }
 
@@ -59,7 +60,7 @@ summary::-webkit-details-marker {
 }
 
 ::selection {
-  background: rgba(255, 154, 53, 0.24);
+  background: rgba(201, 24, 43, 0.28);
   color: var(--gh-text);
 }
 
@@ -71,6 +72,19 @@ summary::-webkit-details-marker {
   --gh-panel-strong: rgba(16, 30, 45, 0.9);
   --gh-border: rgba(157, 190, 214, 0.12);
   isolation: isolate;
+}
+
+.homepage-school-shell :is(a, button).rounded-full {
+  letter-spacing: 0.08em;
+}
+
+.homepage-school-shell :is(a, button)[class*="uppercase"] {
+  letter-spacing: 0.08em;
+}
+
+.homepage-school-shell :is(a, button).bg-\[color\:var\(--gh-accent\)\]:hover {
+  background: var(--gh-accent-hover);
+  filter: none;
 }
 
 .homepage-school-shell .home-ice-section {
@@ -86,7 +100,7 @@ summary::-webkit-details-marker {
 .homepage-school-shell .home-ice-section-soft {
   border-radius: 2.6rem;
   background:
-    radial-gradient(circle at top right, rgba(245, 158, 11, 0.08), transparent 18%),
+    radial-gradient(circle at top right, rgba(201, 24, 43, 0.12), transparent 18%),
     linear-gradient(180deg, rgba(11, 22, 34, 0.82), rgba(7, 13, 22, 0.94));
   box-shadow:
     0 22px 70px rgba(0, 0, 0, 0.3),
@@ -125,8 +139,8 @@ summary::-webkit-details-marker {
 }
 
 .homepage-school-shell .home-ice-chip:hover {
-  border-color: rgba(190, 217, 235, 0.18);
-  background: rgba(28, 46, 63, 0.88);
+  border-color: rgba(201, 24, 43, 0.32);
+  background: rgba(46, 24, 34, 0.88);
 }
 
 @keyframes gorilla-goal-burst {
@@ -169,11 +183,6 @@ summary::-webkit-details-marker {
 
 .gorilla-points-fly {
   animation: gorilla-points-fly 1.1s cubic-bezier(0.2, 0.78, 0.18, 1) forwards;
-}
-
-html.gorilla-game-mode,
-body.gorilla-game-mode {
-  overflow: hidden;
 }
 
 body.gorilla-game-mode [data-homepage-shell-nav='true'] {

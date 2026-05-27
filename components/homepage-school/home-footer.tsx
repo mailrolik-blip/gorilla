@@ -17,16 +17,16 @@ export function HomeFooter({ footer, site }: HomeFooterProps) {
               <Image
                 src={site.logoSrc}
                 alt={site.logoAlt}
-                width={84}
-                height={44}
-                className="h-auto w-[84px]"
+                width={72}
+                height={72}
+                className="h-16 w-16 object-contain"
               />
               <div>
                 <p className="text-xl font-black uppercase tracking-[0.18em] text-[color:var(--gh-text)]">
                   {site.brand}
                 </p>
                 <p className="text-xs font-semibold uppercase tracking-[0.28em] text-[color:var(--gh-muted)]">
-                  school / team / ice
+                  хоккейный клуб
                 </p>
               </div>
             </div>
