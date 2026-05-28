@@ -57,7 +57,10 @@ export function HomeTrainingTypes({ section }: HomeTrainingTypesProps) {
                 </h3>
                 <p className="mt-2 max-w-md text-sm leading-7 text-white/74">{item.subtitle}</p>
 
-                <div className="mt-5 flex flex-wrap gap-2 opacity-100 transition md:translate-y-2 md:opacity-0 md:group-hover:translate-y-0 md:group-hover:opacity-100">
+                <div className="mt-5 flex flex-wrap items-center gap-2">
+                  <span className="rounded-full border border-white/12 bg-white/10 px-4 py-2 text-xs font-black uppercase tracking-[0.16em] text-white">
+                    {item.price}
+                  </span>
                   {item.badges.map((badge) => (
                     <span
                       key={badge}
@@ -66,6 +69,15 @@ export function HomeTrainingTypes({ section }: HomeTrainingTypesProps) {
                       {badge}
                     </span>
                   ))}
+                </div>
+
+                <div className="mt-5">
+                  <Link
+                    href={item.ctaHref}
+                    className="inline-flex rounded-full bg-[color:var(--gh-accent)] px-5 py-3 text-xs font-black uppercase tracking-[0.14em] text-black transition hover:brightness-110"
+                  >
+                    {item.ctaLabel}
+                  </Link>
                 </div>
               </div>
             </article>

@@ -88,23 +88,49 @@ export function HomeHeroSequence() {
     }
 
     function drawFrame(frameIndex: number, force = false) {
-      const image = frameImagesRef.current[frameIndex];
+      const normalizedFrameIndex = clamp(frameIndex, 0, HERO_SEQUENCE_FRAMES.length - 1);
+      const image = frameImagesRef.current[normalizedFrameIndex];
 
       if (!image?.complete || image.naturalWidth === 0) {
+        const fallbackFrameIndex = findNearestLoadedFrame(normalizedFrameIndex);
+
+        if (fallbackFrameIndex !== null && fallbackFrameIndex !== normalizedFrameIndex) {
+          drawFrame(fallbackFrameIndex, true);
+        }
+
         return;
       }
 
-      if (!force && currentFrameRef.current === frameIndex) {
+      if (!force && currentFrameRef.current === normalizedFrameIndex) {
         return;
       }
 
       resizeCanvas();
-      currentFrameRef.current = frameIndex;
+      currentFrameRef.current = normalizedFrameIndex;
       const dpr = Math.min(window.devicePixelRatio || 1, 2);
       const viewportWidth = window.innerWidth || 0;
       const sequenceShift = viewportWidth >= 768 ? HERO_SEQUENCE_DESKTOP_SHIFT * dpr : 0;
 
       drawCover(context, image, canvas.width, canvas.height, true, sequenceShift);
+    }
+
+    function findNearestLoadedFrame(frameIndex: number) {
+      for (let offset = 0; offset < HERO_SEQUENCE_FRAMES.length; offset += 1) {
+        const previousIndex = frameIndex - offset;
+        const nextIndex = frameIndex + offset;
+        const previousImage = frameImagesRef.current[previousIndex];
+        const nextImage = frameImagesRef.current[nextIndex];
+
+        if (previousImage?.complete && previousImage.naturalWidth > 0) {
+          return previousIndex;
+        }
+
+        if (nextImage?.complete && nextImage.naturalWidth > 0) {
+          return nextIndex;
+        }
+      }
+
+      return null;
     }
 
     function getFrameFromScroll() {
@@ -114,10 +140,11 @@ export function HomeHeroSequence() {
         return 0;
       }
 
-      const rect = heroSection.getBoundingClientRect();
+      const pageY = window.scrollY || window.pageYOffset || 0;
+      const sectionTop = heroSection.offsetTop;
       const viewportHeight = window.innerHeight || 1;
-      const scrollDistance = Math.max(rect.height - viewportHeight, 1);
-      const progress = clamp(-rect.top / scrollDistance, 0, 1);
+      const scrollDistance = Math.max(heroSection.offsetHeight - viewportHeight, 1);
+      const progress = clamp((pageY - sectionTop) / scrollDistance, 0, 1);
 
       const forwardFrameIndex = Math.round(progress * (HERO_SEQUENCE_FRAMES.length - 1));
 
@@ -135,7 +162,8 @@ export function HomeHeroSequence() {
         rafRef.current = null;
         const shouldForce = forceNextDrawRef.current;
         forceNextDrawRef.current = false;
-        drawFrame(getFrameFromScroll(), shouldForce);
+        const nextFrame = getFrameFromScroll();
+        drawFrame(nextFrame, shouldForce);
       });
     }
 
@@ -156,8 +184,22 @@ export function HomeHeroSequence() {
     });
 
     scheduleDraw(true);
-    const handleScroll = () => scheduleDraw();
+    const handleScroll = () => {
+      if ((window.scrollY || window.pageYOffset || 0) <= 2) {
+        currentFrameRef.current = -1;
+      }
+
+      scheduleDraw(true);
+    };
     const handleResize = () => scheduleDraw(true);
+    const handleLoad = () => {
+      currentFrameRef.current = -1;
+      scheduleDraw(true);
+    };
+    const handleScrollEnd = () => {
+      currentFrameRef.current = -1;
+      scheduleDraw(true);
+    };
     const handlePageShow = () => {
       currentFrameRef.current = -1;
       scheduleDraw(true);
@@ -179,6 +221,8 @@ export function HomeHeroSequence() {
     );
 
     window.addEventListener('scroll', handleScroll, { passive: true });
+    window.addEventListener('scrollend', handleScrollEnd);
+    window.addEventListener('load', handleLoad);
     window.addEventListener('resize', handleResize);
     window.addEventListener('pageshow', handlePageShow);
     document.addEventListener('visibilitychange', handleVisibilityChange);
@@ -192,6 +236,8 @@ export function HomeHeroSequence() {
       }
 
       window.removeEventListener('scroll', handleScroll);
+      window.removeEventListener('scrollend', handleScrollEnd);
+      window.removeEventListener('load', handleLoad);
       window.removeEventListener('resize', handleResize);
       window.removeEventListener('pageshow', handlePageShow);
       document.removeEventListener('visibilitychange', handleVisibilityChange);

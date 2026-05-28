@@ -13,7 +13,7 @@ export function HomeHero({ hero }: HomeHeroProps) {
     <section
       id="hero"
       data-hero-sequence-section
-      className="relative min-h-[170svh] scroll-mt-0"
+      className="relative min-h-[170svh] scroll-mt-0 bg-[#061018]"
     >
       <div className="sticky top-0 min-h-[100svh] overflow-hidden">
         <HomeHeroSequence />
@@ -60,18 +60,9 @@ export function HomeHero({ hero }: HomeHeroProps) {
                 {hero.secondaryCta.label}
               </Link>
             </div>
-
-            <a
-              href={hero.tertiaryCta.href}
-              className="inline-flex items-center gap-2 text-sm font-semibold uppercase tracking-[0.18em] text-white/72 transition hover:text-white"
-            >
-              {hero.tertiaryCta.label}
-              <span aria-hidden="true">{'>'}</span>
-            </a>
           </div>
         </div>
       </div>
-      <div className="pointer-events-none absolute inset-x-0 bottom-[-1px] h-[46svh] bg-[linear-gradient(180deg,rgba(6,16,24,0)_0%,rgba(7,17,26,0.34)_32%,rgba(8,18,28,0.82)_68%,#061018_100%)]" />
     </section>
   );
 }

@@ -4,23 +4,33 @@ export type TelegramNewsItem = {
   excerpt: string;
   content: string;
   href: string;
+  sourceHref: string | null;
   image: string | null;
+  video: string | null;
+  duration: string | null;
+  mediaType: 'image' | 'video' | 'text';
   publishedAt: string;
   dateLabel: string;
 };
 
 type RemoteTelegramNewsItem = {
   id: string;
+  messageId?: number;
   title: string;
   excerpt: string;
   content?: string | null;
   href: string;
+  sourceHref?: string | null;
   image?: string | null;
+  video?: string | null;
+  duration?: string | null;
+  mediaType?: 'image' | 'video' | 'text';
   publishedAt: string;
 };
 
 const TELEGRAM_CHANNEL_URL = 'https://t.me/Gorillahockeyacademy';
 const TELEGRAM_PUBLIC_FEED_URL = 'https://t.me/s/Gorillahockeyacademy';
+const TELEGRAM_VIDEO_PAGE_LIMIT = 20;
 
 const fallbackFeed: RemoteTelegramNewsItem[] = [
   {
@@ -31,7 +41,11 @@ const fallbackFeed: RemoteTelegramNewsItem[] = [
     content:
       'Открываем набор на сезон 2026/27. Доступны группы для первого льда, family ice и игровых форматов в Москве и Нижнем Новгороде. Поможем выбрать уровень и время первой тренировки.',
     href: `${TELEGRAM_CHANNEL_URL}/210`,
+    sourceHref: null,
     image: '/homepage-school/hero-ice-arena.svg',
+    video: null,
+    duration: null,
+    mediaType: 'image',
     publishedAt: '2026-05-24T11:00:00+06:00',
   },
   {
@@ -42,7 +56,11 @@ const fallbackFeed: RemoteTelegramNewsItem[] = [
     content:
       'Команда Gorilla Hockey провела сильный тур ЛХЛ. В посте собраны главные эпизоды, тренерские комментарии и фокус на следующую игровую неделю.',
     href: `${TELEGRAM_CHANNEL_URL}/208`,
+    sourceHref: null,
     image: '/homepage-school/team-moscow.svg',
+    video: null,
+    duration: null,
+    mediaType: 'image',
     publishedAt: '2026-05-18T18:30:00+06:00',
   },
   {
@@ -53,7 +71,11 @@ const fallbackFeed: RemoteTelegramNewsItem[] = [
     content:
       'Family ice возвращается в субботнее расписание. Это мягкий формат для детей и родителей: меньше барьеров, больше поддержки и понятный ритм первых занятий.',
     href: `${TELEGRAM_CHANNEL_URL}/205`,
+    sourceHref: null,
     image: '/homepage-school/training-family.svg',
+    video: null,
+    duration: null,
+    mediaType: 'image',
     publishedAt: '2026-05-12T15:00:00+06:00',
   },
 ];
@@ -76,7 +98,11 @@ function normalizeFeedItem(item: RemoteTelegramNewsItem): TelegramNewsItem {
     excerpt,
     content,
     href: item.href,
+    sourceHref: item.sourceHref ?? null,
     image: item.image ?? null,
+    video: item.video ?? null,
+    duration: item.duration ?? null,
+    mediaType: item.mediaType ?? (item.video ? 'video' : item.image ? 'image' : 'text'),
     publishedAt: item.publishedAt,
     dateLabel: formatTelegramDate(item.publishedAt),
   };
@@ -162,6 +188,83 @@ function extractAttribute(value: string, attribute: string) {
   return match?.[1] ?? null;
 }
 
+function extractStyleUrl(value: string | null) {
+  const src = value?.match(/url\((?:'|")?([^'")]+)(?:'|")?\)/)?.[1] ?? null;
+
+  if (src?.startsWith('//')) {
+    return `https:${src}`;
+  }
+
+  return src;
+}
+
+function normalizeTelegramUrl(src: string | null) {
+  if (!src) {
+    return null;
+  }
+
+  if (src.startsWith('//')) {
+    return `https:${src}`;
+  }
+
+  return src;
+}
+
+function extractHrefValues(value: string) {
+  return Array.from(value.matchAll(/href="([^"]+)"/g), (match) =>
+    decodeHtmlEntities(match[1])
+  );
+}
+
+function isBroadcastSourceUrl(value: string) {
+  try {
+    const url = new URL(value);
+    const host = url.hostname.toLowerCase();
+    const path = url.pathname.toLowerCase();
+
+    return (
+      host.includes('youtube.com') ||
+      host.includes('youtu.be') ||
+      host.includes('rutube.ru') ||
+      host.includes('vk.com') ||
+      host.includes('vkvideo.ru') ||
+      host.includes('twitch.tv') ||
+      path.includes('live') ||
+      path.includes('stream') ||
+      path.includes('broadcast') ||
+      path.includes('video')
+    );
+  } catch {
+    return false;
+  }
+}
+
+function isGiveshareCoverUrl(value: string) {
+  try {
+    const url = new URL(value);
+
+    return (
+      url.hostname.toLowerCase() === 'giveshare.ru' &&
+      /\.(avif|gif|jpe?g|png|webp)$/i.test(url.pathname)
+    );
+  } catch {
+    return false;
+  }
+}
+
+function extractGiveshareCoverUrl(value: string) {
+  const urls = [
+    ...extractHrefValues(value),
+    ...Array.from(value.matchAll(/https:\/\/giveshare\.ru\/[^\s"'<>]+/gi), (match) =>
+      decodeHtmlEntities(match[0])
+    ),
+  ]
+    .map(normalizeTelegramUrl)
+    .filter((url): url is string => Boolean(url));
+
+  return urls.find(isGiveshareCoverUrl) ?? null;
+}
+
 function extractPublicTelegramFeed(html: string) {
   const blocks = html.match(/<div class="tgme_widget_message_wrap[\s\S]*?(?=<div class="tgme_widget_message_wrap|<\/section>)/g);
 
@@ -177,27 +280,47 @@ function extractPublicTelegramFeed(html: string) {
       const textMatch = block.match(/<div class="tgme_widget_message_text[^"]*"[^>]*>([\s\S]*?)<\/div>/);
       const timeMatch = block.match(/<time datetime="([^"]+)"/);
       const photoMatch = block.match(/<a class="tgme_widget_message_photo_wrap[^"]*"[^>]*>/);
+      const videoMatch = block.match(/<video[^>]+src="([^"]+)"/);
+      const videoPreviewMatch = block.match(/<a class="tgme_widget_message_video_wrap[^"]*"[^>]*>/);
+      const durationMatch = block.match(/tgme_widget_message_video_duration[^>]*>([^<]+)</);
 
-      if (!messageId || !href || !textMatch || !timeMatch) {
+      if (!messageId || !href || !timeMatch) {
         return null;
       }
 
-      const content = stripTelegramHtml(textMatch[1]);
-
-      if (!content) {
-        return null;
-      }
+      const content = textMatch ? stripTelegramHtml(textMatch[1]) : '';
 
       const photoStyle = photoMatch ? extractAttribute(photoMatch[0], 'style') : null;
-      const imageMatch = photoStyle?.match(/url\('([^']+)'\)/);
+      const videoPreviewStyle = videoPreviewMatch ? extractAttribute(videoPreviewMatch[0], 'style') : null;
+      const video = videoMatch?.[1] ?? null;
+      const giveshareCover = extractGiveshareCoverUrl(block);
+      const image = giveshareCover ?? extractStyleUrl(photoStyle) ?? extractStyleUrl(videoPreviewStyle);
+      const sourceHref =
+        extractHrefValues(block)
+          .map(normalizeTelegramUrl)
+          .find((url): url is string => {
+            if (!url) {
+              return false;
+            }
+
+            return isBroadcastSourceUrl(url);
+          }) ?? null;
+      const duration = durationMatch?.[1]?.trim() ?? null;
+      const titleSource = content || (video ? 'Видео Gorilla Hockey' : 'Новость Gorilla Hockey');
+      const excerptSource = content || (video ? 'Видео из Telegram-канала Gorilla Hockey.' : 'Пост из Telegram-канала Gorilla Hockey.');
 
       return {
         id: `telegram-${messageId}`,
-        title: getTelegramTitle(content),
-        excerpt: getTelegramExcerpt(content),
-        content,
+        messageId: Number(messageId),
+        title: getTelegramTitle(titleSource),
+        excerpt: getTelegramExcerpt(excerptSource),
+        content: excerptSource,
         href,
-        image: imageMatch?.[1] ?? null,
+        sourceHref,
+        image,
+        video,
+        duration,
+        mediaType: video ? 'video' : image ? 'image' : 'text',
         publishedAt: timeMatch[1],
       };
     })
@@ -239,6 +362,23 @@ function extractRemoteFeed(payload: unknown) {
   return null;
 }
 
+async function fetchTelegramPublicPage(before?: number) {
+  const url = before ? `${TELEGRAM_PUBLIC_FEED_URL}?before=${before}` : TELEGRAM_PUBLIC_FEED_URL;
+  const response = await fetch(url, {
+    next: { revalidate: 60 },
+    headers: {
+      Accept: 'text/html',
+      'User-Agent': 'Mozilla/5.0 GorillaHockeyHomepage/1.0',
+    },
+  });
+
+  if (!response.ok) {
+    return null;
+  }
+
+  return extractPublicTelegramFeed(await response.text());
+}
+
 async function fetchRemoteTelegramFeed() {
   const sourceUrl = process.env.GORILLA_TELEGRAM_FEED_URL;
 
@@ -265,22 +405,42 @@ async function fetchRemoteTelegramFeed() {
   }
 
   try {
-    const response = await fetch(TELEGRAM_PUBLIC_FEED_URL, {
-      next: { revalidate: 60 },
-      headers: {
-        Accept: 'text/html',
-        'User-Agent': 'Mozilla/5.0 GorillaHockeyHomepage/1.0',
-      },
-    });
-
-    if (!response.ok) {
-      return null;
-    }
-
-    return extractPublicTelegramFeed(await response.text());
+    return fetchTelegramPublicPage();
   } catch {
     return null;
   }
+}
+
+async function fetchTelegramVideoFeed() {
+  const collected = new Map<string, RemoteTelegramNewsItem>();
+  let before: number | undefined;
+
+  for (let page = 0; page < TELEGRAM_VIDEO_PAGE_LIMIT; page += 1) {
+    const items = await fetchTelegramPublicPage(before);
+
+    if (!items || items.length === 0) {
+      break;
+    }
+
+    for (const item of items) {
+      if (item.video || item.sourceHref) {
+        collected.set(item.id, item);
+      }
+    }
+
+    const messageIds = items
+      .map((item) => item.messageId)
+      .filter((value): value is number => typeof value === 'number');
+    const nextBefore = Math.min(...messageIds);
+
+    if (!Number.isFinite(nextBefore) || nextBefore === before) {
+      break;
+    }
+
+    before = nextBefore;
+  }
+
+  return Array.from(collected.values());
 }
 
 export async function getHomepageTelegramFeed() {
@@ -293,6 +453,18 @@ export async function getHomepageTelegramFeed() {
       (left, right) =>
         new Date(right.publishedAt).getTime() - new Date(left.publishedAt).getTime()
     )
-    .slice(0, 6)
+    .slice(0, 12)
+    .map(normalizeFeedItem);
+}
+
+export async function getHomepageTelegramVideos() {
+  const videos = await fetchTelegramVideoFeed();
+
+  return videos
+    .slice()
+    .sort(
+      (left, right) =>
+        new Date(right.publishedAt).getTime() - new Date(left.publishedAt).getTime()
+    )
     .map(normalizeFeedItem);
 }

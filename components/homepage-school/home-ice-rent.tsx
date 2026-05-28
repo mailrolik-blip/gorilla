@@ -10,14 +10,22 @@ type HomeIceRentProps = {
 export function HomeIceRent({ section }: HomeIceRentProps) {
   return (
     <section id="rent" className="scroll-mt-32 px-4 py-20 sm:px-6 lg:px-8">
-      <div className="mx-auto max-w-[1480px]">
-        <div className="home-ice-section grid gap-6 overflow-hidden p-5 sm:p-6 xl:grid-cols-[minmax(0,1.08fr)_minmax(300px,0.92fr)] xl:items-center">
-          <div className="relative min-h-[320px] overflow-hidden rounded-[2rem] border border-white/10 bg-black/40">
+      <div className="mx-auto max-w-[1600px]">
+        <div className="home-ice-section grid gap-7 overflow-hidden p-5 sm:p-7 xl:grid-cols-[minmax(0,1.25fr)_minmax(24rem,0.75fr)] xl:items-stretch">
+          <div className="relative min-h-[420px] overflow-hidden rounded-[2.1rem] border border-white/10 bg-black/40">
             <Image src={section.image} alt={section.title} fill className="object-cover" />
-            <div className="absolute inset-0 bg-[linear-gradient(180deg,rgba(8,12,16,0.04),rgba(8,12,16,0.52))]" />
+            <div className="absolute inset-0 bg-[linear-gradient(90deg,rgba(8,12,16,0.08),rgba(8,12,16,0.46)_72%,rgba(8,12,16,0.78))]" />
+            <div className="absolute bottom-5 left-5 right-5 rounded-[1.5rem] border border-white/10 bg-black/28 p-4 backdrop-blur-md sm:left-6 sm:right-auto sm:max-w-md">
+              <p className="text-xs font-semibold uppercase tracking-[0.24em] text-[color:var(--gh-accent)]">
+                Быстрый слот
+              </p>
+              <p className="mt-2 text-sm leading-7 text-white/76">
+                Командная тренировка, просмотр, индивидуальная работа или семейный формат.
+              </p>
+            </div>
           </div>
 
-          <div className="space-y-5">
+          <div className="flex flex-col justify-center space-y-5">
             <p className="text-xs font-semibold uppercase tracking-[0.36em] text-[color:var(--gh-accent)]">
               {section.eyebrow}
             </p>
@@ -43,11 +51,10 @@ export function HomeIceRent({ section }: HomeIceRentProps) {
               </a>
             </div>
 
-            <details className="home-ice-panel-soft group rounded-[1.6rem] p-4">
-              <summary className="flex cursor-pointer list-none items-center justify-between gap-3 text-sm font-bold uppercase tracking-[0.18em] text-[color:var(--gh-text)]">
+            <div className="home-ice-panel-soft rounded-[1.6rem] p-4">
+              <p className="text-sm font-bold uppercase tracking-[0.18em] text-[color:var(--gh-text)]">
                 Условия аренды
-                <span className="text-[color:var(--gh-muted)] transition group-open:rotate-45">+</span>
-              </summary>
+              </p>
               <ul className="mt-4 space-y-3 text-sm leading-7 text-[color:var(--gh-muted)]">
                 {section.details.map((item) => (
                   <li key={item} className="flex gap-3">
@@ -56,7 +63,7 @@ export function HomeIceRent({ section }: HomeIceRentProps) {
                   </li>
                 ))}
               </ul>
-            </details>
+            </div>
           </div>
         </div>
       </div>

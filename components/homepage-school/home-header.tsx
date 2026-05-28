@@ -12,6 +12,41 @@ type HomeHeaderProps = {
   site: HomepageSchoolContent['site'];
 };
 
+const menuGroups = [
+  {
+    label: 'О клубе',
+    items: [
+      { label: 'О школе', href: '#hero', mobileLabel: 'Главная' },
+      { label: 'Новости', href: '#news', mobileLabel: 'Новости' },
+      { label: 'Контакты', href: '#location', mobileLabel: 'Контакты' },
+    ],
+  },
+  {
+    label: 'Тренировки',
+    items: [
+      { label: 'Форматы льда', href: '#trainings', mobileLabel: 'Лёд' },
+      { label: 'Выбрать дату', href: '/cabinet' },
+      { label: 'Аренда льда', href: '#rent' },
+    ],
+  },
+  {
+    label: 'Команда',
+    items: [
+      { label: 'Команды в городах', href: '#teams', mobileLabel: 'Команды' },
+      { label: 'Тренерский штаб', href: '#trainers' },
+      { label: 'Матчи и записи', href: '#live', mobileLabel: 'Live' },
+    ],
+  },
+  {
+    label: 'Активности',
+    items: [
+      { label: 'Мини-игра', href: '#discount-game', mobileLabel: 'Игра' },
+      { label: 'Gorilla Points', href: '#discount-game' },
+      { label: 'Акции клуба', href: '#news' },
+    ],
+  },
+] satisfies Array<{ label: string; items: HomepageMenuItem[] }>;
+
 function BurgerIcon({ compact, open }: { compact: boolean; open: boolean }) {
   return (
     <span className="relative flex h-9 w-9 items-center justify-center rounded-full border border-[color:var(--gh-border)] bg-[rgba(18,31,45,0.86)] shadow-[0_8px_24px_rgba(0,0,0,0.24)]">
@@ -44,6 +79,35 @@ function BellIcon() {
       <path d="M9.5 18a2.5 2.5 0 0 0 5 0" />
       <path d="M12 3.5V5" />
     </svg>
+  );
+}
+
+function LightModePlaceholderButton({
+  compact,
+  mobile,
+}: {
+  compact: boolean;
+  mobile?: boolean;
+}) {
+  return (
+    <button
+      type="button"
+      disabled
+      aria-label="Светлый режим скоро"
+      title="Светлый режим скоро"
+      className={`${mobile ? 'flex min-h-[3.75rem] flex-col items-center justify-center rounded-[1.05rem] px-2 text-center text-[11px]' : compact ? 'h-11 w-11 rounded-full text-[11px]' : 'h-12 rounded-full px-4 text-xs'} border border-[color:var(--gh-border)] bg-[rgba(18,31,45,0.62)] font-bold uppercase tracking-[0.14em] text-[color:var(--gh-muted)] opacity-80`}
+    >
+      {mobile ? (
+        <>
+          <span className="mb-1 h-1.5 w-1.5 rounded-full bg-white/52" />
+          Свет
+        </>
+      ) : compact ? (
+        'С'
+      ) : (
+        'Светлая'
+      )}
+    </button>
   );
 }
 
@@ -213,6 +277,7 @@ export function HomeHeader({ menuItems, site }: HomeHeaderProps) {
   const { authStatus, isAuthenticated } = useGorillaAccount();
   const [isCompact, setIsCompact] = useState(false);
   const [isMenuOpen, setIsMenuOpen] = useState(false);
+  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
 
   const handleScroll = useEffectEvent(() => {
     const nextCompact = window.scrollY > 88;
@@ -228,7 +293,7 @@ export function HomeHeader({ menuItems, site }: HomeHeaderProps) {
     return () => window.removeEventListener('scroll', handleScroll);
   }, []);
 
-  const mobileItems = menuItems.filter((item) => item.mobileLabel).slice(0, 4);
+  const mobileItems = menuItems.filter((item) => item.mobileLabel).slice(0, 2);
   const showAuthenticatedActions = authStatus === 'authenticated' && isAuthenticated;
 
   return (
@@ -262,15 +327,29 @@ export function HomeHeader({ menuItems, site }: HomeHeaderProps) {
               </a>
 
               {!isCompact ? (
-                <nav className="hidden min-w-0 flex-1 items-center justify-center gap-0.5 lg:flex xl:gap-1">
-                  {menuItems.map((item) => (
-                    <a
-                      key={item.href}
-                      href={item.href}
-                      className="whitespace-nowrap rounded-full px-2.5 py-2 text-[13px] font-semibold text-[color:var(--gh-muted)] transition hover:bg-[rgba(27,43,59,0.84)] hover:text-[color:var(--gh-text)] xl:px-3 xl:text-sm"
-                    >
-                      {item.label}
-                    </a>
+                <nav className="hidden min-w-0 flex-1 items-center justify-center gap-1 lg:flex">
+                  {menuGroups.map((group) => (
+                    <div key={group.label} className="group relative py-2">
+                      <button
+                        type="button"
+                        className="whitespace-nowrap rounded-full px-3 py-2 text-[13px] font-semibold text-[color:var(--gh-muted)] transition hover:bg-[rgba(27,43,59,0.84)] hover:text-[color:var(--gh-text)] xl:text-sm"
+                      >
+                        {group.label}
+                      </button>
+                      <div className="pointer-events-none absolute left-1/2 top-full z-20 w-56 -translate-x-1/2 pt-2 opacity-0 transition delay-100 duration-150 group-hover:pointer-events-auto group-hover:opacity-100 group-hover:delay-0 group-focus-within:pointer-events-auto group-focus-within:opacity-100">
+                        <div className="rounded-[1.4rem] border border-[color:var(--gh-border)] bg-[rgba(10,18,28,0.94)] p-2 shadow-[0_18px_44px_rgba(0,0,0,0.26)] backdrop-blur-2xl">
+                        {group.items.map((item) => (
+                          <a
+                            key={`${group.label}-${item.href}-${item.label}`}
+                            href={item.href}
+                            className="block rounded-[1rem] px-4 py-3 text-sm font-semibold text-[color:var(--gh-muted)] transition hover:bg-[rgba(27,43,59,0.92)] hover:text-[color:var(--gh-text)]"
+                          >
+                            {item.label}
+                          </a>
+                        ))}
+                        </div>
+                      </div>
+                    </div>
                   ))}
                 </nav>
               ) : (
@@ -278,6 +357,8 @@ export function HomeHeader({ menuItems, site }: HomeHeaderProps) {
               )}
 
               <div className={`ml-auto flex items-center gap-2 ${isCompact ? 'rounded-full border border-white/8 bg-black/30 p-1.5 backdrop-blur-xl' : ''}`}>
+                <LightModePlaceholderButton compact={isCompact} />
+
                 {showAuthenticatedActions ? (
                   <>
                     <NotificationBellButton compact={isCompact} />
@@ -323,15 +404,24 @@ export function HomeHeader({ menuItems, site }: HomeHeaderProps) {
           {isMenuOpen ? (
             <div className="mt-2 rounded-[1.8rem] border border-[color:var(--gh-border)] bg-[rgba(10,18,28,0.88)] p-3 shadow-[0_18px_44px_rgba(0,0,0,0.26)] backdrop-blur-2xl">
               <div className="grid gap-2 md:grid-cols-2 xl:grid-cols-4">
-                {menuItems.map((item) => (
-                  <a
-                    key={item.href}
-                    href={item.href}
-                    onClick={() => setIsMenuOpen(false)}
-                    className="rounded-[1.2rem] bg-[rgba(18,31,45,0.8)] px-4 py-3 text-sm font-semibold text-[color:var(--gh-muted)] transition hover:bg-[rgba(27,43,59,0.92)] hover:text-[color:var(--gh-text)]"
-                  >
-                    {item.label}
-                  </a>
+                {menuGroups.map((group) => (
+                  <div key={group.label} className="rounded-[1.2rem] bg-[rgba(18,31,45,0.8)] p-3">
+                    <p className="px-2 text-xs font-black uppercase tracking-[0.18em] text-[color:var(--gh-accent)]">
+                      {group.label}
+                    </p>
+                    <div className="mt-2 space-y-1">
+                      {group.items.map((item) => (
+                        <a
+                          key={`${group.label}-${item.href}-${item.label}`}
+                          href={item.href}
+                          onClick={() => setIsMenuOpen(false)}
+                          className="block rounded-[0.9rem] px-3 py-2 text-sm font-semibold text-[color:var(--gh-muted)] transition hover:bg-[rgba(27,43,59,0.92)] hover:text-[color:var(--gh-text)]"
+                        >
+                          {item.label}
+                        </a>
+                      ))}
+                    </div>
+                  </div>
                 ))}
               </div>
             </div>
@@ -354,6 +444,19 @@ export function HomeHeader({ menuItems, site }: HomeHeaderProps) {
               {item.mobileLabel ?? item.label}
             </a>
           ))}
+
+          <button
+            type="button"
+            onClick={() => setIsMobileMenuOpen((current) => !current)}
+            className="flex min-h-[3.75rem] flex-col items-center justify-center rounded-[1.05rem] px-2 text-center text-[11px] font-semibold uppercase tracking-[0.14em] text-[color:var(--gh-muted)] transition hover:bg-[rgba(27,43,59,0.84)] hover:text-[color:var(--gh-text)]"
+            aria-expanded={isMobileMenuOpen}
+            aria-label="Открыть меню"
+          >
+            <span className="mb-1 h-1.5 w-1.5 rounded-full bg-[color:var(--gh-accent)]" />
+            Меню
+          </button>
+
+          <LightModePlaceholderButton compact={false} mobile />
 
           {showAuthenticatedActions ? (
             <>
@@ -387,6 +490,32 @@ export function HomeHeader({ menuItems, site }: HomeHeaderProps) {
             </>
           )}
         </div>
+
+        {isMobileMenuOpen ? (
+          <div className="absolute bottom-full left-0 right-0 mb-3 max-h-[70vh] overflow-y-auto rounded-[1.55rem] border border-[color:var(--gh-border)] bg-[rgba(8,16,26,0.94)] p-3 shadow-[0_18px_46px_rgba(0,0,0,0.3)] backdrop-blur-2xl">
+            <div className="grid gap-3">
+              {menuGroups.map((group) => (
+                <div key={group.label} className="rounded-[1.2rem] bg-[rgba(18,31,45,0.76)] p-3">
+                  <p className="px-2 text-xs font-black uppercase tracking-[0.18em] text-[color:var(--gh-accent)]">
+                    {group.label}
+                  </p>
+                  <div className="mt-2 grid gap-1">
+                    {group.items.map((item) => (
+                      <a
+                        key={`${group.label}-${item.href}-${item.label}`}
+                        href={item.href}
+                        onClick={() => setIsMobileMenuOpen(false)}
+                        className="rounded-[0.9rem] px-3 py-2 text-sm font-semibold text-[color:var(--gh-muted)] transition hover:bg-[rgba(27,43,59,0.92)] hover:text-[color:var(--gh-text)]"
+                      >
+                        {item.mobileLabel ?? item.label}
+                      </a>
+                    ))}
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        ) : null}
       </nav>
     </>
   );

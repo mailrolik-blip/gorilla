@@ -1,7 +1,7 @@
 import type { Metadata } from 'next';
 
 import { homepageSchoolContent } from '@/content/homepage-school';
-import { getHomepageTelegramFeed } from '@/lib/telegram-news';
+import { getHomepageTelegramFeed, getHomepageTelegramVideos } from '@/lib/telegram-news';
 
 import { HomeDiscountGameSection } from '@/components/homepage-school/home-discount-game-section';
 import { HomeFooter } from '@/components/homepage-school/home-footer';
@@ -11,7 +11,7 @@ import { HomeIceRent } from '@/components/homepage-school/home-ice-rent';
 import { HomeLiveStreams } from '@/components/homepage-school/home-live-streams';
 import { HomeLocation } from '@/components/homepage-school/home-location';
 import { HomeNews } from '@/components/homepage-school/home-news';
-import { HomeStats } from '@/components/homepage-school/home-stats';
+import { HomeSiteStories } from '@/components/homepage-school/home-site-stories';
 import { HomeTeams } from '@/components/homepage-school/home-teams';
 import { HomeTestimonials } from '@/components/homepage-school/home-testimonials';
 import { HomeTrainers } from '@/components/homepage-school/home-trainers';
@@ -24,13 +24,15 @@ export const metadata: Metadata = {
 };
 
 export default async function HomePage() {
-  const newsFeed = await getHomepageTelegramFeed();
+  const [newsFeed, videoFeed] = await Promise.all([
+    getHomepageTelegramFeed(),
+    getHomepageTelegramVideos(),
+  ]);
   const {
     site,
     menu,
     news,
     hero,
-    stats,
     trainings,
     liveStreams,
     teams,
@@ -55,9 +57,9 @@ export default async function HomePage() {
 
       <div className="relative">
         <HomeHero hero={hero} />
-        <HomeStats items={stats} />
+        <HomeSiteStories items={videoFeed} />
         <HomeNews section={news} items={newsFeed} />
-        <HomeLiveStreams section={liveStreams} />
+        <HomeLiveStreams section={liveStreams} feedItems={videoFeed} />
         <HomeTrainingTypes section={trainings} />
         <HomeTeams section={teams} />
         <HomeTrainers section={trainers} />

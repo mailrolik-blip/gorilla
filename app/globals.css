@@ -143,6 +143,17 @@ summary::-webkit-details-marker {
   background: rgba(46, 24, 34, 0.88);
 }
 
+.homepage-school-shell .home-media-scroll {
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+  scroll-snap-type: x proximity;
+  overscroll-behavior-inline: contain;
+}
+
+.homepage-school-shell .home-media-scroll::-webkit-scrollbar {
+  display: none;
+}
+
 @keyframes gorilla-goal-burst {
   0% {
     opacity: 0;

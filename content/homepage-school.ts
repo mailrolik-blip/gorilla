@@ -48,6 +48,9 @@ export type HomepageTrainingType = {
   audience: string;
   image: string;
   badges: string[];
+  price: string;
+  ctaLabel: string;
+  ctaHref: string;
   featured?: boolean;
 };
 
@@ -200,25 +203,25 @@ export const homepageSchoolContent = {
   },
   stats: [
     {
-      value: '2',
-      label: 'города школы',
-      detail: 'Москва и Нижний Новгород работают в одном клубном ритме: тренировки, команды и сборы связаны между собой.',
-      href: '#teams',
-      cta: 'Открыть команды',
-    },
-    {
-      value: '5',
-      label: 'форматов на льду',
-      detail: 'Есть первый лёд, семейный формат, группы по возрасту и индивидуальная работа с тренером.',
+      value: '1',
+      label: 'маршрут от первой тренировки',
+      detail: 'Помогаем выбрать стартовый формат, записаться на лёд и дальше двигаться к группе, просмотру или индивидуальной работе.',
       href: '#trainings',
-      cta: 'Смотреть тренировки',
+      cta: 'Выбрать формат',
     },
     {
-      value: '2',
-      label: 'команды-призёра ЛХЛ',
-      detail: 'Обе команды уже брали призы в ЛХЛ и продолжают расти через регулярные матчи и просмотры.',
-      href: '#teams',
-      cta: 'Смотреть результаты',
+      value: '24/7',
+      label: 'запись через кабинет',
+      detail: 'Тренировки, бронирование льда и заявки собраны в личном кабинете, чтобы не терять переписку и статусы.',
+      href: '#trainings',
+      cta: 'Перейти к записи',
+    },
+    {
+      value: 'Live',
+      label: 'матчи и записи из Telegram',
+      detail: 'Видео и клубные новости подтягиваются из канала, поэтому главная показывает актуальные материалы без ручной загрузки.',
+      href: '#live',
+      cta: 'Смотреть записи',
     },
     {
       value: '4',
@@ -228,18 +231,18 @@ export const homepageSchoolContent = {
       cta: 'Узнать формат',
     },
     {
-      value: '8',
-      label: 'клубных активностей',
-      detail: 'Челленджи, конкурсы и игровые события поддерживают интерес ребёнка между тренировками и матчами.',
+      value: 'GP',
+      label: 'Gorilla Points за активность',
+      detail: 'Мини-игра и клубные задания связывают сайт с кабинетом: баллы копятся и открывают фиксированные награды.',
       href: '#discount-game',
       cta: 'Открыть игру',
     },
     {
-      value: '+1',
-      label: 'Gorilla Point за гол',
-      detail: 'Каждая шайба в мини-матче даёт 1 балл. Баллы копятся в аккаунте и открывают фиксированные награды.',
-      href: '#discount-game',
-      cta: 'Играть и копить',
+      value: '2',
+      label: 'точки связи с администратором',
+      detail: 'Telegram и телефон остаются быстрым способом уточнить слот, условия аренды или первый пробный выход.',
+      href: '#location',
+      cta: 'Открыть контакты',
     },
   ] satisfies HomepageStatItem[],
   trainings: {
@@ -255,6 +258,9 @@ export const homepageSchoolContent = {
         audience: 'Старт для начинающих игроков',
         image: '/homepage-school/training-kids.svg',
         badges: ['5-8 лет', 'Первый лёд', 'Техника'],
+        price: 'от 1 800 ₽',
+        ctaLabel: 'Записаться',
+        ctaHref: '/cabinet',
         featured: true,
       },
       {
@@ -263,6 +269,9 @@ export const homepageSchoolContent = {
         audience: 'Family ice',
         image: '/homepage-school/training-family.svg',
         badges: ['Вместе на льду', 'Поддержка семьи'],
+        price: 'от 2 500 ₽',
+        ctaLabel: 'Выбрать слот',
+        ctaHref: '/cabinet',
       },
       {
         title: 'Средняя группа',
@@ -270,6 +279,9 @@ export const homepageSchoolContent = {
         audience: 'Рост темпа и уверенности',
         image: '/homepage-school/training-middle.svg',
         badges: ['U10-U12', 'Игровые связки'],
+        price: 'от 2 200 ₽',
+        ctaLabel: 'Перейти к записи',
+        ctaHref: '/cabinet',
       },
       {
         title: 'Старшая группа',
@@ -277,6 +289,9 @@ export const homepageSchoolContent = {
         audience: 'Высокий темп',
         image: '/homepage-school/training-senior.svg',
         badges: ['U13+', 'Матчевый ритм'],
+        price: 'от 2 400 ₽',
+        ctaLabel: 'Забронировать',
+        ctaHref: '/cabinet',
       },
       {
         title: 'Индивидуальные занятия',
@@ -284,6 +299,9 @@ export const homepageSchoolContent = {
         audience: 'Персональный маршрут',
         image: '/homepage-school/training-individual.svg',
         badges: ['1 на 1', 'Бросок', 'Техника'],
+        price: 'от 4 000 ₽',
+        ctaLabel: 'Подобрать тренера',
+        ctaHref: '/cabinet',
       },
     ] satisfies HomepageTrainingType[],
   },

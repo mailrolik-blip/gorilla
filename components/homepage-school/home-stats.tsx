@@ -8,12 +8,15 @@ type HomeStatsProps = {
 
 export function HomeStats({ items }: HomeStatsProps) {
   return (
-    <section id="stats" className="relative -mt-[18svh] scroll-mt-32 px-4 pb-20 pt-[22svh] sm:px-6 lg:px-8">
+    <section
+      id="stats"
+      className="relative scroll-mt-32 bg-[linear-gradient(180deg,#061018_0%,#081521_42%,#061018_100%)] px-4 py-20 sm:px-6 lg:px-8"
+    >
       <div className="home-ice-section mx-auto max-w-[1480px] p-6 sm:p-8">
         <HomeSectionHeading
-          eyebrow="Цифры о нас"
-          title="Школа в цифрах"
-          description="Коротко о том, как устроен ритм Gorilla Hockey."
+          eyebrow="Как устроен клуб"
+          title="Быстрый переход к делу"
+          description="Запись, видео, клубные активности и связь с администратором собраны сразу после первого экрана."
         />
 
         <div className="mt-10 grid gap-4 md:grid-cols-2 xl:grid-cols-3">
