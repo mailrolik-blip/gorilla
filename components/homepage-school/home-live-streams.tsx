@@ -1,7 +1,7 @@
 'use client';
 
 import Image from 'next/image';
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 
 import type { HomepageSchoolContent } from '@/content/homepage-school';
 import type { TelegramNewsItem } from '@/lib/telegram-news';
@@ -120,7 +120,7 @@ function isMatchMediaItem(item: TelegramNewsItem) {
 
   return (
     /(матч|трансляц|эфир|запис|запись матча|просмотр игры|replay|live|stream|игр|игра|игры|против| vs )/i.test(text) ||
-    matchPattern.test('')
+    matchPattern.test(text)
   );
 }
 
@@ -139,6 +139,7 @@ function getStatusLabel(status: MatchMediaItem['status']) {
 function MatchMediaCard({ item, onOpen }: { item: MatchMediaItem; onOpen: () => void }) {
   const safeImage = getSafeTelegramMediaSrc(item.image);
   const playableVideo = getPlayableVideoSrc(item.video);
+  const vkEmbed = getVkEmbedUrl(item.sourceHref);
 
   return (
     <button
@@ -162,6 +163,14 @@ function MatchMediaCard({ item, onOpen }: { item: MatchMediaItem; onOpen: () => 
             playsInline
             preload="metadata"
             className="absolute inset-0 h-full w-full object-cover"
+          />
+        ) : vkEmbed ? (
+          <iframe
+            src={vkEmbed}
+            title={item.title}
+            className="pointer-events-none absolute inset-0 h-full w-full"
+            tabIndex={-1}
+            aria-hidden="true"
           />
         ) : (
           <div className="absolute inset-0 bg-[radial-gradient(circle_at_28%_18%,rgba(201,24,43,0.24),transparent_28%),linear-gradient(145deg,rgba(18,34,48,0.96),rgba(5,10,16,1))]" />
@@ -205,6 +214,17 @@ function MatchMediaViewer({
   const safeVideo = getPlayableVideoSrc(item.video);
   const safeImage = getSafeTelegramMediaSrc(item.image);
   const vkEmbed = getVkEmbedUrl(item.sourceHref);
+
+  useEffect(() => {
+    function handleKeyDown(event: KeyboardEvent) {
+      if (event.key === 'Escape') {
+        onClose();
+      }
+    }
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [onClose]);
 
   function selectRelative(direction: -1 | 1) {
     onSelect((activeIndex + direction + items.length) % items.length);
@@ -309,6 +329,7 @@ function MatchMediaViewer({
 
 export function HomeLiveStreams({ section, feedItems }: HomeLiveStreamsProps) {
   const [activeIndex, setActiveIndex] = useState<number | null>(null);
+  const lastFocusRef = useRef<HTMLElement | null>(null);
   const matchItems = useMemo(
     () =>
       feedItems
@@ -332,6 +353,16 @@ export function HomeLiveStreams({ section, feedItems }: HomeLiveStreamsProps) {
     return null;
   }
 
+  function openMatch(index: number) {
+    lastFocusRef.current = document.activeElement instanceof HTMLElement ? document.activeElement : null;
+    setActiveIndex(index);
+  }
+
+  function closeMatch() {
+    setActiveIndex(null);
+    window.setTimeout(() => lastFocusRef.current?.focus(), 0);
+  }
+
   return (
     <section id="live" className="scroll-mt-32 px-4 py-20 sm:px-6 lg:px-8">
       <div className="home-ice-section mx-auto max-w-[1480px] p-6 sm:p-8">
@@ -347,7 +378,7 @@ export function HomeLiveStreams({ section, feedItems }: HomeLiveStreamsProps) {
               <MatchMediaCard
                 key={item.id}
                 item={item}
-                onOpen={() => setActiveIndex(index)}
+                onOpen={() => openMatch(index)}
               />
             ))}
           </div>
@@ -358,7 +389,7 @@ export function HomeLiveStreams({ section, feedItems }: HomeLiveStreamsProps) {
         <MatchMediaViewer
           items={matchItems}
           activeIndex={activeIndex}
-          onClose={() => setActiveIndex(null)}
+          onClose={closeMatch}
           onSelect={setActiveIndex}
         />
       ) : null}

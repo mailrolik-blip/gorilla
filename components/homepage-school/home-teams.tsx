@@ -18,94 +18,115 @@ export function HomeTeams({ section }: HomeTeamsProps) {
           description={section.description}
         />
 
-        <div className="mt-10 grid gap-6 xl:grid-cols-2">
+        <div className="mt-10 grid gap-7 xl:grid-cols-2">
           {section.items.map((team) => (
             <article
               key={team.teamName}
-              className="home-ice-panel overflow-hidden rounded-[2.4rem] p-4 sm:p-5"
+              className="home-ice-panel overflow-hidden rounded-[2.2rem] p-4 sm:p-5"
             >
-              <div className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_18rem]">
-                <div className="relative min-h-[360px] overflow-hidden rounded-[2rem] border border-white/10 bg-black/40">
-                  <Image
-                    src={team.image}
-                    alt={team.teamName}
-                    fill
-                    className="object-cover transition duration-500 hover:scale-[1.03]"
-                  />
-                  <div className="absolute inset-0 bg-[linear-gradient(180deg,rgba(8,12,16,0.08),rgba(8,12,16,0.84))]" />
-                  <div className="relative flex h-full flex-col justify-between p-5 sm:p-6">
-                    <div className="flex items-start justify-between gap-4">
-                      <span className="rounded-full border border-white/10 bg-black/30 px-4 py-2 text-[11px] font-bold uppercase tracking-[0.22em] text-[color:var(--gh-accent)] backdrop-blur">
-                        {team.city}
-                      </span>
-                      <span className="rounded-full border border-white/10 bg-black/30 px-4 py-2 text-[11px] font-semibold uppercase tracking-[0.18em] text-white/72 backdrop-blur">
-                        Призёры ЛХЛ
-                      </span>
-                    </div>
-
-                    <div className="max-w-xl space-y-3">
-                      <h3 className="text-3xl font-black uppercase tracking-[-0.05em] text-white sm:text-4xl">
-                        {team.teamName}
-                      </h3>
-                      <p className="text-sm leading-7 text-white/74">{team.description}</p>
-                    </div>
+              <div className="relative aspect-[16/10] overflow-hidden rounded-[1.8rem] border border-white/10 bg-black/40 sm:aspect-[16/9]">
+                <Image
+                  src={team.image}
+                  alt={team.teamName}
+                  fill
+                  priority={team.city === 'Москва'}
+                  sizes="(min-width: 1280px) 690px, (min-width: 768px) 92vw, 100vw"
+                  className="object-cover transition duration-500 hover:scale-[1.02]"
+                />
+                <div className="absolute inset-x-0 bottom-0 bg-[linear-gradient(180deg,transparent,rgba(0,0,0,0.58))] p-4 sm:p-5">
+                  <div className="flex flex-wrap gap-2">
+                    <span className="rounded-full border border-white/15 bg-black/35 px-3 py-1.5 text-[10px] font-bold uppercase tracking-[0.2em] text-[color:var(--gh-accent)] backdrop-blur">
+                      {team.city}
+                    </span>
+                    <span className="rounded-full border border-white/15 bg-black/35 px-3 py-1.5 text-[10px] font-semibold uppercase tracking-[0.18em] text-white/76 backdrop-blur">
+                      {team.league}
+                    </span>
                   </div>
-                </div>
-
-                <div className="home-ice-panel-soft flex flex-col justify-between rounded-[1.8rem] p-4">
-                  <div>
-                    <p className="text-xs font-semibold uppercase tracking-[0.24em] text-[color:var(--gh-accent)]">
-                      Статус
-                    </p>
-                    <p className="mt-3 text-sm font-semibold leading-7 text-[color:var(--gh-text)]">
-                      {team.achievement}
-                    </p>
-                  </div>
-
-                  <div className="mt-5 space-y-3">
-                    {team.results.map((result) => (
-                      <div key={result.label} className="border-t border-white/10 pt-3">
-                        <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-[color:var(--gh-muted)]">
-                          {result.label}
-                        </p>
-                        <p className="mt-1 text-sm font-bold text-[color:var(--gh-text)]">
-                          {result.value}
-                        </p>
-                      </div>
-                    ))}
-                  </div>
-
-                  <a
-                    href={team.ctaHref}
-                    className="mt-5 inline-flex w-fit rounded-full bg-[color:var(--gh-accent)] px-4 py-2.5 text-xs font-black uppercase tracking-[0.16em] text-black transition hover:brightness-110"
-                  >
-                    {team.ctaLabel}
-                  </a>
                 </div>
               </div>
 
-              <div className="mt-5 space-y-3">
-                <p className="text-xs font-semibold uppercase tracking-[0.3em] text-[color:var(--gh-muted)]">
-                  Галерея прошлых игр
-                </p>
-                <div className="grid gap-3 sm:grid-cols-3">
-                  {team.gallery.map((item) => (
-                    <figure
-                      key={item.title}
-                      className="group relative h-36 overflow-hidden rounded-[1.5rem] border border-white/10 bg-black/40"
-                    >
+              <div className="mt-4 flex gap-3 overflow-x-auto pb-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+                {team.gallery.map((item) => (
+                  <a
+                    key={item.title}
+                    href={item.image}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="group min-w-[8.5rem] overflow-hidden rounded-[1.15rem] border border-white/10 bg-black/35 sm:min-w-[10rem]"
+                    aria-label={`Открыть фото: ${item.title}`}
+                  >
+                    <span className="relative block aspect-[4/3] overflow-hidden">
                       <Image
                         src={item.image}
                         alt={item.title}
                         fill
-                        className="object-cover transition duration-500 group-hover:scale-[1.04]"
+                        sizes="160px"
+                        className="object-cover transition duration-500 group-hover:scale-[1.05]"
                       />
-                      <div className="absolute inset-0 bg-[linear-gradient(180deg,transparent_42%,rgba(0,0,0,0.78))]" />
-                      <figcaption className="absolute inset-x-0 bottom-0 p-3 text-xs font-semibold uppercase tracking-[0.12em] text-white/76">
-                        {item.title}
-                      </figcaption>
-                    </figure>
+                    </span>
+                    <span className="block truncate px-3 py-2 text-[11px] font-semibold text-white/70">
+                      {item.title}
+                    </span>
+                  </a>
+                ))}
+              </div>
+
+              <div className="mt-5 space-y-4">
+                <div>
+                  <h3 className="text-2xl font-black uppercase tracking-[-0.04em] text-white sm:text-3xl">
+                    {team.teamName}
+                  </h3>
+                  <p className="mt-2 text-sm leading-6 text-white/68">{team.description}</p>
+                </div>
+
+                <dl className="grid gap-x-5 gap-y-3 border-y border-white/10 py-4 sm:grid-cols-2">
+                  <div>
+                    <dt className="text-[10px] font-semibold uppercase tracking-[0.18em] text-[color:var(--gh-muted)]">
+                      Лига
+                    </dt>
+                    <dd className="mt-1 text-sm font-bold text-white">{team.league}</dd>
+                  </div>
+                  <div>
+                    <dt className="text-[10px] font-semibold uppercase tracking-[0.18em] text-[color:var(--gh-muted)]">
+                      Статус
+                    </dt>
+                    <dd className="mt-1 text-sm font-bold leading-6 text-white">{team.achievement}</dd>
+                  </div>
+                  {team.results.map((result) => (
+                    <div key={result.label}>
+                      <dt className="text-[10px] font-semibold uppercase tracking-[0.18em] text-[color:var(--gh-muted)]">
+                        {result.label}
+                      </dt>
+                      <dd className="mt-1 text-sm font-bold leading-6 text-white">{result.value}</dd>
+                    </div>
                   ))}
+                </dl>
+
+                <div>
+                  <div className="flex items-center justify-between gap-4">
+                    <p className="text-xs font-semibold uppercase tracking-[0.22em] text-[color:var(--gh-accent)]">
+                      Состав команды
+                    </p>
+                    <a
+                      href={team.ctaHref}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="text-[11px] font-black uppercase tracking-[0.16em] text-white/55 transition hover:text-[color:var(--gh-accent)]"
+                    >
+                      Весь состав
+                    </a>
+                  </div>
+
+                  <ul className="mt-3 grid gap-2 sm:grid-cols-2">
+                    {team.players.map((player) => (
+                      <li
+                        key={player}
+                        className="rounded-full border border-white/10 bg-white/[0.045] px-3 py-2 text-xs font-semibold text-white/74"
+                      >
+                        {player}
+                      </li>
+                    ))}
+                  </ul>
                 </div>
               </div>
             </article>

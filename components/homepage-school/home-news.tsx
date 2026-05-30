@@ -1,7 +1,7 @@
 'use client';
 
 import Image from 'next/image';
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 
 import { useGorillaAccount } from '@/components/gorilla-account-provider';
 import type { HomepageSchoolContent } from '@/content/homepage-school';
@@ -114,9 +114,10 @@ export function HomeNews({ section, items }: HomeNewsProps) {
   const { announceNews } = useGorillaAccount();
   const [newsItems, setNewsItems] = useState(items);
   const [modalIndex, setModalIndex] = useState<number | null>(null);
+  const lastFocusRef = useRef<HTMLElement | null>(null);
   const featureItem = newsItems[0] ?? null;
   const secondaryItems = useMemo(() => newsItems.slice(1, 3), [newsItems]);
-  const gridItems = useMemo(() => newsItems.slice(3, 9), [newsItems]);
+  const gridItems = useMemo(() => newsItems.slice(3, 6), [newsItems]);
   const modalItem = modalIndex === null ? null : newsItems[modalIndex] ?? null;
 
   useEffect(() => {
@@ -172,6 +173,32 @@ export function HomeNews({ section, items }: HomeNewsProps) {
     setModalIndex((modalIndex + direction + newsItems.length) % newsItems.length);
   }
 
+  function openModal(index: number) {
+    lastFocusRef.current = document.activeElement instanceof HTMLElement ? document.activeElement : null;
+    setModalIndex(index);
+  }
+
+  function closeModal() {
+    setModalIndex(null);
+    window.setTimeout(() => lastFocusRef.current?.focus(), 0);
+  }
+
+  useEffect(() => {
+    if (modalIndex === null) {
+      return;
+    }
+
+    function handleKeyDown(event: KeyboardEvent) {
+      if (event.key === 'Escape') {
+        setModalIndex(null);
+        window.setTimeout(() => lastFocusRef.current?.focus(), 0);
+      }
+    }
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [modalIndex]);
+
   if (!featureItem) {
     return null;
   }
@@ -200,7 +227,7 @@ export function HomeNews({ section, items }: HomeNewsProps) {
             <article className="grid gap-6 lg:grid-cols-[minmax(0,1.08fr)_minmax(20rem,0.82fr)]">
               <button
                 type="button"
-                onClick={() => setModalIndex(0)}
+                onClick={() => openModal(0)}
                 className="group relative min-h-[24rem] overflow-hidden bg-black/42 text-left"
               >
                 <NewsMedia src={featureItem.image} alt={featureItem.title} />
@@ -217,7 +244,7 @@ export function HomeNews({ section, items }: HomeNewsProps) {
                   </p>
                   <button
                     type="button"
-                    onClick={() => setModalIndex(0)}
+                    onClick={() => openModal(0)}
                     className="mt-4 block text-left text-4xl font-black uppercase leading-none tracking-[-0.06em] text-[color:var(--gh-text)] transition hover:text-white sm:text-5xl"
                   >
                     {featureItem.title}
@@ -229,7 +256,7 @@ export function HomeNews({ section, items }: HomeNewsProps) {
                 <div className="mt-6 flex flex-wrap gap-3">
                   <button
                     type="button"
-                    onClick={() => setModalIndex(0)}
+                    onClick={() => openModal(0)}
                     className="rounded-full bg-[color:var(--gh-accent)] px-5 py-3 text-xs font-black uppercase tracking-[0.12em] text-black transition hover:bg-[color:var(--gh-accent-hover)]"
                   >
                     Читать
@@ -254,7 +281,7 @@ export function HomeNews({ section, items }: HomeNewsProps) {
                 >
                   <button
                     type="button"
-                    onClick={() => setModalIndex(index + 1)}
+                    onClick={() => openModal(index + 1)}
                     className="relative h-28 overflow-hidden bg-black/42"
                   >
                     <NewsMedia src={item.image} alt={item.title} cover />
@@ -265,7 +292,7 @@ export function HomeNews({ section, items }: HomeNewsProps) {
                     </p>
                     <button
                       type="button"
-                      onClick={() => setModalIndex(index + 1)}
+                      onClick={() => openModal(index + 1)}
                       className="mt-2 line-clamp-3 text-left text-xl font-black uppercase leading-tight tracking-[-0.04em] text-[color:var(--gh-text)] transition hover:text-white"
                     >
                       {item.title}
@@ -285,7 +312,7 @@ export function HomeNews({ section, items }: HomeNewsProps) {
                 <article key={item.id} className="grid gap-4">
                   <button
                     type="button"
-                    onClick={() => setModalIndex(index + 3)}
+                    onClick={() => openModal(index + 3)}
                     className="relative aspect-[16/10] overflow-hidden bg-black/42"
                   >
                     <NewsMedia src={item.image} alt={item.title} cover />
@@ -296,7 +323,7 @@ export function HomeNews({ section, items }: HomeNewsProps) {
                     </p>
                     <button
                       type="button"
-                      onClick={() => setModalIndex(index + 3)}
+                      onClick={() => openModal(index + 3)}
                       className="mt-2 line-clamp-3 text-left text-2xl font-black uppercase leading-tight tracking-[-0.05em] text-[color:var(--gh-text)] transition hover:text-white"
                     >
                       {item.title}
@@ -318,7 +345,7 @@ export function HomeNews({ section, items }: HomeNewsProps) {
           role="dialog"
           aria-modal="true"
           aria-label={modalItem.title}
-          onClick={() => setModalIndex(null)}
+          onClick={closeModal}
         >
           <article
             className="relative flex max-h-[90dvh] w-full max-w-6xl flex-col overflow-hidden rounded-[2rem] border border-white/12 bg-[linear-gradient(180deg,rgba(13,24,36,0.98),rgba(7,13,22,1))] shadow-[0_28px_90px_rgba(0,0,0,0.52)] lg:grid lg:grid-cols-[minmax(0,1fr)_minmax(22rem,0.78fr)]"
@@ -341,7 +368,7 @@ export function HomeNews({ section, items }: HomeNewsProps) {
                   </div>
                   <button
                     type="button"
-                    onClick={() => setModalIndex(null)}
+                    onClick={closeModal}
                     className="shrink-0 rounded-full border border-white/12 bg-white/6 px-4 py-2 text-xs font-bold uppercase tracking-[0.08em] text-white transition hover:bg-white/12"
                   >
                     Закрыть

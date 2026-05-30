@@ -57,6 +57,7 @@ export type HomepageTrainingType = {
 export type HomepageGalleryItem = {
   title: string;
   image: string;
+  source?: string;
 };
 
 export type HomepageResultItem = {
@@ -67,11 +68,13 @@ export type HomepageResultItem = {
 export type HomepageTeam = {
   city: string;
   teamName: string;
+  league: string;
   description: string;
   achievement: string;
   image: string;
   gallery: HomepageGalleryItem[];
   results: HomepageResultItem[];
+  players: string[];
   ctaHref: string;
   ctaLabel: string;
 };
@@ -79,10 +82,29 @@ export type HomepageTeam = {
 export type HomepageTrainer = {
   name: string;
   role: string;
+  age: string;
   experience: string;
   image: string;
   specialization: string[];
   achievements: string[];
+};
+
+export type HomepageRentVenue = {
+  title: string;
+  subtitle: string;
+  city: string;
+  format: string;
+  image: string;
+  gallery: string[];
+  badges: string[];
+  facts: string[];
+  termsTitle: string;
+  terms: string[];
+  contacts?: string[];
+  address: string;
+  primaryCta: { label: string; href: string };
+  secondaryCta: { label: string; href: string };
+  tertiaryCta: { label: string; href: string };
 };
 
 export type HomepageTestimonial = {
@@ -254,10 +276,10 @@ export const homepageSchoolContent = {
     items: [
       {
         title: 'Для детей',
-        subtitle: 'Первый лёд, базовое катание и уверенность в понятном темпе.',
+        subtitle: 'Первый лёд и базовая уверенность.',
         audience: 'Старт для начинающих игроков',
-        image: '/homepage-school/training-kids.svg',
-        badges: ['5-8 лет', 'Первый лёд', 'Техника'],
+        image: '/homepage-school/training/training-kids.jpg',
+        badges: ['5-8 лет', 'Первый лёд'],
         price: 'от 1 800 ₽',
         ctaLabel: 'Записаться',
         ctaHref: '/cabinet',
@@ -265,42 +287,42 @@ export const homepageSchoolContent = {
       },
       {
         title: 'Дети и родители',
-        subtitle: 'Совместный лёд помогает быстрее втянуться в ритм школы и почувствовать поддержку.',
+        subtitle: 'Совместный лёд для ребёнка и родителя.',
         audience: 'Family ice',
-        image: '/homepage-school/training-family.svg',
-        badges: ['Вместе на льду', 'Поддержка семьи'],
+        image: '/homepage-school/training/training-family.jpg',
+        badges: ['Family ice', 'Вместе'],
         price: 'от 2 500 ₽',
         ctaLabel: 'Выбрать слот',
         ctaHref: '/cabinet',
       },
       {
         title: 'Средняя группа',
-        subtitle: 'Катание, шайба и игровые решения, когда база уже собрана.',
+        subtitle: 'Игровой темп и работа в группе.',
         audience: 'Рост темпа и уверенности',
-        image: '/homepage-school/training-middle.svg',
-        badges: ['U10-U12', 'Игровые связки'],
+        image: '/homepage-school/training/training-middle.jpg',
+        badges: ['U10-U12', 'Группа'],
         price: 'от 2 200 ₽',
         ctaLabel: 'Перейти к записи',
         ctaHref: '/cabinet',
       },
       {
         title: 'Старшая группа',
-        subtitle: 'Скорость, тактика и подготовка к матчевому режиму.',
+        subtitle: 'Подготовка к матчевому ритму.',
         audience: 'Высокий темп',
-        image: '/homepage-school/training-senior.svg',
-        badges: ['U13+', 'Матчевый ритм'],
+        image: '/homepage-school/training/training-senior.jpg',
+        badges: ['U13+', 'Матчи'],
         price: 'от 2 400 ₽',
-        ctaLabel: 'Забронировать',
+        ctaLabel: 'Записаться',
         ctaHref: '/cabinet',
       },
       {
         title: 'Индивидуальные занятия',
-        subtitle: 'Точечная работа над техникой, броском и слабыми местами игрока.',
+        subtitle: 'Точечная работа под задачу игрока.',
         audience: 'Персональный маршрут',
-        image: '/homepage-school/training-individual.svg',
-        badges: ['1 на 1', 'Бросок', 'Техника'],
+        image: '/homepage-school/training/training-individual.jpg',
+        badges: ['1 на 1', 'Бросок'],
         price: 'от 4 000 ₽',
-        ctaLabel: 'Подобрать тренера',
+        ctaLabel: 'Подобрать формат',
         ctaHref: '/cabinet',
       },
     ] satisfies HomepageTrainingType[],
@@ -309,49 +331,67 @@ export const homepageSchoolContent = {
     eyebrow: 'Две команды',
     title: 'Москва и Нижний Новгород играют в одном клубном ритме',
     description:
-      'Обе команды уже стали призёрами ЛХЛ и продолжают расти через матчи, сборы и регулярную игровую практику.',
+      'Две реальные карточки команд: подтверждённые данные лиг, последние матчи, игроки сезона и фото из открытых материалов клуба.',
     items: [
       {
         city: 'Москва',
-        teamName: 'Gorilla Hockey Moscow',
+        teamName: 'ХК «Ледяные гориллы»',
+        league: 'ЛХЛ-77',
         description:
-          'Плотный городской график, регулярный лёд и много игровой практики по ходу сезона.',
+          'Команда ЛХЛ-77. В открытой карточке клуба указаны 14 матчей: 4 победы, 9 поражений и 1 ничья.',
         achievement:
-          'Призёры ЛХЛ. Команда растёт через просмотры, матчи и постоянную связь с тренерским штабом.',
-        image: '/homepage-school/team-moscow.svg',
+          'Сезон 2025/26: 14 игр / 4 победы / 9 поражений / 1 ничья.',
+        image: '/homepage-school/teams/moscow-gallery-final.jpg',
         gallery: [
-          { title: 'Матчевый старт', image: '/homepage-school/gallery-rush.svg' },
-          { title: 'Разбор смены', image: '/homepage-school/gallery-bench.svg' },
-          { title: 'Финиш атаки', image: '/homepage-school/gallery-shot.svg' },
+          { title: 'Командное фото', image: '/homepage-school/teams/moscow-gallery-final.jpg', source: 'Telegram / post 812' },
+          { title: 'Линейка перед игрой', image: '/homepage-school/teams/moscow-gallery-lineup.jpg', source: 'Telegram / post 806' },
+          { title: 'Матчевый материал', image: '/homepage-school/teams/moscow-gallery-match.jpg', source: 'Telegram / post 790' },
         ],
         results: [
-          { label: 'Последний матч', value: '6:3 vs Stomadent' },
-          { label: 'Следующий выход', value: 'Суббота • 18:30' },
-          { label: 'Фокус недели', value: 'Темп первого периода' },
+          { label: 'Последний подтверждённый матч', value: '29.03.2026: ХК ROADRUNNER 4:2 Ледяные гориллы' },
+          { label: 'Плей-офф', value: '22.03.2026: ХК ROADRUNNER 5:4 Ледяные гориллы' },
+          { label: 'Матч регулярки', value: '07.03.2026: Ледяные гориллы 3:4 ХК Leanar' },
         ],
-        ctaHref: '/cabinet',
-        ctaLabel: 'Записаться на просмотр',
+        players: [
+          'Алексей Егозов — 12 игр, 14 очков',
+          'Даниил Гайфуллин — 12 игр, 13 очков',
+          'Егор Шустов — 12 игр, 11 очков',
+          'Кирилл Подшивалов — состав ЛХЛ-77',
+          'Андрей Баталин — состав ЛХЛ-77',
+          'Данил Бабец — 10 игр, 88.4% ОБ',
+        ],
+        ctaHref: 'https://lhl-77.ru/clubs/637',
+        ctaLabel: 'Открыть ЛХЛ-77',
       },
       {
         city: 'Нижний Новгород',
-        teamName: 'Gorilla Hockey Nizhny',
+        teamName: 'ХК «Гориллы»',
+        league: 'РХЛ-НН',
         description:
-          'Команда растёт через игровой объём, тренерский контакт и выездные сборы.',
+          'Участник РХЛ-НН. В таблице дивизиона «Старт» 2024/25: 21 матч, 8 побед, 11 поражений и 19 очков.',
         achievement:
-          'Призёры ЛХЛ. Здесь много матчевой практики и системной работы над игровыми решениями.',
-        image: '/homepage-school/team-nizhny.svg',
+          'Дивизион «Старт» 2024/25: 5-е место / 21 игра / 19 очков / разница -9.',
+        image: '/homepage-school/teams/nizhny-team-rhl.jpg',
         gallery: [
-          { title: 'Разгон звена', image: '/homepage-school/gallery-shot.svg' },
-          { title: 'Командный круг', image: '/homepage-school/gallery-rush.svg' },
-          { title: 'Ритм на лавке', image: '/homepage-school/gallery-bench.svg' },
+          { title: 'Нижний Новгород', image: '/homepage-school/teams/nizhny-team-rhl.jpg', source: 'Telegram / post 597' },
+          { title: 'Сборы команды', image: '/homepage-school/teams/nizhny-gallery-camp.jpg', source: 'Telegram / post 528' },
+          { title: 'Мастер-класс', image: '/homepage-school/teams/nizhny-gallery-masterclass.jpg', source: 'Telegram / post 492' },
         ],
         results: [
-          { label: 'Последний матч', value: '4:2 в кубковом туре' },
-          { label: 'Следующий выход', value: 'Воскресенье • 16:00' },
-          { label: 'Фокус недели', value: 'Быстрый выход из зоны' },
+          { label: 'Подтверждённый матч', value: '29.03.2025: Динамо В 6:2 Гориллы' },
+          { label: 'Матч регулярки', value: '22.03.2025: Гориллы 3:2 Глухарь' },
+          { label: 'Статус сезона 2024/25', value: '5-е место в дивизионе «Старт» / 19 очков' },
         ],
-        ctaHref: '/cabinet',
-        ctaLabel: 'Узнать о просмотре',
+        players: [
+          'Шеблов Дмитрий — 14 игр, 18 очков',
+          'Шеблов Сергей — 14 игр, 13 очков',
+          'Макаров Никита — 12 игр, 11 очков',
+          'Кашин Александр — 16 игр, 9 очков',
+          'Мухин Сергей — состав РХЛ-НН',
+          'Лушкин Александр — состав РХЛ-НН',
+        ],
+        ctaHref: 'https://nn.rhl.su/calendar/team/44-4-2024-2025/117-',
+        ctaLabel: 'Открыть РХЛ-НН',
       },
     ] satisfies HomepageTeam[],
   },
@@ -359,54 +399,65 @@ export const homepageSchoolContent = {
     eyebrow: 'Тренеры',
     title: 'Тренерский штаб Gorilla Hockey',
     description:
-      'Четыре направления в одной команде: катание, техника, игровой ритм и индивидуальная доработка.',
+      'Три тренера ведут игроков через катание, владение клюшкой, силовую работу и тактическое понимание игры.',
     items: [
       {
-        name: 'Денис Горюнов',
-        role: 'Техника катания и силовой ритм',
-        experience: '6 лет тренерского опыта',
-        image: '/homepage-school/trainer-placeholder-1.svg',
-        specialization: ['Катание', 'Баланс', 'Ведение шайбы'],
+        name: 'Горюнов Денис Петрович',
+        role: 'Техника катания, силовое катание, владение клюшкой и шайбой, тактическая работа',
+        age: '28 лет',
+        experience: '7 лет тренерского опыта',
+        image: '/homepage-school/1_1.jpg',
+        specialization: [
+          'техника катания',
+          'силовое катание',
+          'техника владения клюшкой и шайбой',
+          'тактическая работа',
+        ],
         achievements: [
-          'Серебряный призёр международного студенческого турнира',
-          'Призёр высшей лиги Нижнего Новгорода',
-          'Работает над базой, скоростью и устойчивостью игрока',
+          'серебряный призёр международного турнира среди студентов',
+          'золотой и серебряный призёр г. Нижний Новгород высшей лиги',
+          'чемпион Нижегородской области и г. Нижний Новгород высшей лиги',
+          'серебряный и бронзовый призёр России среди студентов',
+          'участник молодёжной хоккейной лиги и высшей хоккейной лиги',
         ],
       },
       {
-        name: 'Роман Кузнецов',
-        role: 'Контроль шайбы и игровой рисунок',
+        name: 'Кузнецов Роман Александрович',
+        role: 'Техника катания, силовое катание, владение клюшкой и шайбой, тактическая работа',
+        age: '23 года',
+        experience: '5 лет тренерского опыта',
+        image: '/homepage-school/2.jpg',
+        specialization: [
+          'техника катания',
+          'силовое катание',
+          'техника владения клюшкой и шайбой',
+          'тактическая работа',
+        ],
+        achievements: [
+          'бронзовый призёр России среди студенческой команды',
+          'серебряный призёр международного турнира среди студентов',
+          'призёр г. Нижний Новгород высшей лиги',
+          'чемпион Нижегородской области',
+        ],
+      },
+      {
+        name: 'Гребенщиков Сергей Сергеевич',
+        role: 'Техника катания, силовое катание, владение клюшкой и шайбой, тактическая работа',
+        age: '28 лет',
         experience: '4 года тренерского опыта',
-        image: '/homepage-school/trainer-placeholder-2.svg',
-        specialization: ['Контроль шайбы', 'Передача', 'Игровые связки'],
-        achievements: [
-          'Бронзовый призёр России среди студенческих команд',
-          'Серебряный призёр международного студенческого турнира',
-          'Фокус на чтении эпизода и темпе принятия решений',
+        image: '/homepage-school/02.jpg',
+        specialization: [
+          'техника катания',
+          'силовое катание',
+          'техника владения клюшкой и шайбой',
+          'тактическая работа',
         ],
-      },
-      {
-        name: 'Тренер по броску',
-        role: 'Постановка кистевого, щелчка и завершения атаки',
-        experience: 'Индивидуальная работа и мини-группы',
-        image: '/homepage-school/trainer-placeholder-3.svg',
-        specialization: ['Бросок', 'Кистевой', 'Щелчок'],
         achievements: [
-          'Точечная работа над техникой рук и корпусом',
-          'Отдельные серии занятий под слабые зоны игрока',
-          'Подготовка к просмотрам и игровым задачам сезона',
-        ],
-      },
-      {
-        name: 'Тренер по игровой подготовке',
-        role: 'Скорость решений и подготовка к матчевому режиму',
-        experience: 'Сборы, игры и групповая динамика',
-        image: '/homepage-school/trainer-placeholder-4.svg',
-        specialization: ['Тактика', 'Смена', 'Матчевый ритм'],
-        achievements: [
-          'Разбор игровых ситуаций и смен',
-          'Подготовка к турнирам, сборам и просмотрам',
-          'Связка между школьным льдом и командным режимом',
+          'воспитанник школы ЦСКА',
+          'призёр чемпионата России в составе сборной Московской области',
+          'участник чемпионата МХЛ в командах системы СКА, Атлант',
+          'участник чемпионата WSHL и FHL (США)',
+          'серебряный призёр чемпионата EIHL (ОАЭ)',
         ],
       },
     ] satisfies HomepageTrainer[],
@@ -415,15 +466,62 @@ export const homepageSchoolContent = {
     eyebrow: 'Аренда льда',
     title: 'Лёд для команды, просмотра и частных занятий',
     description:
-      'Подберём слот под тренировку, просмотр, индивидуальную работу или семейный формат.',
-    image: '/homepage-school/ice-rent.svg',
-    primaryCta: { label: 'Забронировать', href: '/cabinet' },
-    secondaryCta: { label: 'Узнать условия', href: '#location' },
-    details: [
-      'Почасовые окна под школу, команду и частные занятия',
-      'Помощь с подбором удобного времени и формата льда',
-      'Связь с администратором для подтверждения условий',
-    ],
+      'Две реальные площадки Gorilla Hockey: центр подготовки в Нижнем Новгороде и ледовый комплекс в Москве.',
+    items: [
+      {
+        title: 'Центр подготовки хоккеистов Gorilla Hockey',
+        subtitle: 'Бросковая зона для индивидуальной отработки, техники и дополнительной работы.',
+        city: 'Нижний Новгород',
+        format: 'Бросковая зона',
+        image: '/homepage-school/brosrovaya/photo_1_2026-05-30_11-38-04.jpg',
+        gallery: [
+          '/homepage-school/brosrovaya/photo_10_2026-05-30_11-38-04.jpg',
+          '/homepage-school/brosrovaya/photo_11_2026-05-30_11-38-04.jpg',
+        ],
+        badges: ['Нижний Новгород', 'Бросковая дорожка', 'Индивидуальная работа'],
+        facts: [
+          'индивидуальная отработка',
+          'бросковая дорожка и техника',
+          'дополнительная работа с тренером',
+        ],
+        termsTitle: 'Действующие цены',
+        terms: ['аренда одной дорожки — 500 рублей', 'занятие с тренером — 1000 рублей'],
+        address: 'г. Нижний Новгород, ул. Ларина, 22В',
+        primaryCta: { label: 'Записаться', href: '/cabinet' },
+        secondaryCta: { label: 'Построить маршрут', href: 'https://yandex.ru/maps/?text=%D0%9D%D0%B8%D0%B6%D0%BD%D0%B8%D0%B9%20%D0%9D%D0%BE%D0%B2%D0%B3%D0%BE%D1%80%D0%BE%D0%B4%2C%20%D1%83%D0%BB.%20%D0%9B%D0%B0%D1%80%D0%B8%D0%BD%D0%B0%2C%2022%D0%92' },
+        tertiaryCta: { label: 'Узнать условия', href: 'https://wa.me/79101301777' },
+      },
+      {
+        title: 'Gorilla Hockey Москва',
+        subtitle: 'Лёд и зал для детей от 3 до 10 лет в ледовом комплексе «Чемпион».',
+        city: 'Москва',
+        format: 'Лёд и зал',
+        image: '/homepage-school/led_msk/photo_6_2026-05-30_11-39-29.jpg',
+        gallery: [
+          '/homepage-school/led_msk/photo_1_2026-05-30_11-39-28.jpg',
+          '/homepage-school/led_msk/photo_5_2026-05-30_11-39-29.jpg',
+        ],
+        badges: ['Москва', '3–10 лет', '60 минут'],
+        facts: [
+          'большой каток для занятий',
+          'фирменная экипировка Gorilla',
+          'знания опытнейших тренеров',
+          'демократичная стоимость уроков',
+          'современные душевые, просторная раздевалка и чистые залы',
+        ],
+        termsTitle: 'Расписание',
+        terms: [
+          'понедельник / среда / пятница',
+          '16:45–17:45 — лёд',
+          '18:00–19:00 — зал',
+        ],
+        contacts: ['+7 (910) 130-17-77', 'WhatsApp: wa.me/79101301777', 'Telegram: @Gorillahockeyacademy'],
+        address: 'г. Москва, Парк Горького, ледовый комплекс «Чемпион»',
+        primaryCta: { label: 'Записаться', href: '/cabinet' },
+        secondaryCta: { label: 'Построить маршрут', href: 'https://yandex.ru/maps/?text=%D0%9C%D0%BE%D1%81%D0%BA%D0%B2%D0%B0%2C%20%D0%9F%D0%B0%D1%80%D0%BA%20%D0%93%D0%BE%D1%80%D1%8C%D0%BA%D0%BE%D0%B3%D0%BE%2C%20%D0%BB%D0%B5%D0%B4%D0%BE%D0%B2%D1%8B%D0%B9%20%D0%BA%D0%BE%D0%BC%D0%BF%D0%BB%D0%B5%D0%BA%D1%81%20%D0%A7%D0%B5%D0%BC%D0%BF%D0%B8%D0%BE%D0%BD' },
+        tertiaryCta: { label: 'Узнать условия', href: 'https://wa.me/79101301777' },
+      },
+    ] satisfies HomepageRentVenue[],
   },
   testimonials: {
     eyebrow: 'Отзывы',

@@ -1,7 +1,7 @@
 'use client';
 
 import Image from 'next/image';
-import { useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 
 import type { TelegramNewsItem } from '@/lib/telegram-news';
 
@@ -201,6 +201,17 @@ function SiteStoryViewer({
 }) {
   const story = stories[activeIndex];
 
+  useEffect(() => {
+    function handleKeyDown(event: KeyboardEvent) {
+      if (event.key === 'Escape') {
+        onClose();
+      }
+    }
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [onClose]);
+
   function selectRelative(direction: -1 | 1) {
     onSelect((activeIndex + direction + stories.length) % stories.length);
   }
@@ -273,6 +284,7 @@ function SiteStoryViewer({
 
 export function HomeSiteStories({ items }: HomeSiteStoriesProps) {
   const [activeIndex, setActiveIndex] = useState<number | null>(null);
+  const lastFocusRef = useRef<HTMLElement | null>(null);
   const stories = useMemo(
     () =>
       items
@@ -291,6 +303,16 @@ export function HomeSiteStories({ items }: HomeSiteStoriesProps) {
     [items]
   );
 
+  function openStory(index: number) {
+    lastFocusRef.current = document.activeElement instanceof HTMLElement ? document.activeElement : null;
+    setActiveIndex(index);
+  }
+
+  function closeStory() {
+    setActiveIndex(null);
+    window.setTimeout(() => lastFocusRef.current?.focus(), 0);
+  }
+
   if (stories.length === 0) {
     return null;
   }
@@ -308,7 +330,7 @@ export function HomeSiteStories({ items }: HomeSiteStoriesProps) {
               key={story.id}
               story={story}
               index={index}
-              onOpen={() => setActiveIndex(index)}
+              onOpen={() => openStory(index)}
             />
           ))}
         </div>
@@ -318,7 +340,7 @@ export function HomeSiteStories({ items }: HomeSiteStoriesProps) {
         <SiteStoryViewer
           stories={stories}
           activeIndex={activeIndex}
-          onClose={() => setActiveIndex(null)}
+          onClose={closeStory}
           onSelect={setActiveIndex}
         />
       ) : null}
