@@ -17,6 +17,9 @@ export async function getDashboardForCurrentUser(
       prisma.userProfile.findMany({
         where: {
           userId: currentUser.id,
+          NOT: {
+            profileType: 'PARENT',
+          },
         },
         select: myTrainingBookingParticipantSelect,
         orderBy: [
@@ -35,6 +38,10 @@ export async function getDashboardForCurrentUser(
 
   return {
     currentUser: toCurrentUserSummary(currentUser),
+    accountStatus:
+      currentUser.staffRole || teamApplications.some((application) => application.status === 'ACCEPTED')
+        ? 'ACTIVE'
+        : 'AWAITING_APPROVAL',
     participants,
     trainingBookings: trainingBookings
       .filter(

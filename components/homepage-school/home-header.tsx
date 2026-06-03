@@ -7,8 +7,6 @@ import { useEffect, useEffectEvent, useRef, useState } from 'react';
 import type { HomepageMenuItem, HomepageSchoolContent } from '@/content/homepage-school';
 import { useGorillaAccount } from '@/components/gorilla-account-provider';
 
-import { HomeAuthSheet } from './home-auth-sheet';
-
 type HomeHeaderProps = {
   menuItems: HomepageMenuItem[];
   site: HomepageSchoolContent['site'];
@@ -280,7 +278,6 @@ export function HomeHeader({ menuItems, site }: HomeHeaderProps) {
   const [isCompact, setIsCompact] = useState(false);
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
-  const [authSheetMode, setAuthSheetMode] = useState<'login' | 'register' | null>(null);
 
   const handleScroll = useEffectEvent(() => {
     const nextCompact = window.scrollY > 88;
@@ -374,20 +371,18 @@ export function HomeHeader({ menuItems, site }: HomeHeaderProps) {
                   </>
                 ) : (
                   <>
-                    <button
-                      type="button"
-                      onClick={() => setAuthSheetMode('login')}
+                    <Link
+                      href={site.loginHref}
                       className={`${isCompact ? 'px-4 py-2.5 text-xs' : 'px-5 py-3 text-sm'} rounded-full border border-[color:var(--gh-border)] bg-[rgba(18,31,45,0.82)] font-bold uppercase tracking-[0.18em] text-[color:var(--gh-text)] transition hover:bg-[rgba(27,43,59,0.94)]`}
                     >
                       Вход
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => setAuthSheetMode('register')}
+                    </Link>
+                    <Link
+                      href={site.registerHref}
                       className={`${isCompact ? 'hidden 2xl:inline-flex px-4 py-2.5 text-xs' : 'hidden px-4 py-3 text-sm xl:inline-flex 2xl:px-5'} rounded-full bg-[color:var(--gh-accent)] font-black uppercase tracking-[0.18em] text-black transition hover:brightness-110`}
                     >
                       Регистрация
-                    </button>
+                    </Link>
                   </>
                 )}
 
@@ -474,22 +469,20 @@ export function HomeHeader({ menuItems, site }: HomeHeaderProps) {
             </>
           ) : (
             <>
-              <button
-                type="button"
-                onClick={() => setAuthSheetMode('login')}
+              <Link
+                href={site.loginHref}
                 className="flex min-h-[3.75rem] flex-col items-center justify-center rounded-[1.05rem] border border-[color:var(--gh-border)] bg-[rgba(18,31,45,0.82)] px-2 text-center text-[11px] font-bold uppercase tracking-[0.14em] text-[color:var(--gh-text)] transition hover:bg-[rgba(27,43,59,0.94)]"
               >
                 <span className="mb-1 h-1.5 w-1.5 rounded-full bg-[color:var(--gh-accent)]" />
                 Вход
-              </button>
-              <button
-                type="button"
-                onClick={() => setAuthSheetMode('register')}
+              </Link>
+              <Link
+                href={site.registerHref}
                 className="flex min-h-[3.75rem] flex-col items-center justify-center rounded-[1.05rem] bg-[color:var(--gh-accent)] px-2 text-center text-[11px] font-black uppercase tracking-[0.16em] text-black transition hover:brightness-110"
               >
                 <span className="mb-1 h-1.5 w-1.5 rounded-full bg-black" />
                 Рег.
-              </button>
+              </Link>
             </>
           )}
         </div>
@@ -521,13 +514,6 @@ export function HomeHeader({ menuItems, site }: HomeHeaderProps) {
         ) : null}
       </nav>
 
-      {authSheetMode ? (
-        <HomeAuthSheet
-          mode={authSheetMode}
-          site={site}
-          onClose={() => setAuthSheetMode(null)}
-        />
-      ) : null}
     </>
   );
 }

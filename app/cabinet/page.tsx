@@ -2,6 +2,7 @@
 
 import { type FormEvent, useCallback, useEffect, useState } from 'react';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 
 import {
   WorkspaceCanvas,
@@ -142,6 +143,7 @@ type RentalBookingSummary = {
 
 type DashboardPayload = {
   currentUser: CurrentUserSummary;
+  accountStatus: 'ACTIVE' | 'AWAITING_APPROVAL';
   participants: ParticipantSummary[];
   trainingBookings: TrainingBookingSummary[];
   teamApplications: TeamApplicationSummary[];
@@ -604,6 +606,7 @@ function SectionCard(props: {
 }
 
 export default function CabinetPage() {
+  const router = useRouter();
   const { pointsBalance, nextReward, unlockedRewards } = useGorillaAccount();
   const [dashboard, setDashboard] = useState<DashboardPayload | null>(null);
   const [status, setStatus] = useState<'loading' | 'ready' | 'error'>('loading');
@@ -701,11 +704,10 @@ export default function CabinetPage() {
 
   const handleUnauthorized = useCallback(() => {
     setDashboard(null);
-    setStatus('error');
-    setError(
-      'Личный кабинет доступен для аккаунтов, которые уже подключены администратором Gorilla Hockey. Автоматический dev-вход в публичном контуре отключен.'
-    );
-  }, []);
+    setStatus('loading');
+    setError(null);
+    router.replace('/login?next=/cabinet');
+  }, [router]);
 
   function resetParticipantForm(options?: { preserveSuccess?: boolean }) {
     setParticipantForm(initialParticipantFormState);
@@ -2084,17 +2086,18 @@ export default function CabinetPage() {
 
         {status === 'error' ? (
           <section className="rounded-[1.9rem] border border-amber-300/24 bg-amber-400/10 p-6 text-sm text-amber-50 shadow-[0_28px_70px_-46px_rgba(15,23,42,0.34)]">
-            <h2 className="text-2xl font-black text-white">Нужен доступ к кабинету</h2>
+            <h2 className="text-2xl font-black text-white">Не удалось загрузить кабинет</h2>
             <p className="mt-3 max-w-2xl leading-7 text-amber-50/78">{error}</p>
             <div className="mt-5 flex flex-wrap gap-3">
-              <a
-                href={homepageSchoolContent.site.telegramHref}
-                target="_blank"
-                rel="noreferrer"
+              <button
+                type="button"
+                onClick={() => {
+                  void reloadDashboard(false);
+                }}
                 className="rounded-full bg-amber-300 px-5 py-3 text-xs font-black uppercase tracking-[0.14em] text-black transition hover:bg-amber-200"
               >
-                Подключить доступ
-              </a>
+                Повторить
+              </button>
               <Link
                 href="/"
                 className="rounded-full border border-white/12 bg-white/6 px-5 py-3 text-xs font-black uppercase tracking-[0.14em] text-white transition hover:bg-white/12"
@@ -2116,6 +2119,30 @@ export default function CabinetPage() {
                 }))}
                 compact
               />
+            ) : null}
+
+            {dashboard.accountStatus === 'AWAITING_APPROVAL' ? (
+              <WorkspaceInset tone="accent" className="p-5">
+                <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+                  <div>
+                    <p className="text-xs font-black uppercase tracking-[0.22em] text-amber-200">
+                      Статус подключения
+                    </p>
+                    <h2 className="mt-2 text-2xl font-semibold tracking-[-0.04em] text-white">
+                      Аккаунт создан, доступ ожидает подтверждения
+                    </h2>
+                    <p className="mt-2 max-w-3xl text-sm leading-6 text-stone-300">
+                      Кабинет уже работает: можно проверить профиль, добавить ребёнка и следить за заявками. Запись на отдельные форматы и командные действия могут требовать подтверждения администратора.
+                    </p>
+                  </div>
+                  <Link
+                    href="/#trainings"
+                    className="inline-flex justify-center rounded-full border border-amber-300/24 bg-black/18 px-4 py-3 text-xs font-black uppercase tracking-[0.14em] text-amber-100 transition hover:bg-black/28"
+                  >
+                    Посмотреть форматы
+                  </Link>
+                </div>
+              </WorkspaceInset>
             ) : null}
 
             <div className="space-y-8">

@@ -1,6 +1,7 @@
 import type { Prisma, PrismaClient, StaffRole } from '@prisma/client';
 import type { NextApiRequest } from 'next';
 import type { NextApiResponse } from 'next';
+import { createHmac, timingSafeEqual } from 'crypto';
 
 import { currentUserSelect } from './selects';
 import { GLOBAL_STAFF_ROLES } from './staff';
@@ -9,6 +10,8 @@ import { HttpError } from './training-bookings';
 const DEV_CURRENT_USER_HEADER = 'x-user-id';
 const DEV_CURRENT_USER_COOKIE = 'gorilla_dev_user_id';
 const DEV_CURRENT_USER_COOKIE_MAX_AGE_SECONDS = 60 * 60 * 24 * 30;
+const AUTH_CURRENT_USER_COOKIE = 'gorilla_session';
+const AUTH_CURRENT_USER_COOKIE_MAX_AGE_SECONDS = 60 * 60 * 24 * 30;
 
 type CurrentUserRecord = Prisma.UserGetPayload<{
   select: typeof currentUserSelect;
@@ -96,6 +99,7 @@ function serializeCookie(options: {
   value: string;
   maxAge?: number;
   expires?: Date;
+  secure?: boolean;
 }) {
   const parts = [
     `${options.name}=${encodeURIComponent(options.value)}`,
@@ -112,7 +116,64 @@ function serializeCookie(options: {
     parts.push(`Expires=${options.expires.toUTCString()}`);
   }
 
+  if (options.secure) {
+    parts.push('Secure');
+  }
+
   return parts.join('; ');
+}
+
+function getAuthSecret() {
+  return (
+    process.env.GORILLA_AUTH_SECRET ||
+    process.env.AUTH_SECRET ||
+    process.env.NEXTAUTH_SECRET ||
+    process.env.DATABASE_URL ||
+    'gorilla-local-development-auth-secret'
+  );
+}
+
+function signSessionPayload(payload: string) {
+  return createHmac('sha256', getAuthSecret()).update(payload).digest('base64url');
+}
+
+function createSessionCookieValue(userId: number) {
+  const expiresAt = Math.floor(Date.now() / 1000) + AUTH_CURRENT_USER_COOKIE_MAX_AGE_SECONDS;
+  const payload = `${userId}.${expiresAt}`;
+  return `${payload}.${signSessionPayload(payload)}`;
+}
+
+function verifySessionCookieValue(value: string | undefined) {
+  if (!value) {
+    return null;
+  }
+
+  const parts = value.split('.');
+
+  if (parts.length !== 3) {
+    return null;
+  }
+
+  const [rawUserId, rawExpiresAt, signature] = parts;
+  const payload = `${rawUserId}.${rawExpiresAt}`;
+  const expectedSignature = signSessionPayload(payload);
+  const signatureBuffer = Buffer.from(signature);
+  const expectedSignatureBuffer = Buffer.from(expectedSignature);
+
+  if (
+    signatureBuffer.length !== expectedSignatureBuffer.length ||
+    !timingSafeEqual(signatureBuffer, expectedSignatureBuffer)
+  ) {
+    return null;
+  }
+
+  const expiresAt = Number(rawExpiresAt);
+
+  if (!Number.isInteger(expiresAt) || expiresAt <= Math.floor(Date.now() / 1000)) {
+    return null;
+  }
+
+  return parsePositiveInteger(rawUserId);
 }
 
 function getCurrentUserIdFromDevCookie(req: NextApiRequest): number | null {
@@ -121,9 +182,8 @@ function getCurrentUserIdFromDevCookie(req: NextApiRequest): number | null {
 }
 
 function getCurrentUserIdFromSession(req: NextApiRequest): number | null {
-  // Reserved for future cookie/session-backed auth providers.
-  void req;
-  return null;
+  const cookies = getRequestCookies(req);
+  return verifySessionCookieValue(cookies[AUTH_CURRENT_USER_COOKIE]);
 }
 
 function getCurrentUserIdFromDevHeader(req: NextApiRequest): number | null {
@@ -174,11 +234,15 @@ export function toCurrentUserSummary(currentUser: CurrentUser): CurrentUserSumma
 }
 
 export function getCurrentUserId(req: NextApiRequest): number | null {
-  return (
-    getCurrentUserIdFromSession(req) ??
-    getCurrentUserIdFromDevCookie(req) ??
-    getCurrentUserIdFromDevHeader(req)
-  );
+  if (isDevAuthBridgeEnabled()) {
+    return (
+      getCurrentUserIdFromDevCookie(req) ??
+      getCurrentUserIdFromDevHeader(req) ??
+      getCurrentUserIdFromSession(req)
+    );
+  }
+
+  return getCurrentUserIdFromSession(req);
 }
 
 export async function getCurrentUserById(
@@ -286,6 +350,31 @@ export function clearDevCurrentUserCookie(res: NextApiResponse) {
       value: '',
       maxAge: 0,
       expires: new Date(0),
+    })
+  );
+}
+
+export function setAuthCurrentUserCookie(res: NextApiResponse, userId: number) {
+  res.setHeader(
+    'Set-Cookie',
+    serializeCookie({
+      name: AUTH_CURRENT_USER_COOKIE,
+      value: createSessionCookieValue(userId),
+      maxAge: AUTH_CURRENT_USER_COOKIE_MAX_AGE_SECONDS,
+      secure: process.env.NODE_ENV === 'production',
+    })
+  );
+}
+
+export function clearAuthCurrentUserCookie(res: NextApiResponse) {
+  res.setHeader(
+    'Set-Cookie',
+    serializeCookie({
+      name: AUTH_CURRENT_USER_COOKIE,
+      value: '',
+      maxAge: 0,
+      expires: new Date(0),
+      secure: process.env.NODE_ENV === 'production',
     })
   );
 }
