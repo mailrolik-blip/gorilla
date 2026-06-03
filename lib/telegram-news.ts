@@ -133,16 +133,16 @@ function decodeHtmlEntities(value: string) {
 }
 
 function countReadableCyrillic(value: string) {
-  return (value.match(/[А-Яа-яЁё]/g) ?? []).length;
+  return (value.match(/[\u0400-\u04ff]/g) ?? []).length;
 }
 
 function repairTelegramEncoding(value: string) {
-  if (!/[ÐÑð]/.test(value)) {
+  if (!/[\u00c3\u00d0\u00d1\u00f0\u00c2]/.test(value)) {
     return value;
   }
 
   const bytes = new Uint8Array(Array.from(value, (character) => character.charCodeAt(0) & 255));
-  const decoded = new TextDecoder('utf-8').decode(bytes);
+  const decoded = new TextDecoder('utf-8', { fatal: false }).decode(bytes);
 
   return countReadableCyrillic(decoded) > countReadableCyrillic(value) ? decoded : value;
 }
@@ -275,7 +275,7 @@ function extractPublicTelegramFeed(html: string) {
 
   const items = blocks
     .map((block): RemoteTelegramNewsItem | null => {
-      const messageLink = block.match(/href="(https:\/\/t\.me\/Gorillahockeyacademy\/(\d+))"/);
+      const messageLink = block.match(/href="(https:\/\/t\.me\/Gorillahockeyacademy\/(\d+))"/i);
       const messageId = messageLink?.[2];
       const href = messageLink?.[1];
       const textMatch = block.match(/<div class="tgme_widget_message_text[^"]*"[^>]*>([\s\S]*?)<\/div>/);
@@ -307,8 +307,9 @@ function extractPublicTelegramFeed(html: string) {
             return isBroadcastSourceUrl(url);
           }) ?? null;
       const duration = durationMatch?.[1]?.trim() ?? null;
-      const titleSource = content || (video ? 'Видео Gorilla Hockey' : 'Новость Gorilla Hockey');
-      const excerptSource = content || (video ? 'Видео из Telegram-канала Gorilla Hockey.' : 'Пост из Telegram-канала Gorilla Hockey.');
+      const hasVideoPreview = Boolean(video || videoPreviewMatch || sourceHref);
+      const titleSource = content || (hasVideoPreview ? 'Видео Gorilla Hockey' : 'Новость Gorilla Hockey');
+      const excerptSource = content || (hasVideoPreview ? 'Видео из Telegram-канала Gorilla Hockey.' : 'Пост из Telegram-канала Gorilla Hockey.');
 
       return {
         id: `telegram-${messageId}`,
@@ -321,7 +322,7 @@ function extractPublicTelegramFeed(html: string) {
         image,
         video,
         duration,
-        mediaType: video ? 'video' : image ? 'image' : 'text',
+        mediaType: hasVideoPreview ? 'video' : image ? 'image' : 'text',
         publishedAt: timeMatch[1],
       };
     })
@@ -366,7 +367,7 @@ function extractRemoteFeed(payload: unknown) {
 async function fetchTelegramPublicPage(before?: number) {
   const url = before ? `${TELEGRAM_PUBLIC_FEED_URL}?before=${before}` : TELEGRAM_PUBLIC_FEED_URL;
   const response = await fetch(url, {
-    next: { revalidate: 60 },
+    cache: 'no-store',
     signal: AbortSignal.timeout(TELEGRAM_FETCH_TIMEOUT_MS),
     headers: {
       Accept: 'text/html',
@@ -387,7 +388,7 @@ async function fetchRemoteTelegramFeed() {
   if (sourceUrl) {
     try {
       const response = await fetch(sourceUrl, {
-        next: { revalidate: 60 },
+        cache: 'no-store',
         signal: AbortSignal.timeout(TELEGRAM_FETCH_TIMEOUT_MS),
         headers: {
           Accept: 'application/json',

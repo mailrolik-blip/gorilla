@@ -703,7 +703,7 @@ export default function CabinetPage() {
     setDashboard(null);
     setStatus('error');
     setError(
-      'Для входа в личный кабинет напишите администратору Gorilla Hockey в Telegram. Dev-вход не используется в публичном контуре.'
+      'Личный кабинет доступен для аккаунтов, которые уже подключены администратором Gorilla Hockey. Автоматический dev-вход в публичном контуре отключен.'
     );
   }, []);
 
@@ -2061,14 +2061,6 @@ export default function CabinetPage() {
                   Открыть staff workspace
                 </Link>
               ) : null}
-              <a
-                href={homepageSchoolContent.site.telegramHref}
-                target="_blank"
-                rel="noreferrer"
-                className="rounded-full border border-white/12 bg-white/6 px-4 py-2 text-sm font-medium text-stone-100 transition hover:bg-white/10 hover:text-white"
-              >
-                Войти через Telegram
-              </a>
             </>
           }
           aside={
@@ -2091,8 +2083,25 @@ export default function CabinetPage() {
         ) : null}
 
         {status === 'error' ? (
-          <section className="rounded-[1.9rem] border border-rose-400/30 bg-rose-500/12 p-6 text-sm text-rose-100 shadow-[0_28px_70px_-46px_rgba(15,23,42,0.34)]">
-            {error}
+          <section className="rounded-[1.9rem] border border-amber-300/24 bg-amber-400/10 p-6 text-sm text-amber-50 shadow-[0_28px_70px_-46px_rgba(15,23,42,0.34)]">
+            <h2 className="text-2xl font-black text-white">Нужен доступ к кабинету</h2>
+            <p className="mt-3 max-w-2xl leading-7 text-amber-50/78">{error}</p>
+            <div className="mt-5 flex flex-wrap gap-3">
+              <a
+                href={homepageSchoolContent.site.telegramHref}
+                target="_blank"
+                rel="noreferrer"
+                className="rounded-full bg-amber-300 px-5 py-3 text-xs font-black uppercase tracking-[0.14em] text-black transition hover:bg-amber-200"
+              >
+                Подключить доступ
+              </a>
+              <Link
+                href="/"
+                className="rounded-full border border-white/12 bg-white/6 px-5 py-3 text-xs font-black uppercase tracking-[0.14em] text-white transition hover:bg-white/12"
+              >
+                На главную
+              </Link>
+            </div>
           </section>
         ) : null}
 

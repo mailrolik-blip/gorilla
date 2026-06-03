@@ -288,7 +288,7 @@ export function HomeSiteStories({ items }: HomeSiteStoriesProps) {
   const stories = useMemo(
     () =>
       items
-        .filter((item) => item.mediaType === 'video' && item.video)
+        .filter((item) => item.mediaType === 'video' || item.video || item.sourceHref)
         .map((item): SiteStoryItem => ({
           id: item.id,
           title: item.title,

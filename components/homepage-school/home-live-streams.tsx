@@ -108,7 +108,7 @@ function getMatchMediaStatus(item: TelegramNewsItem): MatchMediaItem['status'] {
 }
 
 function isMatchMediaItem(item: TelegramNewsItem) {
-  const hasPlayableMedia = Boolean(getVkEmbedUrl(item.sourceHref));
+  const hasPlayableMedia = Boolean(getVkEmbedUrl(item.sourceHref) || getPlayableVideoSrc(item.video));
 
   if (!hasPlayableMedia) {
     return false;

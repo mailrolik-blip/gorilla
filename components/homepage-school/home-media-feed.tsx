@@ -181,6 +181,10 @@ export function HomeMediaFeed({ news, liveStreams }: HomeMediaFeedProps) {
   const [status, setStatus] = useState<FeedStatus>('loading');
   const [newsItems, setNewsItems] = useState<TelegramNewsItem[]>([]);
   const [videoItems, setVideoItems] = useState<TelegramNewsItem[]>([]);
+  const storyItems = videoItems.length > 0 ? videoItems : newsItems;
+  const hasStoryItems = storyItems.some(
+    (item) => item.mediaType === 'video' || Boolean(item.video || item.sourceHref)
+  );
 
   useEffect(() => {
     let cancelled = false;
@@ -227,8 +231,8 @@ export function HomeMediaFeed({ news, liveStreams }: HomeMediaFeedProps) {
 
   return (
     <>
-      {videoItems.length > 0 ? (
-        <HomeSiteStories items={videoItems} />
+      {hasStoryItems ? (
+        <HomeSiteStories items={storyItems} />
       ) : (
         <HomeStoriesFallback href={news.ctaHref} />
       )}

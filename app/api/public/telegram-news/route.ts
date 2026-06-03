@@ -13,7 +13,7 @@ export async function GET() {
       },
       {
         headers: {
-          'Cache-Control': 'public, max-age=45, stale-while-revalidate=120',
+          'Cache-Control': 'public, max-age=15, stale-while-revalidate=60',
         },
       }
     );
@@ -25,7 +25,7 @@ export async function GET() {
       },
       {
         headers: {
-          'Cache-Control': 'public, max-age=20, stale-while-revalidate=60',
+          'Cache-Control': 'public, max-age=10, stale-while-revalidate=30',
         },
       }
     );
