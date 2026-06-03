@@ -1,8 +1,7 @@
 ﻿'use client';
 
-import { type FormEvent, useEffect, useState } from 'react';
+import { type FormEvent, useCallback, useEffect, useState } from 'react';
 import Link from 'next/link';
-import { useRouter } from 'next/navigation';
 
 import {
   WorkspaceCanvas,
@@ -606,7 +605,6 @@ function SectionCard(props: {
 
 export default function CabinetPage() {
   const { pointsBalance, nextReward, unlockedRewards } = useGorillaAccount();
-  const router = useRouter();
   const [dashboard, setDashboard] = useState<DashboardPayload | null>(null);
   const [status, setStatus] = useState<'loading' | 'ready' | 'error'>('loading');
   const [error, setError] = useState<string | null>(null);
@@ -700,6 +698,14 @@ export default function CabinetPage() {
   const [activeRentalCatalogSlotId, setActiveRentalCatalogSlotId] = useState<
     number | null
   >(null);
+
+  const handleUnauthorized = useCallback(() => {
+    setDashboard(null);
+    setStatus('error');
+    setError(
+      'Для входа в личный кабинет напишите администратору Gorilla Hockey в Telegram. Dev-вход не используется в публичном контуре.'
+    );
+  }, []);
 
   function resetParticipantForm(options?: { preserveSuccess?: boolean }) {
     setParticipantForm(initialParticipantFormState);
@@ -894,7 +900,7 @@ export default function CabinetPage() {
     const { response, payload } = await fetchJson('/api/me/dashboard');
 
     if (response.status === 401) {
-      router.replace('/dev/login?next=/cabinet');
+      handleUnauthorized();
       return false;
     }
 
@@ -955,7 +961,7 @@ export default function CabinetPage() {
     const { response, payload } = await fetchJson('/api/teams');
 
     if (response.status === 401) {
-      router.replace('/dev/login?next=/cabinet');
+      handleUnauthorized();
       return false;
     }
 
@@ -1017,7 +1023,7 @@ export default function CabinetPage() {
     const { response, payload } = await fetchJson('/api/my/team-applications');
 
     if (response.status === 401) {
-      router.replace('/dev/login?next=/cabinet');
+      handleUnauthorized();
       return false;
     }
 
@@ -1050,7 +1056,7 @@ export default function CabinetPage() {
     const { response, payload } = await fetchJson('/api/my/rental-bookings');
 
     if (response.status === 401) {
-      router.replace('/dev/login?next=/cabinet');
+      handleUnauthorized();
       return false;
     }
 
@@ -1084,7 +1090,7 @@ export default function CabinetPage() {
         const { response, payload } = await fetchJson('/api/me/dashboard');
 
         if (response.status === 401) {
-          router.replace('/dev/login?next=/cabinet');
+          handleUnauthorized();
           return;
         }
 
@@ -1118,7 +1124,7 @@ export default function CabinetPage() {
     return () => {
       isCancelled = true;
     };
-  }, [router]);
+  }, [handleUnauthorized]);
 
   useEffect(() => {
     let isCancelled = false;
@@ -1175,7 +1181,7 @@ export default function CabinetPage() {
         const { response, payload } = await fetchJson('/api/teams');
 
         if (response.status === 401) {
-          router.replace('/dev/login?next=/cabinet');
+          handleUnauthorized();
           return;
         }
 
@@ -1208,7 +1214,7 @@ export default function CabinetPage() {
     return () => {
       isCancelled = true;
     };
-  }, [router]);
+  }, [handleUnauthorized]);
 
   useEffect(() => {
     let isCancelled = false;
@@ -1267,7 +1273,7 @@ export default function CabinetPage() {
         const { response, payload } = await fetchJson('/api/my/team-applications');
 
         if (response.status === 401) {
-          router.replace('/dev/login?next=/cabinet');
+          handleUnauthorized();
           return;
         }
 
@@ -1301,7 +1307,7 @@ export default function CabinetPage() {
     return () => {
       isCancelled = true;
     };
-  }, [router]);
+  }, [handleUnauthorized]);
 
   useEffect(() => {
     let isCancelled = false;
@@ -1314,7 +1320,7 @@ export default function CabinetPage() {
         const { response, payload } = await fetchJson('/api/my/rental-bookings');
 
         if (response.status === 401) {
-          router.replace('/dev/login?next=/cabinet');
+          handleUnauthorized();
           return;
         }
 
@@ -1348,7 +1354,7 @@ export default function CabinetPage() {
     return () => {
       isCancelled = true;
     };
-  }, [router]);
+  }, [handleUnauthorized]);
 
   async function refreshTrainingSections() {
     const [dashboardWasReloaded, trainingsWereReloaded] = await Promise.all([
@@ -1449,7 +1455,7 @@ export default function CabinetPage() {
       });
 
       if (response.status === 401) {
-        router.replace('/dev/login?next=/cabinet');
+        handleUnauthorized();
         return;
       }
 
@@ -1559,7 +1565,7 @@ export default function CabinetPage() {
       );
 
       if (response.status === 401) {
-        router.replace('/dev/login?next=/cabinet');
+        handleUnauthorized();
         return;
       }
 
@@ -1610,7 +1616,7 @@ export default function CabinetPage() {
       );
 
       if (response.status === 401) {
-        router.replace('/dev/login?next=/cabinet');
+        handleUnauthorized();
         return;
       }
 
@@ -1706,7 +1712,7 @@ export default function CabinetPage() {
       });
 
       if (response.status === 401) {
-        router.replace('/dev/login?next=/cabinet');
+        handleUnauthorized();
         return;
       }
 
@@ -1762,7 +1768,7 @@ export default function CabinetPage() {
       );
 
       if (response.status === 401) {
-        router.replace('/dev/login?next=/cabinet');
+        handleUnauthorized();
         return;
       }
 
@@ -1839,7 +1845,7 @@ export default function CabinetPage() {
       });
 
       if (response.status === 401) {
-        router.replace('/dev/login?next=/cabinet');
+        handleUnauthorized();
         return;
       }
 
@@ -1895,7 +1901,7 @@ export default function CabinetPage() {
       );
 
       if (response.status === 401) {
-        router.replace('/dev/login?next=/cabinet');
+        handleUnauthorized();
         return;
       }
 
@@ -2055,12 +2061,14 @@ export default function CabinetPage() {
                   Открыть staff workspace
                 </Link>
               ) : null}
-              <Link
-                href="/dev/login"
+              <a
+                href={homepageSchoolContent.site.telegramHref}
+                target="_blank"
+                rel="noreferrer"
                 className="rounded-full border border-white/12 bg-white/6 px-4 py-2 text-sm font-medium text-stone-100 transition hover:bg-white/10 hover:text-white"
               >
-                Вход в режиме разработки
-              </Link>
+                Войти через Telegram
+              </a>
             </>
           }
           aside={

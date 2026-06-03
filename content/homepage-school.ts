@@ -141,7 +141,7 @@ export const homepageSchoolContent = {
     whatsappHref: 'https://wa.me/79101301777',
     websiteLabel: 'gorillahockey.ru',
     websiteHref: 'https://gorillahockey.ru',
-    loginHref: '/dev/login?next=/cabinet',
+    loginHref: 'https://t.me/Gorillahockeyacademy',
     cabinetHref: '/cabinet',
     registerHref: 'https://t.me/Gorillahockeyacademy',
   },

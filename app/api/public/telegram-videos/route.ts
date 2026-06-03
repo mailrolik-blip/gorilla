@@ -1,10 +1,10 @@
-import { getHomepageTelegramFeed } from '@/lib/telegram-news';
+import { getHomepageTelegramVideos } from '@/lib/telegram-news';
 
 export const dynamic = 'force-dynamic';
 
 export async function GET() {
   try {
-    const items = await getHomepageTelegramFeed();
+    const items = await getHomepageTelegramVideos();
 
     return Response.json(
       {

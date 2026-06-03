@@ -30,7 +30,8 @@ type RemoteTelegramNewsItem = {
 
 const TELEGRAM_CHANNEL_URL = 'https://t.me/Gorillahockeyacademy';
 const TELEGRAM_PUBLIC_FEED_URL = 'https://t.me/s/Gorillahockeyacademy';
-const TELEGRAM_VIDEO_PAGE_LIMIT = 20;
+const TELEGRAM_FETCH_TIMEOUT_MS = 3500;
+const TELEGRAM_VIDEO_PAGE_LIMIT = 4;
 
 const fallbackFeed: RemoteTelegramNewsItem[] = [
   {
@@ -366,6 +367,7 @@ async function fetchTelegramPublicPage(before?: number) {
   const url = before ? `${TELEGRAM_PUBLIC_FEED_URL}?before=${before}` : TELEGRAM_PUBLIC_FEED_URL;
   const response = await fetch(url, {
     next: { revalidate: 60 },
+    signal: AbortSignal.timeout(TELEGRAM_FETCH_TIMEOUT_MS),
     headers: {
       Accept: 'text/html',
       'User-Agent': 'Mozilla/5.0 GorillaHockeyHomepage/1.0',
@@ -386,6 +388,7 @@ async function fetchRemoteTelegramFeed() {
     try {
       const response = await fetch(sourceUrl, {
         next: { revalidate: 60 },
+        signal: AbortSignal.timeout(TELEGRAM_FETCH_TIMEOUT_MS),
         headers: {
           Accept: 'application/json',
         },
@@ -405,7 +408,7 @@ async function fetchRemoteTelegramFeed() {
   }
 
   try {
-    return fetchTelegramPublicPage();
+    return await fetchTelegramPublicPage();
   } catch {
     return null;
   }

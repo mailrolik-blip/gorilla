@@ -1,17 +1,14 @@
 import type { Metadata } from 'next';
 
 import { homepageSchoolContent } from '@/content/homepage-school';
-import { getHomepageTelegramFeed, getHomepageTelegramVideos } from '@/lib/telegram-news';
 
 import { HomeDiscountGameSection } from '@/components/homepage-school/home-discount-game-section';
 import { HomeFooter } from '@/components/homepage-school/home-footer';
 import { HomeHeader } from '@/components/homepage-school/home-header';
 import { HomeHero } from '@/components/homepage-school/home-hero';
 import { HomeIceRent } from '@/components/homepage-school/home-ice-rent';
-import { HomeLiveStreams } from '@/components/homepage-school/home-live-streams';
 import { HomeLocation } from '@/components/homepage-school/home-location';
-import { HomeNews } from '@/components/homepage-school/home-news';
-import { HomeSiteStories } from '@/components/homepage-school/home-site-stories';
+import { HomeMediaFeed } from '@/components/homepage-school/home-media-feed';
 import { HomeTeams } from '@/components/homepage-school/home-teams';
 import { HomeTestimonials } from '@/components/homepage-school/home-testimonials';
 import { HomeTrainers } from '@/components/homepage-school/home-trainers';
@@ -23,11 +20,7 @@ export const metadata: Metadata = {
     'Gorilla Hockey: хоккейная школа для детей, команды ЛХЛ, аренда льда, отзывы и миниигра на скидку.',
 };
 
-export default async function HomePage() {
-  const [newsFeed, videoFeed] = await Promise.all([
-    getHomepageTelegramFeed(),
-    getHomepageTelegramVideos(),
-  ]);
+export default function HomePage() {
   const {
     site,
     menu,
@@ -57,9 +50,7 @@ export default async function HomePage() {
 
       <div className="relative">
         <HomeHero hero={hero} />
-        <HomeSiteStories items={videoFeed} />
-        <HomeNews section={news} items={newsFeed} />
-        <HomeLiveStreams section={liveStreams} feedItems={videoFeed} />
+        <HomeMediaFeed news={news} liveStreams={liveStreams} />
         <HomeTrainingTypes section={trainings} />
         <HomeTeams section={teams} />
         <HomeTrainers section={trainers} />

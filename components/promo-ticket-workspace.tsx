@@ -1,9 +1,9 @@
 'use client';
 
 import Link from 'next/link';
-import { useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
 
+import { homepageSchoolContent } from '@/content/homepage-school';
 import { WorkspaceDisclosure, WorkspaceScoreStrip } from '@/components/workspace-frame';
 import {
   PROMO_COMPLIANCE_NOTICE,
@@ -325,7 +325,6 @@ export function PromoTicketWorkspace({
 }: {
   variant?: PromoWorkspaceVariant;
 }) {
-  const router = useRouter();
   const [status, setStatus] = useState<FetchState>('loading');
   const [tickets, setTickets] = useState<PromoTicketUserView[]>([]);
   const [selectedTicketId, setSelectedTicketId] = useState<number | null>(null);
@@ -343,7 +342,12 @@ export function PromoTicketWorkspace({
       const result = await fetchJson<PromoTicketUserView[]>('/api/my/promo-tickets');
 
       if (result.response.status === 401) {
-        router.replace(`/dev/login?next=${variant === 'full' ? '/promo-tickets' : '/cabinet'}`);
+        if (!isCancelled) {
+          setStatus('error');
+          setError(
+            'Промо-билеты доступны после входа в личный кабинет. Для подключения доступа напишите Gorilla Hockey в Telegram.'
+          );
+        }
         return;
       }
 
@@ -381,7 +385,7 @@ export function PromoTicketWorkspace({
     return () => {
       isCancelled = true;
     };
-  }, [router, variant]);
+  }, [variant]);
 
   const selectedTicket =
     tickets.find((ticket) => ticket.id === selectedTicketId) ?? tickets[0] ?? null;
@@ -399,7 +403,10 @@ export function PromoTicketWorkspace({
     });
 
     if (result.response.status === 401) {
-      router.replace(`/dev/login?next=${variant === 'full' ? '/promo-tickets' : '/cabinet'}`);
+      setOpenError(
+        'Сессия не активна. Для подключения доступа напишите Gorilla Hockey в Telegram.'
+      );
+      setOpeningTicketId(null);
       return;
     }
 
@@ -434,7 +441,15 @@ export function PromoTicketWorkspace({
   if (status === 'error') {
     return (
       <div className="rounded-[1.75rem] border border-rose-400/30 bg-rose-500/12 p-6 text-sm text-rose-100 shadow-sm">
-        {error}
+        <p>{error}</p>
+        <a
+          href={homepageSchoolContent.site.telegramHref}
+          target="_blank"
+          rel="noreferrer"
+          className="mt-4 inline-flex rounded-2xl bg-stone-100 px-4 py-2 text-sm font-black text-black transition hover:bg-white"
+        >
+          Открыть Telegram
+        </a>
       </div>
     );
   }

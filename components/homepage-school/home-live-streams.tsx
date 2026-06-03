@@ -350,7 +350,39 @@ export function HomeLiveStreams({ section, feedItems }: HomeLiveStreamsProps) {
   );
 
   if (matchItems.length === 0) {
-    return null;
+    return (
+      <section id="live" className="scroll-mt-32 px-4 py-20 sm:px-6 lg:px-8">
+        <div className="home-ice-section mx-auto max-w-[1480px] p-6 sm:p-8">
+          <HomeSectionHeading
+            eyebrow={section.eyebrow}
+            title={section.title}
+            description={section.description}
+          />
+
+          <div className="mt-10 grid gap-4 lg:grid-cols-3">
+            {section.items.map((item) => (
+              <a
+                key={`${item.title}-${item.date}`}
+                href={item.href}
+                target="_blank"
+                rel="noreferrer"
+                className="rounded-[1.5rem] border border-white/10 bg-white/[0.04] p-5 transition hover:border-white/16 hover:bg-white/[0.07]"
+              >
+                <p className="text-xs font-semibold uppercase tracking-[0.14em] text-[color:var(--gh-accent)]">
+                  {item.status === 'replay' ? 'Р—Р°РїРёСЃСЊ' : 'РЎРєРѕСЂРѕ'} / {item.date}
+                </p>
+                <h3 className="mt-3 line-clamp-2 text-2xl font-black uppercase leading-tight tracking-[-0.05em] text-white">
+                  {item.title}
+                </h3>
+                <p className="mt-3 line-clamp-3 text-sm leading-6 text-[color:var(--gh-muted)]">
+                  {item.detail}
+                </p>
+              </a>
+            ))}
+          </div>
+        </div>
+      </section>
+    );
   }
 
   function openMatch(index: number) {

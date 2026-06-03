@@ -371,12 +371,14 @@ export function HomeHeader({ menuItems, site }: HomeHeaderProps) {
                   </>
                 ) : (
                   <>
-                    <Link
+                    <a
                       href={site.loginHref}
+                      target="_blank"
+                      rel="noreferrer"
                       className={`${isCompact ? 'px-4 py-2.5 text-xs' : 'px-5 py-3 text-sm'} rounded-full border border-[color:var(--gh-border)] bg-[rgba(18,31,45,0.82)] font-bold uppercase tracking-[0.18em] text-[color:var(--gh-text)] transition hover:bg-[rgba(27,43,59,0.94)]`}
                     >
                       Вход
-                    </Link>
+                    </a>
                     <a
                       href={site.registerHref}
                       target="_blank"
@@ -471,13 +473,15 @@ export function HomeHeader({ menuItems, site }: HomeHeaderProps) {
             </>
           ) : (
             <>
-              <Link
+              <a
                 href={site.loginHref}
+                target="_blank"
+                rel="noreferrer"
                 className="flex min-h-[3.75rem] flex-col items-center justify-center rounded-[1.05rem] border border-[color:var(--gh-border)] bg-[rgba(18,31,45,0.82)] px-2 text-center text-[11px] font-bold uppercase tracking-[0.14em] text-[color:var(--gh-text)] transition hover:bg-[rgba(27,43,59,0.94)]"
               >
                 <span className="mb-1 h-1.5 w-1.5 rounded-full bg-[color:var(--gh-accent)]" />
                 Вход
-              </Link>
+              </a>
               <a
                 href={site.registerHref}
                 target="_blank"
