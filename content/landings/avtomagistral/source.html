@@ -1,0 +1,347 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>ООО «АВТОМАГИСТРАЛЬ» — грузовые перевозки и услуги спецтехники</title>
+  <meta name="description" content="ООО «АВТОМАГИСТРАЛЬ» — оператор грузовых перевозок и услуг спецтехники. Заявки на перевозки, спецтехнику и сотрудничество." />
+  <link rel="preconnect" href="https://images.unsplash.com" />
+  <link rel="preconnect" href="https://cdnjs.cloudflare.com" />
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css" />
+  <style>
+    :root {
+      --black: #070707;
+      --white: #f6f3ed;
+      --muted: #b9b3a8;
+      --gold: #d4a017;
+      --gold-2: #ffcc3d;
+      --line: rgba(246, 243, 237, .16);
+      --container: 1240px;
+    }
+    * { box-sizing: border-box; }
+    html { scroll-behavior: smooth; }
+    body {
+      margin: 0;
+      font-family: Arial, Helvetica, sans-serif;
+      color: var(--white);
+      background: var(--black);
+      line-height: 1.45;
+      overflow-x: hidden;
+    }
+    a { color: inherit; text-decoration: none; }
+    button, input, textarea, select { font: inherit; }
+    .container { width: min(var(--container), calc(100% - 48px)); margin: 0 auto; }
+    .site-header {
+      position: fixed; inset: 0 0 auto 0; z-index: 50;
+      border-bottom: 1px solid rgba(255,255,255,.08);
+      background: linear-gradient(180deg, rgba(0,0,0,.72), rgba(0,0,0,.18));
+      backdrop-filter: blur(14px);
+    }
+    .site-header.scrolled { background: rgba(7,7,7,.9); }
+    .header-inner { min-height: 82px; display: flex; align-items: center; justify-content: space-between; gap: 28px; }
+    .brand { display: flex; align-items: center; gap: 14px; min-width: 300px; }
+    .brand-symbol {
+      width: 48px; height: 48px; border: 1px solid rgba(212,160,23,.75); border-radius: 50%;
+      display: grid; place-items: center; color: var(--gold-2); background: rgba(0,0,0,.25);
+    }
+    .brand-title { display: block; font-weight: 900; letter-spacing: .02em; line-height: 1; text-transform: uppercase; }
+    .brand-subtitle { display: block; margin-top: 5px; color: var(--muted); font-size: 12px; }
+    .nav { display: flex; align-items: center; gap: 28px; color: rgba(246,243,237,.78); font-size: 14px; }
+    .nav a { padding: 10px 0; position: relative; }
+    .nav a::after { content: ""; position: absolute; left: 0; bottom: 4px; width: 0; height: 1px; background: var(--gold-2); transition: width .2s ease; }
+    .nav a:hover::after { width: 100%; }
+    .phone-top { display: flex; align-items: center; gap: 12px; white-space: nowrap; }
+    .phone-top i { color: var(--gold-2); }
+    .phone-top span span { display: block; color: var(--muted); font-size: 11px; text-transform: uppercase; letter-spacing: .12em; }
+    .phone-top strong { font-size: 17px; }
+    .btn {
+      display: inline-flex; align-items: center; justify-content: center; gap: 12px;
+      min-height: 58px; padding: 0 24px; border-radius: 999px; border: 1px solid transparent;
+      cursor: pointer; font-weight: 800; transition: transform .18s ease, background .18s ease, border-color .18s ease; white-space: nowrap;
+    }
+    .btn:hover { transform: translateY(-2px); }
+    .btn-gold { color: #111; background: linear-gradient(135deg, var(--gold-2), var(--gold)); box-shadow: 0 20px 60px rgba(212,160,23,.24); }
+    .btn-outline { border-color: rgba(246,243,237,.35); background: rgba(255,255,255,.04); }
+    .btn-outline:hover { border-color: var(--gold-2); background: rgba(255,255,255,.08); }
+    .hero {
+      min-height: 100vh; position: relative; display: grid; align-items: end; overflow: hidden; padding: 150px 0 70px;
+      background:
+        linear-gradient(90deg, rgba(0,0,0,.88) 0%, rgba(0,0,0,.58) 42%, rgba(0,0,0,.18) 100%),
+        linear-gradient(0deg, rgba(0,0,0,.92) 0%, transparent 44%),
+        url("https://images.unsplash.com/photo-1601584115197-04ecc0da31d7?auto=format&fit=crop&w=2200&q=85");
+      background-size: cover; background-position: center;
+    }
+    .hero::before {
+      content: ""; position: absolute; inset: 0;
+      background: radial-gradient(circle at 70% 22%, rgba(255,204,61,.18), transparent 26%);
+      pointer-events: none;
+    }
+    .hero-content { position: relative; z-index: 2; display: grid; grid-template-columns: minmax(0, 1fr) 360px; gap: 54px; align-items: end; }
+    .eyebrow { display: inline-flex; align-items: center; gap: 14px; color: var(--gold-2); font-size: 12px; font-weight: 900; letter-spacing: .18em; text-transform: uppercase; margin-bottom: 22px; }
+    .eyebrow::before { content: ""; width: 72px; height: 1px; background: var(--gold-2); }
+    h1 { margin: 0; font-size: clamp(48px, 7.5vw, 110px); line-height: .86; letter-spacing: -.07em; text-transform: uppercase; max-width: 960px; }
+    .hero-lead { margin: 28px 0 36px; max-width: 660px; color: rgba(246,243,237,.78); font-size: 20px; }
+    .hero-actions { display: flex; flex-wrap: wrap; gap: 14px; }
+    .hero-meta { border-left: 1px solid rgba(246,243,237,.22); padding-left: 24px; display: grid; gap: 28px; }
+    .meta-item span { display: block; color: var(--muted); font-size: 12px; text-transform: uppercase; letter-spacing: .16em; margin-bottom: 8px; }
+    .meta-item strong { font-size: 24px; line-height: 1.05; display: block; }
+    .ticker { overflow: hidden; background: var(--gold); color: #111; }
+    .ticker-track { display: flex; gap: 42px; width: max-content; padding: 14px 0; font-weight: 900; text-transform: uppercase; letter-spacing: .14em; font-size: 12px; white-space: nowrap; animation: ticker 24s linear infinite; }
+    .ticker-track span::after { content: "•"; margin-left: 42px; }
+    @keyframes ticker { from { transform: translateX(0); } to { transform: translateX(-50%); } }
+    .intro { background: var(--white); color: #111; padding: 105px 0; }
+    .intro-grid { display: grid; grid-template-columns: .9fr 1.1fr; gap: 78px; align-items: start; }
+    .section-label { color: var(--gold); font-size: 12px; font-weight: 900; text-transform: uppercase; letter-spacing: .18em; margin-bottom: 18px; }
+    h2 { margin: 0; font-size: clamp(36px, 5vw, 70px); line-height: .9; letter-spacing: -.06em; text-transform: uppercase; }
+    .lead-large { margin: 0; color: #303030; font-size: clamp(24px, 3vw, 42px); line-height: 1.05; letter-spacing: -.04em; font-weight: 800; }
+    .intro-text { margin: 30px 0 0; color: #5c5c5c; font-size: 18px; max-width: 640px; }
+    .services-flow { background: #0b0b0b; color: var(--white); }
+    .service-row { min-height: 520px; display: grid; grid-template-columns: 1fr 1fr; border-top: 1px solid var(--line); }
+    .service-row:last-child { border-bottom: 1px solid var(--line); }
+    .service-photo { min-height: 520px; background-size: cover; background-position: center; position: relative; }
+    .service-photo::after { content: ""; position: absolute; inset: 0; background: linear-gradient(180deg, rgba(0,0,0,.08), rgba(0,0,0,.46)), radial-gradient(circle at 60% 20%, rgba(255,204,61,.12), transparent 32%); }
+    .photo-truck { background-image: url("https://images.unsplash.com/photo-1519003722824-194d4455a60c?auto=format&fit=crop&w=1600&q=85"); }
+    .photo-construction { background-image: url("https://images.unsplash.com/photo-1504307651254-35680f356dfd?auto=format&fit=crop&w=1600&q=85"); }
+    .photo-materials { background-image: url("https://images.unsplash.com/photo-1566576912321-d58ddd7a6088?auto=format&fit=crop&w=1600&q=85"); }
+    .service-copy { padding: 84px min(8vw, 96px); display: flex; flex-direction: column; justify-content: center; position: relative; }
+    .service-number { position: absolute; top: 44px; right: 58px; color: rgba(246,243,237,.08); font-size: 120px; line-height: 1; font-weight: 900; letter-spacing: -.08em; }
+    .service-copy i { color: var(--gold-2); font-size: 34px; margin-bottom: 28px; }
+    .service-copy h3 { margin: 0 0 18px; font-size: clamp(32px, 4vw, 58px); line-height: .92; letter-spacing: -.055em; text-transform: uppercase; max-width: 560px; position: relative; z-index: 2; }
+    .service-copy p { margin: 0; color: var(--muted); font-size: 18px; max-width: 520px; position: relative; z-index: 2; }
+    .service-list { margin: 30px 0 0; padding: 0; list-style: none; display: grid; gap: 12px; max-width: 520px; color: rgba(246,243,237,.84); position: relative; z-index: 2; }
+    .service-list li { display: flex; gap: 12px; align-items: center; border-bottom: 1px solid rgba(255,255,255,.08); padding-bottom: 12px; }
+    .service-list li::before { content: ""; width: 7px; height: 7px; background: var(--gold-2); border-radius: 50%; flex: 0 0 auto; }
+    .about-photo-section {
+      min-height: 760px; position: relative; display: grid; align-items: end; padding: 105px 0;
+      background:
+        linear-gradient(90deg, rgba(0,0,0,.88), rgba(0,0,0,.48), rgba(0,0,0,.1)),
+        linear-gradient(0deg, rgba(0,0,0,.92), transparent 48%),
+        url("https://images.unsplash.com/photo-1503387762-592deb58ef4e?auto=format&fit=crop&w=2200&q=85");
+      background-size: cover; background-position: center;
+    }
+    .about-content { max-width: 760px; }
+    .about-content p { color: rgba(246,243,237,.78); font-size: 20px; max-width: 650px; margin: 26px 0 0; }
+    .signature { margin-top: 42px; padding-top: 28px; border-top: 1px solid rgba(246,243,237,.22); display: grid; grid-template-columns: 1fr 1fr; gap: 34px; max-width: 720px; }
+    .signature span { display: block; color: var(--muted); font-size: 12px; letter-spacing: .16em; text-transform: uppercase; margin-bottom: 8px; }
+    .signature strong, .signature a { font-size: 25px; line-height: 1.1; font-weight: 900; }
+    .process { background: var(--white); color: #111; padding: 100px 0; }
+    .process-line { margin-top: 62px; display: grid; grid-template-columns: repeat(4, 1fr); gap: 0; border-top: 1px solid rgba(0,0,0,.18); border-bottom: 1px solid rgba(0,0,0,.18); }
+    .process-step { padding: 36px 34px 46px; min-height: 245px; border-right: 1px solid rgba(0,0,0,.14); position: relative; }
+    .process-step:last-child { border-right: 0; }
+    .process-step::before { content: attr(data-step); display: block; color: var(--gold); font-size: 58px; line-height: 1; font-weight: 900; letter-spacing: -.07em; margin-bottom: 34px; }
+    .process-step h3 { margin: 0 0 10px; font-size: 22px; letter-spacing: -.03em; }
+    .process-step p { margin: 0; color: #626262; font-size: 15px; }
+    .forms-zone {
+      background:
+        linear-gradient(90deg, rgba(0,0,0,.9), rgba(0,0,0,.66)),
+        url("https://images.unsplash.com/photo-1581093458791-9d15482442f6?auto=format&fit=crop&w=2200&q=85");
+      background-size: cover; background-position: center; padding: 112px 0; position: relative;
+    }
+    .forms-zone::before { content: ""; position: absolute; inset: 0; background: linear-gradient(135deg, rgba(212,160,23,.18), transparent 34%), linear-gradient(0deg, rgba(0,0,0,.74), transparent 52%); pointer-events: none; }
+    .forms-head { position: relative; z-index: 2; display: grid; grid-template-columns: .85fr 1.15fr; gap: 58px; align-items: end; margin-bottom: 54px; }
+    .forms-head p { margin: 0; color: rgba(246,243,237,.78); font-size: 19px; max-width: 650px; }
+    .forms-grid { position: relative; z-index: 2; display: grid; grid-template-columns: 1fr 1fr; gap: 22px; }
+    .form-area { padding: 34px; background: rgba(8,8,8,.72); border: 1px solid rgba(246,243,237,.18); backdrop-filter: blur(18px); }
+    .form-area:first-child { border-radius: 34px 8px 8px 34px; }
+    .form-area:last-child { border-radius: 8px 34px 34px 8px; }
+    .form-topline { display: flex; align-items: center; justify-content: space-between; gap: 16px; margin-bottom: 22px; padding-bottom: 20px; border-bottom: 1px solid rgba(246,243,237,.13); }
+    .form-topline span { color: var(--gold-2); font-size: 12px; text-transform: uppercase; letter-spacing: .16em; font-weight: 900; }
+    .form-topline i { color: var(--gold-2); font-size: 24px; }
+    .form-area h3 { margin: 0 0 14px; font-size: clamp(28px, 3vw, 42px); line-height: .98; letter-spacing: -.045em; text-transform: uppercase; }
+    .form-area p { margin: 0 0 26px; color: var(--muted); }
+    .form { display: grid; gap: 12px; }
+    .form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+    .field input, .field select, .field textarea { width: 100%; min-height: 56px; border: 1px solid rgba(246,243,237,.18); background: rgba(255,255,255,.94); color: #111; border-radius: 0; padding: 0 16px; outline: none; transition: border-color .18s ease, box-shadow .18s ease; }
+    .field textarea { min-height: 116px; padding-top: 16px; resize: vertical; }
+    .field input:focus, .field select:focus, .field textarea:focus { border-color: var(--gold-2); box-shadow: 0 0 0 3px rgba(255,204,61,.2); }
+    .form .btn { width: 100%; border-radius: 0; margin-top: 6px; }
+    .privacy { margin-top: 10px; color: rgba(246,243,237,.48); font-size: 12px; text-align: center; }
+    .success { display: none; margin-top: 14px; padding: 14px 16px; border: 1px solid rgba(52,211,153,.42); color: #bbf7d0; background: rgba(52,211,153,.12); font-size: 14px; }
+    .footer { background: #050505; border-top: 1px solid rgba(246,243,237,.12); padding: 46px 0; }
+    .footer-grid { display: grid; grid-template-columns: 1.2fr 1fr 1fr 1fr; gap: 34px; align-items: center; }
+    .footer p { color: var(--muted); max-width: 420px; margin: 12px 0 0; }
+    .footer-contact span { display: block; color: var(--muted); font-size: 12px; text-transform: uppercase; letter-spacing: .14em; margin-bottom: 8px; }
+    .footer-contact strong, .footer-contact a { font-size: 21px; font-weight: 900; }
+    .footer-action { justify-self: end; }
+    @media (max-width: 1080px) {
+      .nav { display: none; }
+      .hero-content, .intro-grid, .forms-head, .forms-grid, .footer-grid { grid-template-columns: 1fr; }
+      .hero-meta { grid-template-columns: 1fr 1fr; border-left: 0; border-top: 1px solid rgba(246,243,237,.22); padding-left: 0; padding-top: 24px; }
+      .service-row { grid-template-columns: 1fr; }
+      .service-row:nth-child(even) .service-photo { order: 1; }
+      .service-row:nth-child(even) .service-copy { order: 2; }
+      .process-line { grid-template-columns: repeat(2, 1fr); }
+      .process-step:nth-child(2) { border-right: 0; }
+      .process-step:nth-child(1), .process-step:nth-child(2) { border-bottom: 1px solid rgba(0,0,0,.14); }
+      .form-area:first-child, .form-area:last-child { border-radius: 28px; }
+      .footer-action { justify-self: start; }
+    }
+    @media (max-width: 720px) {
+      .container { width: min(100% - 24px, var(--container)); }
+      .header-inner { min-height: 72px; }
+      .brand { min-width: 0; }
+      .brand-symbol { width: 42px; height: 42px; }
+      .brand-title { font-size: 13px; }
+      .brand-subtitle { font-size: 10px; }
+      .phone-top { display: none; }
+      .hero { min-height: auto; padding: 126px 0 54px; }
+      h1 { font-size: 48px; }
+      .hero-lead { font-size: 16px; }
+      .hero-actions, .hero-meta, .signature, .form-row { grid-template-columns: 1fr; display: grid; }
+      .intro, .process, .forms-zone, .about-photo-section { padding: 70px 0; }
+      .service-row, .service-photo { min-height: auto; }
+      .service-photo { min-height: 330px; }
+      .service-copy { padding: 58px 24px; }
+      .service-number { right: 24px; top: 24px; font-size: 86px; }
+      .process-line { grid-template-columns: 1fr; }
+      .process-step { border-right: 0; border-bottom: 1px solid rgba(0,0,0,.14); }
+      .process-step:last-child { border-bottom: 0; }
+      .form-area { padding: 24px; }
+      .footer-grid { gap: 26px; }
+    }
+  </style>
+</head>
+<body>
+  <header class="site-header" id="header">
+    <div class="container header-inner">
+      <a href="#top" class="brand" aria-label="ООО Автомагистраль">
+        <span class="brand-symbol"><i class="fa-solid fa-truck-fast"></i></span>
+        <span>
+          <span class="brand-title">ООО «АВТОМАГИСТРАЛЬ»</span>
+          <span class="brand-subtitle">оператор грузовых перевозок и услуг спецтехники</span>
+        </span>
+      </a>
+      <nav class="nav" aria-label="Навигация">
+        <a href="#services">Услуги</a>
+        <a href="#about">О компании</a>
+        <a href="#process">Как работаем</a>
+        <a href="#request">Заявка</a>
+        <a href="#partner">Сотрудничество</a>
+      </nav>
+      <a class="phone-top" href="tel:+79069033231">
+        <i class="fa-solid fa-phone"></i>
+        <span><span>Телефон для заявок</span><strong>8 906 903-32-31</strong></span>
+      </a>
+    </div>
+  </header>
+
+  <main id="top">
+    <section class="hero">
+      <div class="container hero-content">
+        <div>
+          <div class="eyebrow">ООО «АВТОМАГИСТРАЛЬ»</div>
+          <h1>Грузовые перевозки и услуги спецтехники</h1>
+          <p class="hero-lead">Оператор грузовых перевозок и услуг спецтехники для бизнеса, строительных объектов, подрядчиков и частных задач. Оставьте заявку — мы свяжемся с вами для уточнения деталей.</p>
+          <div class="hero-actions">
+            <a class="btn btn-gold" href="#request">Оставить заявку <i class="fa-solid fa-arrow-right"></i></a>
+            <a class="btn btn-outline" href="#partner">Предложить сотрудничество</a>
+          </div>
+        </div>
+        <aside class="hero-meta">
+          <div class="meta-item"><span>Генеральный директор</span><strong>Бердникова Ирина</strong></div>
+          <div class="meta-item"><span>Телефон</span><strong>8 906 903-32-31</strong></div>
+          <div class="meta-item"><span>Направления</span><strong>Перевозки · спецтехника · партнёрство</strong></div>
+        </aside>
+      </div>
+    </section>
+
+    <section class="ticker" aria-hidden="true"><div class="ticker-track">
+      <span>грузовые перевозки</span><span>услуги спецтехники</span><span>доставка материалов</span><span>вывоз грунта и мусора</span><span>погрузочные работы</span><span>заявки на сотрудничество</span>
+      <span>грузовые перевозки</span><span>услуги спецтехники</span><span>доставка материалов</span><span>вывоз грунта и мусора</span><span>погрузочные работы</span><span>заявки на сотрудничество</span>
+    </div></section>
+
+    <section class="intro">
+      <div class="container intro-grid">
+        <div><div class="section-label">Позиционирование</div><h2>Не просто аренда техники</h2></div>
+        <div>
+          <p class="lead-large">ООО «АВТОМАГИСТРАЛЬ» — единая точка обращения для задач, где нужен транспорт, техника и понятная организация работ.</p>
+          <p class="intro-text">Клиенту не нужно разбираться в десятках карточек и калькуляторов. Он оставляет заявку, описывает задачу, а компания связывается с ним и подбирает подходящее решение.</p>
+        </div>
+      </div>
+    </section>
+
+    <section class="services-flow" id="services">
+      <article class="service-row">
+        <div class="service-photo photo-truck" aria-label="Грузовой транспорт"></div>
+        <div class="service-copy"><div class="service-number">01</div><i class="fa-solid fa-truck-moving"></i><h3>Грузовые перевозки</h3><p>Организация перевозки строительных, коммерческих и других грузов с подбором транспорта под задачу.</p><ul class="service-list"><li>перевозка грузов по городу и области;</li><li>доставка строительных и коммерческих материалов;</li><li>подбор транспорта под объём, вес и маршрут.</li></ul></div>
+      </article>
+      <article class="service-row">
+        <div class="service-copy"><div class="service-number">02</div><i class="fa-solid fa-helmet-safety"></i><h3>Услуги спецтехники</h3><p>Подбор спецтехники для строительных, дорожных, земляных, погрузочных и демонтажных работ.</p><ul class="service-list"><li>техника под условия объекта;</li><li>работа с частными и корпоративными клиентами;</li><li>заявки на разовые и длительные задачи.</li></ul></div>
+        <div class="service-photo photo-construction" aria-label="Спецтехника на строительном объекте"></div>
+      </article>
+      <article class="service-row">
+        <div class="service-photo photo-materials" aria-label="Доставка материалов"></div>
+        <div class="service-copy"><div class="service-number">03</div><i class="fa-solid fa-boxes-stacked"></i><h3>Материалы, грунт и объектные задачи</h3><p>Доставка материалов, вывоз грунта и мусора, погрузочно-разгрузочные работы и сопутствующая логистика.</p><ul class="service-list"><li>доставка песка, щебня, грунта и материалов;</li><li>вывоз строительного мусора и грунта;</li><li>организация техники для работ на площадке.</li></ul></div>
+      </article>
+    </section>
+
+    <section class="about-photo-section" id="about">
+      <div class="container"><div class="about-content"><div class="section-label">О компании</div><h2>ООО «АВТОМАГИСТРАЛЬ»</h2><p>Компания работает как оператор: принимает заявки, уточняет задачу, помогает подобрать транспорт или спецтехнику и организовать дальнейшее выполнение работ.</p><div class="signature"><div><span>Генеральный директор</span><strong>Бердникова Ирина</strong></div><div><span>Контактный телефон</span><a href="tel:+79069033231">8 906 903-32-31</a></div></div></div></div>
+    </section>
+
+    <section class="process" id="process">
+      <div class="container"><div class="section-label">Как мы работаем</div><h2>Простой путь от заявки до решения</h2><div class="process-line"><div class="process-step" data-step="1"><h3>Оставляете заявку</h3><p>Выбираете направление: перевозка, спецтехника или сотрудничество.</p></div><div class="process-step" data-step="2"><h3>Уточняем детали</h3><p>Связываемся с вами, уточняем адрес, сроки, груз, объём и условия.</p></div><div class="process-step" data-step="3"><h3>Подбираем вариант</h3><p>Предлагаем транспорт, технику или формат партнёрства под задачу.</p></div><div class="process-step" data-step="4"><h3>Согласовываем работу</h3><p>Фиксируем условия и переходим к организации выполнения.</p></div></div></div>
+    </section>
+
+    <section class="forms-zone" id="request">
+      <div class="container">
+        <div class="forms-head"><div><div class="section-label">Заявки</div><h2>Две формы для разных сценариев</h2></div><p>Первая форма — для клиентов, которым нужна перевозка или спецтехника. Вторая — для владельцев техники, транспорта и потенциальных партнёров.</p></div>
+        <div class="forms-grid">
+          <article class="form-area">
+            <div class="form-topline"><span>Заказ техники / перевозки</span><i class="fa-solid fa-truck-ramp-box"></i></div>
+            <h3>Заявка на обратный звонок</h3><p>Опишите задачу — мы перезвоним и уточним детали.</p>
+            <form class="form js-form" data-form-name="Заявка на заказ техники или перевозки">
+              <div class="form-row"><label class="field"><input type="text" name="Имя" placeholder="Ваше имя*" required /></label><label class="field"><input type="tel" name="Телефон" placeholder="Телефон*" required /></label></div>
+              <label class="field"><select name="Услуга" required><option value="">Что вам нужно?*</option><option>Грузовая перевозка</option><option>Услуги спецтехники</option><option>Доставка материалов</option><option>Вывоз грунта / строительного мусора</option><option>Погрузочно-разгрузочные работы</option><option>Другое</option></select></label>
+              <label class="field"><input type="text" name="Адрес" placeholder="Город / адрес объекта" /></label>
+              <label class="field"><textarea name="Комментарий" placeholder="Комментарий: что нужно перевезти, какая техника нужна, сроки, объём работ"></textarea></label>
+              <button class="btn btn-gold" type="submit">Заказать обратный звонок <i class="fa-solid fa-arrow-right"></i></button><div class="privacy">Нажимая кнопку, вы соглашаетесь на обработку персональных данных.</div><div class="success">Заявка подготовлена. В рабочей версии подключите отправку в Telegram, CRM или email.</div>
+            </form>
+          </article>
+          <article class="form-area" id="partner">
+            <div class="form-topline"><span>Сотрудничество</span><i class="fa-solid fa-handshake"></i></div>
+            <h3>Заявка на сотрудничество</h3><p>Оставьте контакты, если хотите предложить транспорт, технику или партнёрство.</p>
+            <form class="form js-form" data-form-name="Заявка на сотрудничество">
+              <div class="form-row"><label class="field"><input type="text" name="Имя" placeholder="Ваше имя*" required /></label><label class="field"><input type="tel" name="Телефон" placeholder="Телефон*" required /></label></div>
+              <label class="field"><input type="text" name="Регион" placeholder="Город / регион работы" /></label>
+              <label class="field"><input type="text" name="Техника" placeholder="Какая техника или транспорт есть?" /></label>
+              <div class="form-row"><label class="field"><input type="text" name="Количество" placeholder="Количество единиц" /></label><label class="field"><select name="Форма работы"><option value="">Форма работы</option><option>ИП</option><option>ООО</option><option>Самозанятый</option><option>Частное лицо</option></select></label></div>
+              <label class="field"><textarea name="Комментарий" placeholder="Комментарий: условия, свободная техника, формат сотрудничества"></textarea></label>
+              <button class="btn btn-gold" type="submit">Отправить заявку <i class="fa-solid fa-arrow-right"></i></button><div class="privacy">Мы свяжемся с вами для обсуждения условий сотрудничества.</div><div class="success">Заявка подготовлена. В рабочей версии подключите отправку в Telegram, CRM или email.</div>
+            </form>
+          </article>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <footer class="footer">
+    <div class="container footer-grid">
+      <div><a href="#top" class="brand"><span class="brand-symbol"><i class="fa-solid fa-truck-fast"></i></span><span><span class="brand-title">ООО «АВТОМАГИСТРАЛЬ»</span><span class="brand-subtitle">оператор грузовых перевозок и услуг спецтехники</span></span></a><p>Перевозки, услуги спецтехники, заявки на сотрудничество и обратный звонок.</p></div>
+      <div class="footer-contact"><span>Телефон</span><a href="tel:+79069033231">8 906 903-32-31</a></div>
+      <div class="footer-contact"><span>Генеральный директор</span><strong>Бердникова Ирина</strong></div>
+      <div class="footer-action"><a class="btn btn-gold" href="#request">Оставить заявку <i class="fa-solid fa-arrow-right"></i></a></div>
+    </div>
+  </footer>
+
+  <script>
+    const header = document.getElementById('header');
+    const toggleHeader = () => header.classList.toggle('scrolled', window.scrollY > 30);
+    toggleHeader();
+    window.addEventListener('scroll', toggleHeader);
+    document.querySelectorAll('.js-form').forEach((form) => {
+      form.addEventListener('submit', (event) => {
+        event.preventDefault();
+        const formName = form.dataset.formName || 'Заявка';
+        const data = new FormData(form);
+        let message = formName + '\n\n';
+        data.forEach((value, key) => { if (String(value).trim()) message += key + ': ' + value + '\n'; });
+        console.log(message);
+        const success = form.querySelector('.success');
+        if (success) success.style.display = 'block';
+        form.reset();
+      });
+    });
+  </script>
+</body>
+</html>
