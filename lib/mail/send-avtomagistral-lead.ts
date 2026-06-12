@@ -5,13 +5,16 @@ export type AvtomagistralLead = {
   formType: string;
   name: string;
   phone: string;
-  service?: string;
-  address?: string;
   region?: string;
+  address?: string;
+  service?: string;
+  transport?: string;
   equipment?: string;
   quantity?: string;
   workFormat?: string;
+  cooperationType?: string;
   comment?: string;
+  page?: string;
   source?: string;
   pageUrl?: string;
   createdAt?: string;
@@ -27,17 +30,24 @@ type SmtpConfig = {
 };
 
 const DEFAULT_TO = 'mailrolik@gmail.com';
+const DEFAULT_TIMEOUT_MS = 8000;
 
-export async function sendAvtomagistralLead(lead: AvtomagistralLead) {
+export async function sendAvtomagistralLead(
+  lead: AvtomagistralLead,
+  options: { timeoutMs?: number } = {}
+) {
   const config = getSmtpConfig();
   const subject = getSubject(lead.formType);
   const { text, html } = renderLeadEmail(lead);
 
-  await sendSmtpMail(config, {
-    subject,
-    text,
-    html,
-  });
+  await withTimeout(
+    sendSmtpMail(config, {
+      subject,
+      text,
+      html,
+    }),
+    options.timeoutMs || DEFAULT_TIMEOUT_MS
+  );
 }
 
 function getSmtpConfig(): SmtpConfig {
@@ -79,14 +89,17 @@ function renderLeadEmail(lead: AvtomagistralLead) {
     ['Тип формы', lead.formType],
     ['Имя', lead.name],
     ['Телефон', lead.phone],
+    ['Регион', lead.region],
+    ['Адрес', lead.address],
     ['Выбранная услуга', lead.service],
-    ['Адрес / регион', [lead.address, lead.region].filter(Boolean).join(' / ')],
+    ['Транспорт', lead.transport],
     ['Техника / транспорт', lead.equipment],
     ['Количество', lead.quantity],
     ['Форма работы', lead.workFormat],
+    ['Тип сотрудничества', lead.cooperationType],
     ['Комментарий', lead.comment],
     ['Дата заявки', formatDate(lead.createdAt)],
-    ['Страница-источник', lead.pageUrl || lead.source],
+    ['Страница-источник', lead.page || lead.pageUrl || lead.source],
   ].filter(([, value]) => Boolean(String(value || '').trim()));
 
   const text = [
@@ -171,13 +184,17 @@ class SmtpClient {
 
   async connect() {
     this.socket = await new Promise<net.Socket | tls.TLSSocket>((resolve, reject) => {
-      const onError = (error: Error) => reject(error);
       const socket =
         this.config.port === 465
-          ? tls.connect({ host: this.config.host, port: this.config.port, servername: this.config.host }, () => resolve(socket))
+          ? tls.connect(
+              { host: this.config.host, port: this.config.port, servername: this.config.host },
+              () => resolve(socket)
+            )
           : net.connect({ host: this.config.host, port: this.config.port }, () => resolve(socket));
 
-      socket.once('error', onError);
+      socket.setTimeout(DEFAULT_TIMEOUT_MS);
+      socket.once('error', reject);
+      socket.once('timeout', () => reject(new Error('SMTP timeout')));
     });
 
     await this.readResponse(220);
@@ -186,6 +203,7 @@ class SmtpClient {
     if (this.config.port !== 465 && capabilities.includes('STARTTLS')) {
       await this.command('STARTTLS', 220);
       this.socket = tls.connect({ socket: this.socket, servername: this.config.host });
+      this.socket.setTimeout(DEFAULT_TIMEOUT_MS);
       await this.command(`EHLO ${this.config.host}`, 250);
     }
   }
@@ -266,18 +284,39 @@ class SmtpClient {
           cleanup();
           reject(new Error('SMTP socket closed'));
         };
+        const onTimeout = () => {
+          cleanup();
+          reject(new Error('SMTP timeout'));
+        };
         const cleanup = () => {
           socket.off('data', onData);
           socket.off('error', onError);
           socket.off('close', onClose);
+          socket.off('timeout', onTimeout);
         };
 
         socket.once('data', onData);
         socket.once('error', onError);
         socket.once('close', onClose);
+        socket.once('timeout', onTimeout);
       });
     }
   }
+}
+
+function withTimeout<T>(promise: Promise<T>, timeoutMs: number) {
+  let timeout: ReturnType<typeof setTimeout> | undefined;
+
+  return Promise.race([
+    promise,
+    new Promise<T>((_, reject) => {
+      timeout = setTimeout(() => reject(new Error('Delivery timeout')), timeoutMs);
+    }),
+  ]).finally(() => {
+    if (timeout) {
+      clearTimeout(timeout);
+    }
+  });
 }
 
 function formatDate(value?: string) {
