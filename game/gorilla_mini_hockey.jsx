@@ -14,7 +14,9 @@ const STUCK_TIME_MS = 2000;
 const STUCK_MOVEMENT_EPSILON = 0.35;
 const CORNER_MARGIN = 72;
 const STUCK_COOLDOWN_MS = 2800;
-const PUCK_NUDGE_FORCE = 260;
+const PUCK_NUDGE_FORCE = 480;
+const BOT_UNSTUCK_NUDGE_FORCE = 260;
+const BOT_UNSTUCK_NUDGE_DISTANCE = 10;
 const emptyKeys = { up: false, down: false, left: false, right: false };
 const emptyAxis = { x: 0, y: 0 };
 
@@ -441,14 +443,18 @@ export default function GorillaMiniHockey() {
 
     puck.vx += puckCenterVector.x * PUCK_NUDGE_FORCE;
     puck.vy += puckCenterVector.y * PUCK_NUDGE_FORCE;
-    bot.vx += botCenterVector.x * PUCK_NUDGE_FORCE * 0.55;
-    bot.vy += botCenterVector.y * PUCK_NUDGE_FORCE * 0.55;
+    bot.vx += botCenterVector.x * BOT_UNSTUCK_NUDGE_FORCE;
+    bot.vy += botCenterVector.y * BOT_UNSTUCK_NUDGE_FORCE;
     bot.x = clamp(
-      bot.x + botCenterVector.x * 5,
+      bot.x + botCenterVector.x * BOT_UNSTUCK_NUDGE_DISTANCE,
       ARENA_W / 2 + PLAYER_R + 18,
       ARENA_W - PLAYER_R - 10
     );
-    bot.y = clamp(bot.y + botCenterVector.y * 5, PLAYER_R + 10, ARENA_H - PLAYER_R - 10);
+    bot.y = clamp(
+      bot.y + botCenterVector.y * BOT_UNSTUCK_NUDGE_DISTANCE,
+      PLAYER_R + 10,
+      ARENA_H - PLAYER_R - 10
+    );
 
     stuck.stillMs = 0;
     stuck.cooldownMs = STUCK_COOLDOWN_MS;
