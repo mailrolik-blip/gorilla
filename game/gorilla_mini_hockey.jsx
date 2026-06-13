@@ -10,6 +10,11 @@ const PLAYER_R = 26;
 const PUCK_R = 14;
 const GOAL_H = 150;
 const GAME_TIME = 60;
+const STUCK_TIME_MS = 2000;
+const STUCK_MOVEMENT_EPSILON = 0.35;
+const CORNER_MARGIN = 72;
+const STUCK_COOLDOWN_MS = 2800;
+const PUCK_NUDGE_FORCE = 260;
 const emptyKeys = { up: false, down: false, left: false, right: false };
 const emptyAxis = { x: 0, y: 0 };
 
@@ -19,6 +24,26 @@ function clamp(value, min, max) {
 
 function length(x, y) {
   return Math.sqrt(x * x + y * y);
+}
+
+function isNearRinkEdge(body) {
+  return (
+    body.x <= CORNER_MARGIN ||
+    body.x >= ARENA_W - CORNER_MARGIN ||
+    body.y <= CORNER_MARGIN ||
+    body.y >= ARENA_H - CORNER_MARGIN
+  );
+}
+
+function getVectorToCenter(body) {
+  const dx = ARENA_W / 2 - body.x;
+  const dy = ARENA_H / 2 - body.y;
+  const dist = Math.max(length(dx, dy), 0.001);
+
+  return {
+    x: dx / dist,
+    y: dy / dist,
+  };
 }
 
 async function tryLockLandscapeOrientation() {
@@ -228,6 +253,12 @@ export default function GorillaMiniHockey() {
   const playerRef = useRef({ x: 150, y: ARENA_H / 2, vx: 0, vy: 0 });
   const botRef = useRef({ x: ARENA_W - 150, y: ARENA_H / 2, vx: 0, vy: 0 });
   const puckRef = useRef({ x: ARENA_W / 2, y: ARENA_H / 2, vx: 0, vy: 0 });
+  const botStuckRef = useRef({
+    lastX: ARENA_W - 150,
+    lastY: ARENA_H / 2,
+    stillMs: 0,
+    cooldownMs: 0,
+  });
 
   const pointsLabel = isAuthenticated ? `${pointsBalance} GP` : `${guestPreviewPoints} GP`;
   const needsRotateHint = gameModeOpen && isMobileViewport && !isLandscapeViewport;
@@ -246,6 +277,12 @@ export default function GorillaMiniHockey() {
     botRef.current = { x: ARENA_W - 150, y: ARENA_H / 2, vx: 0, vy: 0 };
 
     puckRef.current = getResetPuck(withKickoff);
+    botStuckRef.current = {
+      lastX: botRef.current.x,
+      lastY: botRef.current.y,
+      stillMs: 0,
+      cooldownMs: 0,
+    };
   }
 
   function resetMatch(nextMessage = getDefaultMessage(isAuthenticated)) {
@@ -365,6 +402,58 @@ export default function GorillaMiniHockey() {
 
     puck.vx = nx * impulse + player.vx * 0.6;
     puck.vy = ny * impulse + player.vy * 0.6;
+  }
+
+  function releaseStuckBotAndPuck(dt) {
+    const bot = botRef.current;
+    const puck = puckRef.current;
+    const stuck = botStuckRef.current;
+    const elapsedMs = dt * 1000;
+    const botMove = length(bot.x - stuck.lastX, bot.y - stuck.lastY);
+
+    stuck.cooldownMs = Math.max(0, stuck.cooldownMs - elapsedMs);
+
+    if (botMove <= STUCK_MOVEMENT_EPSILON) {
+      stuck.stillMs += elapsedMs;
+    } else {
+      stuck.stillMs = 0;
+    }
+
+    stuck.lastX = bot.x;
+    stuck.lastY = bot.y;
+
+    const puckDistance = length(puck.x - bot.x, puck.y - bot.y);
+    const puckIsPinned = isNearRinkEdge(puck);
+    const botIsPinned = isNearRinkEdge(bot);
+    const isStuck =
+      stuck.cooldownMs <= 0 &&
+      stuck.stillMs >= STUCK_TIME_MS &&
+      puckDistance <= PLAYER_R + PUCK_R + 18 &&
+      (puckIsPinned || botIsPinned);
+
+    if (!isStuck) {
+      return;
+    }
+
+    // Keeps the AI from pinning the puck forever at the boards without resetting the match.
+    const puckCenterVector = getVectorToCenter(puck);
+    const botCenterVector = getVectorToCenter(bot);
+
+    puck.vx += puckCenterVector.x * PUCK_NUDGE_FORCE;
+    puck.vy += puckCenterVector.y * PUCK_NUDGE_FORCE;
+    bot.vx += botCenterVector.x * PUCK_NUDGE_FORCE * 0.55;
+    bot.vy += botCenterVector.y * PUCK_NUDGE_FORCE * 0.55;
+    bot.x = clamp(
+      bot.x + botCenterVector.x * 5,
+      ARENA_W / 2 + PLAYER_R + 18,
+      ARENA_W - PLAYER_R - 10
+    );
+    bot.y = clamp(bot.y + botCenterVector.y * 5, PLAYER_R + 10, ARENA_H - PLAYER_R - 10);
+
+    stuck.stillMs = 0;
+    stuck.cooldownMs = STUCK_COOLDOWN_MS;
+    stuck.lastX = bot.x;
+    stuck.lastY = bot.y;
   }
 
   function scoreGoal(side) {
@@ -510,6 +599,8 @@ export default function GorillaMiniHockey() {
         puck.vx *= -0.98;
       }
     }
+
+    releaseStuckBotAndPuck(dt);
   }
 
   function stepFrame(timestamp) {
