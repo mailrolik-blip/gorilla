@@ -1,8 +1,10 @@
 import { Prisma } from '@prisma/client';
 import type { NextApiRequest, NextApiResponse } from 'next';
 
+import { requireCurrentUser } from '../../../lib/current-user';
 import prisma from '../../../lib/prisma';
 import { participantDetailSelect } from '../../../lib/selects';
+import { HttpError } from '../../../lib/training-bookings';
 
 function toPositiveInt(value: unknown): number | null {
   const parsed = Number(value);
@@ -62,12 +64,17 @@ export default async function handler(
     }
 
     if (req.method === 'PATCH') {
+      const currentUser = await requireCurrentUser(prisma, req);
       const existingParticipant = await prisma.userProfile.findUnique({
         where: { id: participantId },
-        select: { id: true },
+        select: { id: true, userId: true },
       });
 
       if (!existingParticipant) {
+        return res.status(404).json({ error: 'Participant not found' });
+      }
+
+      if (existingParticipant.userId !== currentUser.id) {
         return res.status(404).json({ error: 'Participant not found' });
       }
 
@@ -140,8 +147,8 @@ export default async function handler(
             return res.status(400).json({ error: 'Participant cannot be its own parent' });
           }
 
-          const parent = await prisma.userProfile.findUnique({
-            where: { id: parentId },
+          const parent = await prisma.userProfile.findFirst({
+            where: { id: parentId, userId: currentUser.id },
             select: { id: true },
           });
 
@@ -169,6 +176,16 @@ export default async function handler(
     }
 
     if (req.method === 'DELETE') {
+      const currentUser = await requireCurrentUser(prisma, req);
+      const existingParticipant = await prisma.userProfile.findUnique({
+        where: { id: participantId },
+        select: { userId: true },
+      });
+
+      if (!existingParticipant || existingParticipant.userId !== currentUser.id) {
+        return res.status(404).json({ error: 'Participant not found' });
+      }
+
       await prisma.userProfile.delete({
         where: { id: participantId },
       });
@@ -179,6 +196,10 @@ export default async function handler(
     return res.status(405).json({ error: 'Method not allowed' });
   } catch (error) {
     console.error(error);
+
+    if (error instanceof HttpError) {
+      return res.status(error.statusCode).json({ error: error.message });
+    }
 
     if (
       error instanceof Prisma.PrismaClientKnownRequestError &&

@@ -10,6 +10,7 @@ type RegisterState = {
   email: string;
   telegram: string;
   city: string;
+  addParticipantNow: boolean;
   childFullName: string;
   birthYear: string;
   interestedFormat: string;
@@ -24,6 +25,7 @@ const initialRegisterState: RegisterState = {
   email: '',
   telegram: '',
   city: '',
+  addParticipantNow: false,
   childFullName: '',
   birthYear: '',
   interestedFormat: '',
@@ -91,10 +93,10 @@ export default function RegisterPage() {
               Регистрация семьи
             </h1>
             <p className="mt-4 text-sm leading-7 text-stone-300">
-              Создайте кабинет родителя и профиль ребёнка. После регистрации кабинет откроется сразу, а подтверждение доступа к тренировкам будет отображаться отдельным статусом.
+              Создайте аккаунт родителя. Ребёнка или участника можно добавить сразу либо позже в личном кабинете.
             </p>
             <div className="mt-5 rounded-2xl border border-amber-300/18 bg-amber-300/8 p-4 text-sm leading-6 text-amber-50/86">
-              Telegram можно указать для связи, но он больше не обязателен для входа.
+              Telegram можно указать для связи, но он не обязателен для входа.
             </div>
           </div>
 
@@ -147,33 +149,51 @@ export default function RegisterPage() {
                   onChange={(event) => updateField('city', event.target.value)}
                 />
               </label>
-              <label className="grid gap-2 text-sm font-semibold text-stone-200">
-                ФИО ребёнка
-                <input
-                  className="min-h-12 rounded-2xl border border-white/10 bg-white/[0.06] px-4 text-white outline-none transition focus:border-amber-300/60"
-                  value={form.childFullName}
-                  onChange={(event) => updateField('childFullName', event.target.value)}
-                />
-              </label>
-              <label className="grid gap-2 text-sm font-semibold text-stone-200">
-                Год рождения
-                <input
-                  className="min-h-12 rounded-2xl border border-white/10 bg-white/[0.06] px-4 text-white outline-none transition focus:border-amber-300/60"
-                  inputMode="numeric"
-                  placeholder="2018"
-                  value={form.birthYear}
-                  onChange={(event) => updateField('birthYear', event.target.value)}
-                />
-              </label>
-              <label className="grid gap-2 text-sm font-semibold text-stone-200">
-                Интересующий формат
-                <input
-                  className="min-h-12 rounded-2xl border border-white/10 bg-white/[0.06] px-4 text-white outline-none transition focus:border-amber-300/60"
-                  placeholder="Группа, индивидуально, команда"
-                  value={form.interestedFormat}
-                  onChange={(event) => updateField('interestedFormat', event.target.value)}
-                />
-              </label>
+            </div>
+
+            <label className="flex gap-3 rounded-2xl border border-amber-300/18 bg-amber-300/8 p-4 text-sm leading-6 text-amber-50/90">
+              <input
+                className="mt-1 h-4 w-4 accent-amber-300"
+                type="checkbox"
+                checked={form.addParticipantNow}
+                onChange={(event) => updateField('addParticipantNow', event.target.checked)}
+              />
+              <span>Добавить ребёнка / участника сейчас</span>
+            </label>
+
+            {form.addParticipantNow ? (
+              <div className="grid gap-4 rounded-2xl border border-white/10 bg-white/[0.035] p-4 md:grid-cols-2">
+                <label className="grid gap-2 text-sm font-semibold text-stone-200">
+                  ФИО ребёнка / участника
+                  <input
+                    className="min-h-12 rounded-2xl border border-white/10 bg-white/[0.06] px-4 text-white outline-none transition focus:border-amber-300/60"
+                    value={form.childFullName}
+                    onChange={(event) => updateField('childFullName', event.target.value)}
+                  />
+                </label>
+                <label className="grid gap-2 text-sm font-semibold text-stone-200">
+                  Год рождения ребёнка / участника
+                  <input
+                    className="min-h-12 rounded-2xl border border-white/10 bg-white/[0.06] px-4 text-white outline-none transition focus:border-amber-300/60"
+                    inputMode="numeric"
+                    placeholder="2018"
+                    value={form.birthYear}
+                    onChange={(event) => updateField('birthYear', event.target.value)}
+                  />
+                </label>
+                <label className="grid gap-2 text-sm font-semibold text-stone-200 md:col-span-2">
+                  Интересующий формат
+                  <input
+                    className="min-h-12 rounded-2xl border border-white/10 bg-white/[0.06] px-4 text-white outline-none transition focus:border-amber-300/60"
+                    placeholder="Группа, индивидуально, команда"
+                    value={form.interestedFormat}
+                    onChange={(event) => updateField('interestedFormat', event.target.value)}
+                  />
+                </label>
+              </div>
+            ) : null}
+
+            <div className="grid gap-4 md:grid-cols-2">
               <label className="grid gap-2 text-sm font-semibold text-stone-200">
                 Пароль
                 <input

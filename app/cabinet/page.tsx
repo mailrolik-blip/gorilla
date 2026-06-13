@@ -294,6 +294,8 @@ function translateErrorMessage(message: string) {
       'Комментарий к бронированию указан некорректно.',
     'userId and profileType are required':
       'Не удалось создать профиль: не хватает обязательных данных.',
+    'profileType is required':
+      'Не удалось создать профиль: не хватает обязательных данных.',
     'profileType cannot be empty': 'Тип профиля не может быть пустым.',
     'birthDate must be a valid date': 'Укажите корректную дату рождения.',
     'No valid fields provided for update': 'Нет данных для обновления профиля.',
@@ -1437,10 +1439,7 @@ export default function CabinetPage() {
           ? {
               url: '/api/participants',
               method: 'POST',
-              body: JSON.stringify({
-                userId: dashboard.currentUser.id,
-                ...requestBody,
-              }),
+              body: JSON.stringify(requestBody),
             }
           : {
               url: `/api/participants/${editingParticipantId}`,
@@ -2020,7 +2019,7 @@ export default function CabinetPage() {
         onClick={openParticipantCreateForm}
         className="rounded-full bg-amber-400 px-4 py-2 text-sm font-black text-black transition hover:bg-amber-300"
       >
-        Добавить ребенка
+        Добавить ребёнка / участника
       </button>
     ) : activeCabinetSection === 'promo' ? (
       <Link
@@ -2192,7 +2191,7 @@ export default function CabinetPage() {
                           onClick={openParticipantCreateForm}
                           className="rounded-full bg-amber-400 px-4 py-2 text-sm font-black text-black transition hover:bg-amber-300"
                         >
-                          Добавить ребенка
+                          Добавить ребёнка / участника
                         </button>
                         <Link
                           href="/promo-tickets"
@@ -2287,7 +2286,7 @@ export default function CabinetPage() {
                         onClick={openParticipantCreateForm}
                         className="rounded-full border border-white/12 bg-black/20 px-4 py-2 text-sm font-medium text-stone-200 transition hover:border-white/20 hover:bg-white/6 hover:text-white"
                       >
-                        Добавить ребенка
+                        Добавить ребёнка / участника
                       </button>
                     </div>
 
@@ -2305,7 +2304,7 @@ export default function CabinetPage() {
 
                     {dashboard.participants.length === 0 ? (
                       <div className="rounded-[1.35rem] border border-white/8 bg-white/[0.04] p-5 text-sm text-stone-400">
-                        У вас пока нет добавленных детей. Откройте форму по кнопке «Добавить ребенка», чтобы создать первый профиль.
+                        У вас пока нет добавленных детей или участников. Откройте форму по кнопке «Добавить ребёнка / участника», чтобы создать первый профиль.
                       </div>
                     ) : (
                       <div className="space-y-3">
@@ -2472,7 +2471,7 @@ export default function CabinetPage() {
                         Форма скрыта. Откройте её по действию, когда нужно добавить или изменить профиль.
                       </p>
                       <p className="mt-2 text-sm text-stone-400">
-                        Для нового профиля используйте кнопку «Добавить ребенка». Для изменения уже созданного профиля выберите «Редактировать» в списке.
+                        Для нового профиля используйте кнопку «Добавить ребёнка / участника». Для изменения уже созданного профиля выберите «Редактировать» в списке.
                       </p>
                       <button
                         type="button"
@@ -2494,7 +2493,7 @@ export default function CabinetPage() {
                 <div className="space-y-4">
                   <WorkspaceDisclosure label="Как записаться">
                     Выберите день, откройте тренировку и подтвердите запись для себя или
-                    ребенка.
+                    ребёнка / участника.
                   </WorkspaceDisclosure>
 
                   {trainingFeedback?.scope === 'catalog' ? (

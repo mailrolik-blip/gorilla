@@ -1,8 +1,10 @@
 import { Prisma } from '@prisma/client';
 import type { NextApiRequest, NextApiResponse } from 'next';
 
+import { requireCurrentUser } from '../../../lib/current-user';
 import prisma from '../../../lib/prisma';
 import { participantDetailSelect } from '../../../lib/selects';
+import { HttpError } from '../../../lib/training-bookings';
 
 function toPositiveInt(value: unknown): number | null {
   const parsed = Number(value);
@@ -38,7 +40,8 @@ export default async function handler(
 ) {
   try {
     if (req.method === 'POST') {
-      const userId = toPositiveInt(req.body.userId);
+      const currentUser = await requireCurrentUser(prisma, req);
+      const userId = currentUser.id;
       const profileType = toOptionalString(req.body.profileType);
       const parentId =
         req.body.parentId === undefined || req.body.parentId === null || req.body.parentId === ''
@@ -50,8 +53,8 @@ export default async function handler(
           : toPositiveInt(req.body.cityId);
       const birthDate = toOptionalDate(req.body.birthDate);
 
-      if (!userId || !profileType) {
-        return res.status(400).json({ error: 'userId and profileType are required' });
+      if (!profileType) {
+        return res.status(400).json({ error: 'profileType is required' });
       }
 
       if (parentId === null && req.body.parentId) {
@@ -66,17 +69,15 @@ export default async function handler(
         return res.status(400).json({ error: 'birthDate must be a valid date' });
       }
 
-      const [user, parent, city] = await Promise.all([
-        prisma.user.findUnique({ where: { id: userId }, select: { id: true } }),
+      const [parent, city] = await Promise.all([
         parentId
-          ? prisma.userProfile.findUnique({ where: { id: parentId }, select: { id: true } })
+          ? prisma.userProfile.findFirst({
+              where: { id: parentId, userId },
+              select: { id: true },
+            })
           : Promise.resolve(null),
         cityId ? prisma.city.findUnique({ where: { id: cityId }, select: { id: true } }) : Promise.resolve(null),
       ]);
-
-      if (!user) {
-        return res.status(404).json({ error: 'User not found' });
-      }
 
       if (parentId && !parent) {
         return res.status(404).json({ error: 'Parent participant not found' });
@@ -130,6 +131,10 @@ export default async function handler(
     return res.status(405).json({ error: 'Method not allowed' });
   } catch (error) {
     console.error(error);
+
+    if (error instanceof HttpError) {
+      return res.status(error.statusCode).json({ error: error.message });
+    }
 
     if (
       error instanceof Prisma.PrismaClientKnownRequestError &&

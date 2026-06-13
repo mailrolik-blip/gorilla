@@ -268,6 +268,7 @@ type AdminRentalResourceSummary = {
 };
 
 type AdminOverview = {
+  users: AdminUserSummary[];
   participants: ParticipantSummary[];
   teams: AdminTeamSummary[];
   teamMembers: AdminTeamMemberSummary[];
@@ -342,6 +343,15 @@ type TrainingCoachOption = {
   email: string | null;
   phone: string | null;
   telegramId: string | null;
+};
+
+type AdminUserSummary = TrainingCoachOption & {
+  staffRole: string | null;
+  createdAt: string;
+  profiles: Array<PersonSummary & {
+    birthDate: string | null;
+    city: CitySummary | null;
+  }>;
 };
 
 type TrainingEditorState = {
@@ -3538,6 +3548,7 @@ export default function AdminPage() {
           setTrainingCityOptions([]);
           setTrainingCoachOptions([]);
           setOverview({
+            users: [],
             participants: [],
             teams: [],
             teamMembers: [],
@@ -3576,7 +3587,7 @@ export default function AdminPage() {
         fetchJson<AdminTeamApplicationSummary[]>('/api/admin/team-applications'),
         fetchJson<AdminTrainingSummary[]>('/api/admin/trainings'),
         fetchJson<CitySummary[]>('/api/city'),
-        fetchJson<TrainingCoachOption[]>('/api/users'),
+        fetchJson<AdminUserSummary[]>('/api/users'),
         fetchJson<ParticipantSummary[]>('/api/participants'),
         fetchJson<AdminRentalBookingSummary[]>('/api/admin/rental-bookings'),
         fetchJson<AdminRentalSlotSummary[]>('/api/admin/rental-slots'),
@@ -3624,6 +3635,7 @@ export default function AdminPage() {
         setTrainingCityOptions(citiesResult.payload as CitySummary[]);
         setTrainingCoachOptions(usersResult.payload as TrainingCoachOption[]);
         setOverview({
+          users: usersResult.payload as AdminUserSummary[],
           participants: participantsResult.payload as ParticipantSummary[],
           teams: teamsResult.payload as AdminTeamSummary[],
           teamMembers: teamMembersResult.payload as AdminTeamMemberSummary[],
@@ -3662,6 +3674,9 @@ export default function AdminPage() {
     overview?.rentalBookings.filter(
       (booking) => booking.status === 'PENDING_CONFIRMATION'
     ).length ?? 0;
+  const recentlyRegisteredUsers = (overview?.users ?? [])
+    .filter((user) => user.staffRole === null)
+    .slice(0, 6);
   const currentUserCapabilities = getRoleCapabilities(currentUser);
   const visibleAdminSections = getVisibleAdminSections(currentUserCapabilities);
   const visibleAdminSectionIds = new Set(
@@ -5630,6 +5645,75 @@ export default function AdminPage() {
               </WorkspaceInset>
               </section>
             ) : null}
+
+                {activeAdminSection === 'overview' &&
+                !currentUserCapabilities.isTrainer ? (
+                  <WorkspaceInset className="p-6">
+                    <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
+                      <div>
+                        <p className="text-xs font-semibold uppercase tracking-[0.24em] text-amber-300">
+                          Новые пользователи / ожидают подтверждения
+                        </p>
+                        <h3 className="mt-3 text-xl font-semibold text-white">
+                          Недавно зарегистрированные аккаунты
+                        </h3>
+                      </div>
+                      <span className="rounded-full bg-white/8 px-3 py-1 text-xs font-semibold uppercase tracking-[0.14em] text-stone-100 ring-1 ring-white/10">
+                        {recentlyRegisteredUsers.length}
+                      </span>
+                    </div>
+                    <p className="mt-3 max-w-3xl text-sm leading-6 text-stone-300">
+                      В текущей модели нет отдельного поля статуса аккаунта, поэтому это
+                      visibility-блок по последним обычным пользователям. Для полноценного
+                      подтверждения нужен следующий шаг: поле статуса пользователя и действия
+                      approve/reject.
+                    </p>
+                    <div className="mt-5 grid gap-3 lg:grid-cols-2">
+                      {recentlyRegisteredUsers.length === 0 ? (
+                        <p className="rounded-[1.35rem] border border-white/8 bg-white/[0.04] p-5 text-sm text-stone-400">
+                          Новых обычных пользователей в текущей выборке нет.
+                        </p>
+                      ) : (
+                        recentlyRegisteredUsers.map((user) => (
+                          <article
+                            key={user.id}
+                            className="rounded-[1.35rem] border border-white/8 bg-white/[0.04] p-4"
+                          >
+                            <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
+                              <div>
+                                <p className="font-semibold text-white">
+                                  {formatUserIdentity(user)}
+                                </p>
+                                <p className="mt-1 text-sm text-stone-400">
+                                  Профилей: {user.profiles.length}
+                                </p>
+                              </div>
+                              <p className="text-xs font-medium uppercase tracking-[0.18em] text-stone-500">
+                                {formatDateTime(user.createdAt)}
+                              </p>
+                            </div>
+                            {user.profiles.length > 0 ? (
+                              <div className="mt-3 flex flex-wrap gap-2">
+                                {user.profiles.map((profile) => (
+                                  <span
+                                    key={profile.id}
+                                    className="rounded-full border border-white/8 bg-black/20 px-3 py-1 text-xs font-semibold text-stone-200"
+                                  >
+                                    {formatPersonName(profile)} / {formatProfileType(profile.profileType)}
+                                  </span>
+                                ))}
+                              </div>
+                            ) : (
+                              <p className="mt-3 text-sm text-stone-500">
+                                Профили ребёнка / участника ещё не добавлены.
+                              </p>
+                            )}
+                          </article>
+                        ))
+                      )}
+                    </div>
+                  </WorkspaceInset>
+                ) : null}
 
                 {activeAdminSection === 'overview' && summaryCards.length > 0 ? (
                   <WorkspaceScoreStrip

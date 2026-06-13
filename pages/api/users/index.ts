@@ -2,8 +2,10 @@ import { Prisma } from '@prisma/client';
 import type { NextApiRequest, NextApiResponse } from 'next';
 import { z } from 'zod';
 
+import { requireManagerOrAdmin } from '../../../lib/current-user';
 import prisma from '../../../lib/prisma';
-import { publicUserSelect } from '../../../lib/selects';
+import { currentUserProfileSelect, publicUserSelect } from '../../../lib/selects';
+import { HttpError } from '../../../lib/training-bookings';
 
 // Валидация через Zod
 const userSchema = z.object({
@@ -60,13 +62,34 @@ export default async function handler(
   }
 
   if (req.method === 'GET') {
-    const users = await prisma.user.findMany({
-      select: publicUserSelect,
-      orderBy: {
-        createdAt: 'desc',
-      },
-    });
-    return res.status(200).json(users);
+    try {
+      await requireManagerOrAdmin(prisma, req);
+
+      const users = await prisma.user.findMany({
+        select: {
+          ...publicUserSelect,
+          staffRole: true,
+          profiles: {
+            orderBy: [{ createdAt: 'asc' }, { id: 'asc' }],
+            select: currentUserProfileSelect,
+          },
+        },
+        orderBy: {
+          createdAt: 'desc',
+        },
+        take: 50,
+      });
+
+      return res.status(200).json(users);
+    } catch (error) {
+      console.error(error);
+
+      if (error instanceof HttpError) {
+        return res.status(error.statusCode).json({ error: error.message });
+      }
+
+      return res.status(500).json({ error: 'Failed to fetch users' });
+    }
   }
 
   return res.status(405).json({ error: 'Method not allowed' });
