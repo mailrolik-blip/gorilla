@@ -332,6 +332,14 @@ function formatDate(value: string | null) {
   }).format(new Date(value));
 }
 
+function formatBirthYear(value: string | null) {
+  if (!value) {
+    return 'Не указан';
+  }
+
+  return String(new Date(value).getFullYear());
+}
+
 function formatRoleList(roles: string[]) {
   if (roles.length === 0) {
     return 'Не указаны';
@@ -2010,6 +2018,20 @@ export default function CabinetPage() {
         },
       ]
     : [];
+  const primaryParticipant = dashboard?.participants[0] ?? null;
+  const hasParticipants = Boolean(dashboard && dashboard.participants.length > 0);
+  const onboardingStatusLabel = hasParticipants
+    ? 'Участник добавлен'
+    : 'Анкета создана';
+  const onboardingStatusDetail = hasParticipants
+    ? 'Можно записаться на тренировку, оставить заявку в команду или оформить аренду.'
+    : 'Добавьте ребёнка / участника, чтобы менеджер видел, для кого нужна тренировка или команда.';
+  const participantNextAction =
+    teamApplications.length > 0
+      ? 'Заявка в команду уже создана'
+      : dashboard?.trainingBookings.length
+        ? 'Есть запись на тренировку'
+        : 'Следующий шаг: оставьте заявку или выберите тренировку';
   const activeCabinetItem =
     cabinetNavItems.find((item) => item.id === activeCabinetSection) ?? cabinetNavItems[0];
   const activeCabinetPrimaryAction =
@@ -2017,14 +2039,14 @@ export default function CabinetPage() {
       <button
         type="button"
         onClick={openParticipantCreateForm}
-        className="rounded-full bg-amber-400 px-4 py-2 text-sm font-black text-black transition hover:bg-amber-300"
+        className="inline-flex items-center justify-center rounded-full bg-amber-400 px-4 py-2 text-center text-sm font-black leading-none text-black transition hover:bg-amber-300"
       >
         Добавить ребёнка / участника
       </button>
     ) : activeCabinetSection === 'promo' ? (
       <Link
         href="/promo-tickets"
-        className="rounded-full bg-amber-400 px-4 py-2 text-sm font-black text-black transition hover:bg-amber-300"
+        className="inline-flex items-center justify-center rounded-full bg-amber-400 px-4 py-2 text-center text-sm font-black leading-none text-black transition hover:bg-amber-300"
       >
         Открыть promo
       </Link>
@@ -2057,7 +2079,7 @@ export default function CabinetPage() {
               {isStaffSecondaryView ? (
                 <Link
                   href="/admin"
-                  className="rounded-full border border-white/12 bg-white/6 px-4 py-2 text-sm font-medium text-stone-100 transition hover:bg-white/10 hover:text-white"
+                  className="inline-flex items-center justify-center rounded-full border border-white/12 bg-white/6 px-4 py-2 text-center text-sm font-medium leading-none text-stone-100 transition hover:bg-white/10 hover:text-white"
                 >
                   Открыть staff workspace
                 </Link>
@@ -2120,29 +2142,37 @@ export default function CabinetPage() {
               />
             ) : null}
 
-            {dashboard.accountStatus === 'AWAITING_APPROVAL' ? (
-              <WorkspaceInset tone="accent" className="p-5">
-                <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
-                  <div>
-                    <p className="text-xs font-black uppercase tracking-[0.22em] text-amber-200">
-                      Статус подключения
-                    </p>
-                    <h2 className="mt-2 text-2xl font-semibold tracking-[-0.04em] text-white">
-                      Аккаунт создан, доступ ожидает подтверждения
-                    </h2>
-                    <p className="mt-2 max-w-3xl text-sm leading-6 text-stone-300">
-                      Кабинет уже работает: можно проверить профиль, добавить ребёнка и следить за заявками. Запись на отдельные форматы и командные действия могут требовать подтверждения администратора.
-                    </p>
-                  </div>
+            <WorkspaceInset tone="accent" className="p-5">
+              <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+                <div>
+                  <p className="text-xs font-black uppercase tracking-[0.22em] text-amber-200">
+                    Следующий шаг
+                  </p>
+                  <h2 className="mt-2 text-2xl font-semibold tracking-[-0.04em] text-white">
+                    {onboardingStatusLabel}
+                  </h2>
+                  <p className="mt-2 max-w-3xl text-sm leading-6 text-stone-300">
+                    {onboardingStatusDetail} Менеджер свяжется с вами по контактам из профиля.
+                  </p>
+                </div>
+                {hasParticipants ? (
                   <Link
                     href="/#trainings"
-                    className="inline-flex justify-center rounded-full border border-amber-300/24 bg-black/18 px-4 py-3 text-xs font-black uppercase tracking-[0.14em] text-amber-100 transition hover:bg-black/28"
+                    className="inline-flex items-center justify-center rounded-full border border-amber-300/24 bg-black/18 px-4 py-3 text-center text-xs font-black uppercase leading-none tracking-[0.14em] text-amber-100 transition hover:bg-black/28"
                   >
                     Посмотреть форматы
                   </Link>
-                </div>
-              </WorkspaceInset>
-            ) : null}
+                ) : (
+                  <button
+                    type="button"
+                    onClick={openParticipantCreateForm}
+                    className="inline-flex items-center justify-center rounded-full border border-amber-300/24 bg-black/18 px-4 py-3 text-center text-xs font-black uppercase leading-none tracking-[0.14em] text-amber-100 transition hover:bg-black/28"
+                  >
+                    Добавить участника
+                  </button>
+                )}
+              </div>
+            </WorkspaceInset>
 
             <div className="space-y-8">
               <section className="space-y-5 border-b border-white/8 pb-6">
@@ -2178,24 +2208,67 @@ export default function CabinetPage() {
                   <div className="grid gap-5 xl:grid-cols-[minmax(0,1.04fr)_340px]">
                     <WorkspaceInset className="p-6">
                       <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-stone-500">
-                        Overview
+                        Старт
                       </p>
                       <p className="mt-4 text-[1.9rem] font-semibold tracking-[-0.04em] text-white">
-                        {dashboard.currentUser.profile
-                          ? formatPersonName(dashboard.currentUser.profile)
-                          : 'Профиль не заполнен'}
+                        {hasParticipants
+                          ? 'Участник добавлен'
+                          : 'Добавьте ребёнка / участника'}
                       </p>
+                      <p className="mt-3 max-w-2xl text-sm leading-6 text-stone-300">
+                        {hasParticipants
+                          ? 'Карточка участника уже есть в кабинете. Теперь можно выбрать тренировку, оставить заявку в команду или оформить аренду.'
+                          : 'Аккаунт создан. Добавьте миникарточку ребёнка или участника, чтобы школа понимала возраст, город и подходящий формат занятий.'}
+                      </p>
+                      {primaryParticipant ? (
+                        <div className="mt-5 rounded-[1.35rem] border border-white/8 bg-black/20 p-4">
+                          <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                            <div>
+                              <p className="text-lg font-semibold text-white">
+                                {formatPersonName(primaryParticipant)}
+                              </p>
+                              <div className="mt-2 grid gap-1 text-sm text-stone-300">
+                                <p>
+                                  Год рождения: {formatBirthYear(primaryParticipant.birthDate)}
+                                </p>
+                                <p>
+                                  Формат:{' '}
+                                  {
+                                    participantProfileKindLabels[
+                                      getParticipantProfileKind(primaryParticipant.profileType)
+                                    ]
+                                  }
+                                </p>
+                              </div>
+                            </div>
+                            <span className="rounded-full border border-emerald-300/20 bg-emerald-400/10 px-3 py-1 text-xs font-semibold text-emerald-100">
+                              {participantNextAction}
+                            </span>
+                          </div>
+                        </div>
+                      ) : (
+                        <div className="mt-5 rounded-[1.35rem] border border-amber-300/24 bg-amber-400/10 p-4">
+                          <p className="text-sm font-semibold text-amber-100">
+                            Участник ещё не добавлен
+                          </p>
+                          <p className="mt-2 text-sm leading-6 text-stone-300">
+                            Форма занимает меньше минуты. После сохранения карточка появится здесь и в разделе «Дети».
+                          </p>
+                        </div>
+                      )}
                       <div className="mt-5 flex flex-wrap gap-3">
                         <button
                           type="button"
                           onClick={openParticipantCreateForm}
-                          className="rounded-full bg-amber-400 px-4 py-2 text-sm font-black text-black transition hover:bg-amber-300"
+                          className="inline-flex items-center justify-center rounded-full bg-amber-400 px-4 py-2 text-center text-sm font-black leading-none text-black transition hover:bg-amber-300"
                         >
-                          Добавить ребёнка / участника
+                          {hasParticipants
+                            ? 'Добавить ещё участника'
+                            : 'Добавить ребёнка / участника'}
                         </button>
                         <Link
                           href="/promo-tickets"
-                          className="rounded-full bg-white/8 px-4 py-2 text-sm font-semibold text-stone-100 ring-1 ring-white/12 transition hover:bg-white/12 hover:text-white"
+                          className="inline-flex items-center justify-center rounded-full bg-white/8 px-4 py-2 text-center text-sm font-semibold leading-none text-stone-100 ring-1 ring-white/12 transition hover:bg-white/12 hover:text-white"
                         >
                           Promo-билеты
                         </Link>
@@ -2284,7 +2357,7 @@ export default function CabinetPage() {
                       <button
                         type="button"
                         onClick={openParticipantCreateForm}
-                        className="rounded-full border border-white/12 bg-black/20 px-4 py-2 text-sm font-medium text-stone-200 transition hover:border-white/20 hover:bg-white/6 hover:text-white"
+                        className="inline-flex items-center justify-center rounded-full border border-white/12 bg-black/20 px-4 py-2 text-center text-sm font-medium leading-none text-stone-200 transition hover:border-white/20 hover:bg-white/6 hover:text-white"
                       >
                         Добавить ребёнка / участника
                       </button>
@@ -2338,7 +2411,7 @@ export default function CabinetPage() {
                               <button
                                 type="button"
                                 onClick={() => beginParticipantEdit(participant)}
-                                className="rounded-full border border-white/12 bg-black/20 px-4 py-2 text-sm font-medium text-stone-200 transition hover:border-white/20 hover:bg-white/6 hover:text-white"
+                                className="inline-flex items-center justify-center rounded-full border border-white/12 bg-black/20 px-4 py-2 text-center text-sm font-medium leading-none text-stone-200 transition hover:border-white/20 hover:bg-white/6 hover:text-white"
                               >
                                 Редактировать
                               </button>
@@ -2373,7 +2446,7 @@ export default function CabinetPage() {
                         <button
                           type="button"
                           onClick={closeParticipantForm}
-                          className="rounded-full border border-white/12 bg-black/20 px-4 py-2 text-sm font-medium text-stone-200 transition hover:border-white/20 hover:bg-white/6 hover:text-white"
+                          className="inline-flex items-center justify-center rounded-full border border-white/12 bg-black/20 px-4 py-2 text-center text-sm font-medium leading-none text-stone-200 transition hover:border-white/20 hover:bg-white/6 hover:text-white"
                         >
                           Закрыть
                         </button>
@@ -2476,7 +2549,7 @@ export default function CabinetPage() {
                       <button
                         type="button"
                         onClick={openParticipantCreateForm}
-                        className="mt-4 rounded-full border border-white/12 bg-black/20 px-4 py-2 text-sm font-medium text-stone-200 transition hover:border-white/20 hover:bg-white/6 hover:text-white"
+                        className="mt-4 inline-flex items-center justify-center rounded-full border border-white/12 bg-black/20 px-4 py-2 text-center text-sm font-medium leading-none text-stone-200 transition hover:border-white/20 hover:bg-white/6 hover:text-white"
                       >
                         Открыть форму
                       </button>
@@ -2820,7 +2893,7 @@ export default function CabinetPage() {
                               type="button"
                               onClick={() => handleTrainingBookingCancel(booking)}
                               disabled={cancellingBookingId === booking.id}
-                              className="rounded-full border border-white/12 bg-black/20 px-4 py-2 text-sm font-medium text-stone-200 transition hover:border-white/20 hover:bg-white/6 hover:text-white disabled:cursor-not-allowed disabled:opacity-60"
+                              className="inline-flex items-center justify-center rounded-full border border-white/12 bg-black/20 px-4 py-2 text-center text-sm font-medium leading-none text-stone-200 transition hover:border-white/20 hover:bg-white/6 hover:text-white disabled:cursor-not-allowed disabled:opacity-60"
                             >
                               {cancellingBookingId === booking.id
                                 ? 'Отменяем...'
@@ -2917,7 +2990,7 @@ export default function CabinetPage() {
                                       currentValue === team.id ? null : team.id
                                     )
                                   }
-                                  className="rounded-full border border-white/12 bg-black/20 px-4 py-2 text-sm font-medium text-stone-200 transition hover:border-white/20 hover:bg-white/6 hover:text-white"
+                                  className="inline-flex items-center justify-center rounded-full border border-white/12 bg-black/20 px-4 py-2 text-center text-sm font-medium leading-none text-stone-200 transition hover:border-white/20 hover:bg-white/6 hover:text-white"
                                 >
                                   {isExpanded ? 'Скрыть форму' : 'Открыть заявку'}
                                 </button>
@@ -3086,7 +3159,7 @@ export default function CabinetPage() {
                                     handleTeamApplicationCancel(application)
                                   }
                                   disabled={isCancelling}
-                                  className="rounded-full border border-white/12 bg-black/20 px-4 py-2 text-sm font-medium text-stone-200 transition hover:border-white/20 hover:bg-white/6 hover:text-white disabled:cursor-not-allowed disabled:opacity-60"
+                                  className="inline-flex items-center justify-center rounded-full border border-white/12 bg-black/20 px-4 py-2 text-center text-sm font-medium leading-none text-stone-200 transition hover:border-white/20 hover:bg-white/6 hover:text-white disabled:cursor-not-allowed disabled:opacity-60"
                                 >
                                   {isCancelling
                                     ? 'Отменяем заявку...'
@@ -3187,7 +3260,7 @@ export default function CabinetPage() {
                                       currentValue === slot.id ? null : slot.id
                                     )
                                   }
-                                  className="rounded-full border border-white/12 bg-black/20 px-4 py-2 text-sm font-medium text-stone-200 transition hover:border-white/20 hover:bg-white/6 hover:text-white"
+                                  className="inline-flex items-center justify-center rounded-full border border-white/12 bg-black/20 px-4 py-2 text-center text-sm font-medium leading-none text-stone-200 transition hover:border-white/20 hover:bg-white/6 hover:text-white"
                                 >
                                   {isExpanded ? 'Скрыть форму' : 'Открыть бронь'}
                                 </button>
@@ -3345,7 +3418,7 @@ export default function CabinetPage() {
                                   type="button"
                                   onClick={() => handleRentalBookingCancel(booking)}
                                   disabled={isCancelling}
-                                  className="rounded-full border border-white/12 bg-black/20 px-4 py-2 text-sm font-medium text-stone-200 transition hover:border-white/20 hover:bg-white/6 hover:text-white disabled:cursor-not-allowed disabled:opacity-60"
+                                  className="inline-flex items-center justify-center rounded-full border border-white/12 bg-black/20 px-4 py-2 text-center text-sm font-medium leading-none text-stone-200 transition hover:border-white/20 hover:bg-white/6 hover:text-white disabled:cursor-not-allowed disabled:opacity-60"
                                 >
                                   {isCancelling
                                     ? 'Отменяем бронь...'

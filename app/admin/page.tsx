@@ -3677,6 +3677,23 @@ export default function AdminPage() {
   const recentlyRegisteredUsers = (overview?.users ?? [])
     .filter((user) => user.staffRole === null)
     .slice(0, 6);
+  const getUserTeamApplications = (user: AdminUserSummary) => {
+    const profileIds = new Set(user.profiles.map((profile) => profile.id));
+
+    return (overview?.teamApplications ?? []).filter(
+      (application) =>
+        application.participant && profileIds.has(application.participant.id)
+    );
+  };
+  const getUserRentalBookings = (user: AdminUserSummary) => {
+    const profileIds = new Set(user.profiles.map((profile) => profile.id));
+
+    return (overview?.rentalBookings ?? []).filter(
+      (booking) =>
+        booking.user.id === user.id ||
+        (booking.participant && profileIds.has(booking.participant.id))
+    );
+  };
   const currentUserCapabilities = getRoleCapabilities(currentUser);
   const visibleAdminSections = getVisibleAdminSections(currentUserCapabilities);
   const visibleAdminSectionIds = new Set(
@@ -4249,7 +4266,7 @@ export default function AdminPage() {
       <button
         type="button"
         onClick={handleTeamCreateStart}
-        className="rounded-full bg-amber-400 px-4 py-2 text-sm font-black text-black transition hover:bg-amber-300"
+        className="inline-flex items-center justify-center rounded-full bg-amber-400 px-4 py-2 text-center text-sm font-black leading-none text-black transition hover:bg-amber-300"
       >
         Создать команду
       </button>
@@ -4257,7 +4274,7 @@ export default function AdminPage() {
       <button
         type="button"
         onClick={handleTeamMemberCreateStart}
-        className="rounded-full bg-amber-400 px-4 py-2 text-sm font-black text-black transition hover:bg-amber-300"
+        className="inline-flex items-center justify-center rounded-full bg-amber-400 px-4 py-2 text-center text-sm font-black leading-none text-black transition hover:bg-amber-300"
       >
         Добавить в состав
       </button>
@@ -4266,7 +4283,7 @@ export default function AdminPage() {
       <button
         type="button"
         onClick={handleTrainingCreateStart}
-        className="rounded-full bg-amber-400 px-4 py-2 text-sm font-black text-black transition hover:bg-amber-300"
+        className="inline-flex items-center justify-center rounded-full bg-amber-400 px-4 py-2 text-center text-sm font-black leading-none text-black transition hover:bg-amber-300"
       >
         Создать тренировку
       </button>
@@ -4274,7 +4291,7 @@ export default function AdminPage() {
       <button
         type="button"
         onClick={handleRentalSlotCreateStart}
-        className="rounded-full bg-amber-400 px-4 py-2 text-sm font-black text-black transition hover:bg-amber-300"
+        className="inline-flex items-center justify-center rounded-full bg-amber-400 px-4 py-2 text-center text-sm font-black leading-none text-black transition hover:bg-amber-300"
       >
         Создать слот
       </button>
@@ -5492,13 +5509,13 @@ export default function AdminPage() {
             <>
               <Link
                 href="/cabinet"
-                className="rounded-full border border-white/12 bg-white/6 px-4 py-2 text-sm font-medium text-stone-100 transition hover:bg-white/10 hover:text-white"
+                className="inline-flex items-center justify-center rounded-full border border-white/12 bg-white/6 px-4 py-2 text-center text-sm font-medium leading-none text-stone-100 transition hover:bg-white/10 hover:text-white"
               >
                 {currentUserCapabilities.isTrainer ? 'Мой профиль' : 'Пользовательский кабинет'}
               </Link>
               <Link
                 href="/dev/login"
-                className="rounded-full border border-white/12 bg-white/6 px-4 py-2 text-sm font-medium text-stone-100 transition hover:bg-white/10 hover:text-white"
+                className="inline-flex items-center justify-center rounded-full border border-white/12 bg-white/6 px-4 py-2 text-center text-sm font-medium leading-none text-stone-100 transition hover:bg-white/10 hover:text-white"
               >
                 Сменить пользователя
               </Link>
@@ -5652,10 +5669,10 @@ export default function AdminPage() {
                     <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
                       <div>
                         <p className="text-xs font-semibold uppercase tracking-[0.24em] text-amber-300">
-                          Новые пользователи / ожидают подтверждения
+                          Новые пользователи
                         </p>
                         <h3 className="mt-3 text-xl font-semibold text-white">
-                          Недавно зарегистрированные аккаунты
+                          Последние регистрации
                         </h3>
                       </div>
                       <span className="rounded-full bg-white/8 px-3 py-1 text-xs font-semibold uppercase tracking-[0.14em] text-stone-100 ring-1 ring-white/10">
@@ -5663,53 +5680,107 @@ export default function AdminPage() {
                       </span>
                     </div>
                     <p className="mt-3 max-w-3xl text-sm leading-6 text-stone-300">
-                      В текущей модели нет отдельного поля статуса аккаунта, поэтому это
-                      visibility-блок по последним обычным пользователям. Для полноценного
-                      подтверждения нужен следующий шаг: поле статуса пользователя и действия
-                      approve/reject.
+                      Быстрый обзор новых обычных пользователей: контакты, город,
+                      карточки участников и связанные заявки. Отдельного approval-статуса
+                      в модели пока нет, поэтому блок не имитирует подтверждение аккаунта.
                     </p>
                     <div className="mt-5 grid gap-3 lg:grid-cols-2">
                       {recentlyRegisteredUsers.length === 0 ? (
                         <p className="rounded-[1.35rem] border border-white/8 bg-white/[0.04] p-5 text-sm text-stone-400">
-                          Новых обычных пользователей в текущей выборке нет.
+                          Новых пользователей пока нет.
                         </p>
                       ) : (
-                        recentlyRegisteredUsers.map((user) => (
-                          <article
-                            key={user.id}
-                            className="rounded-[1.35rem] border border-white/8 bg-white/[0.04] p-4"
-                          >
-                            <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
-                              <div>
-                                <p className="font-semibold text-white">
-                                  {formatUserIdentity(user)}
-                                </p>
-                                <p className="mt-1 text-sm text-stone-400">
-                                  Профилей: {user.profiles.length}
+                        recentlyRegisteredUsers.map((user) => {
+                          const primaryProfile = user.profiles[0] ?? null;
+                          const userTeamApplications = getUserTeamApplications(user);
+                          const userRentalBookings = getUserRentalBookings(user);
+                          const relatedRequestsCount =
+                            userTeamApplications.length + userRentalBookings.length;
+
+                          return (
+                            <article
+                              key={user.id}
+                              className="rounded-[1.35rem] border border-white/8 bg-white/[0.04] p-4"
+                            >
+                              <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
+                                <div>
+                                  <p className="font-semibold text-white">
+                                    {primaryProfile
+                                      ? formatPersonName(primaryProfile)
+                                      : formatUserIdentity(user)}
+                                  </p>
+                                  <p className="mt-1 text-sm text-stone-400">
+                                    {user.email || 'Email не указан'} /{' '}
+                                    {user.phone || 'Телефон не указан'}
+                                  </p>
+                                  <p className="mt-1 text-sm text-stone-400">
+                                    Город: {primaryProfile?.city?.name || 'не указан'}
+                                  </p>
+                                </div>
+                                <p className="text-xs font-medium uppercase tracking-[0.18em] text-stone-500">
+                                  {formatDateTime(user.createdAt)}
                                 </p>
                               </div>
-                              <p className="text-xs font-medium uppercase tracking-[0.18em] text-stone-500">
-                                {formatDateTime(user.createdAt)}
-                              </p>
-                            </div>
-                            {user.profiles.length > 0 ? (
-                              <div className="mt-3 flex flex-wrap gap-2">
-                                {user.profiles.map((profile) => (
-                                  <span
-                                    key={profile.id}
-                                    className="rounded-full border border-white/8 bg-black/20 px-3 py-1 text-xs font-semibold text-stone-200"
-                                  >
-                                    {formatPersonName(profile)} / {formatProfileType(profile.profileType)}
-                                  </span>
-                                ))}
+
+                              <div className="mt-4 grid gap-2 sm:grid-cols-2">
+                                <div className="rounded-2xl border border-white/8 bg-black/20 p-3">
+                                  <p className="text-xs font-semibold uppercase tracking-[0.14em] text-stone-500">
+                                    Участник
+                                  </p>
+                                  <p className="mt-2 text-sm text-stone-200">
+                                    {user.profiles.length > 0
+                                      ? `${user.profiles.length} в кабинете`
+                                      : 'Не добавлен'}
+                                  </p>
+                                </div>
+                                <div className="rounded-2xl border border-white/8 bg-black/20 p-3">
+                                  <p className="text-xs font-semibold uppercase tracking-[0.14em] text-stone-500">
+                                    Заявки
+                                  </p>
+                                  <p className="mt-2 text-sm text-stone-200">
+                                    {relatedRequestsCount > 0
+                                      ? `${relatedRequestsCount} связ.`
+                                      : 'Заявок пока нет'}
+                                  </p>
+                                </div>
                               </div>
-                            ) : (
-                              <p className="mt-3 text-sm text-stone-500">
-                                Профили ребёнка / участника ещё не добавлены.
-                              </p>
-                            )}
-                          </article>
-                        ))
+
+                              {user.profiles.length > 0 ? (
+                                <div className="mt-3 flex flex-wrap gap-2">
+                                  {user.profiles.map((profile) => (
+                                    <span
+                                      key={profile.id}
+                                      className="rounded-full border border-white/8 bg-black/20 px-3 py-1 text-xs font-semibold text-stone-200"
+                                    >
+                                      {formatPersonName(profile)} / {formatProfileType(profile.profileType)}
+                                    </span>
+                                  ))}
+                                </div>
+                              ) : (
+                                <p className="mt-3 text-sm text-stone-500">
+                                  Карточка ребёнка / участника ещё не добавлена.
+                                </p>
+                              )}
+
+                              {relatedRequestsCount > 0 ? (
+                                <div className="mt-3 grid gap-1 text-xs text-stone-400">
+                                  {userTeamApplications.length > 0 ? (
+                                    <p>
+                                      Команда: {userTeamApplications.length} / последняя{' '}
+                                      {formatStatus(userTeamApplications[0].status)}
+                                    </p>
+                                  ) : null}
+                                  {userRentalBookings.length > 0 ? (
+                                    <p>
+                                      Аренда: {userRentalBookings.length} / последняя{' '}
+                                      {formatStatus(userRentalBookings[0].status)}
+                                    </p>
+                                  ) : null}
+                                </div>
+                              ) : null}
+                            </article>
+                          );
+                        })
                       )}
                     </div>
                   </WorkspaceInset>

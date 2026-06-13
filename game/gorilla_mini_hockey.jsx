@@ -14,9 +14,14 @@ const STUCK_TIME_MS = 2000;
 const STUCK_MOVEMENT_EPSILON = 0.35;
 const CORNER_MARGIN = 72;
 const STUCK_COOLDOWN_MS = 2800;
-const PUCK_NUDGE_FORCE = 480;
-const BOT_UNSTUCK_NUDGE_FORCE = 260;
-const BOT_UNSTUCK_NUDGE_DISTANCE = 10;
+const PUCK_NUDGE_FORCE = 520;
+const BOT_UNSTUCK_NUDGE_FORCE = 300;
+const BOT_UNSTUCK_NUDGE_DISTANCE = 12;
+const UNREACHABLE_ZONE_MARGIN = PLAYER_R + PUCK_R + 10;
+const UNREACHABLE_PUCK_TIME_MS = 2000;
+const UNREACHABLE_PUCK_SPEED_EPSILON = 18;
+const UNREACHABLE_PUCK_NUDGE_FORCE = 260;
+const UNREACHABLE_PUCK_COOLDOWN_MS = 2600;
 const emptyKeys = { up: false, down: false, left: false, right: false };
 const emptyAxis = { x: 0, y: 0 };
 
@@ -34,6 +39,13 @@ function isNearRinkEdge(body) {
     body.x >= ARENA_W - CORNER_MARGIN ||
     body.y <= CORNER_MARGIN ||
     body.y >= ARENA_H - CORNER_MARGIN
+  );
+}
+
+function isInUnreachablePuckLane(puck) {
+  return (
+    puck.y <= UNREACHABLE_ZONE_MARGIN ||
+    puck.y >= ARENA_H - UNREACHABLE_ZONE_MARGIN
   );
 }
 
@@ -261,6 +273,10 @@ export default function GorillaMiniHockey() {
     stillMs: 0,
     cooldownMs: 0,
   });
+  const puckSafetyRef = useRef({
+    stillMs: 0,
+    cooldownMs: 0,
+  });
 
   const pointsLabel = isAuthenticated ? `${pointsBalance} GP` : `${guestPreviewPoints} GP`;
   const needsRotateHint = gameModeOpen && isMobileViewport && !isLandscapeViewport;
@@ -282,6 +298,10 @@ export default function GorillaMiniHockey() {
     botStuckRef.current = {
       lastX: botRef.current.x,
       lastY: botRef.current.y,
+      stillMs: 0,
+      cooldownMs: 0,
+    };
+    puckSafetyRef.current = {
       stillMs: 0,
       cooldownMs: 0,
     };
@@ -462,6 +482,42 @@ export default function GorillaMiniHockey() {
     stuck.lastY = bot.y;
   }
 
+  function releaseUnreachablePuck(dt) {
+    const puck = puckRef.current;
+    const safety = puckSafetyRef.current;
+    const elapsedMs = dt * 1000;
+    const puckSpeed = length(puck.vx, puck.vy);
+
+    safety.cooldownMs = Math.max(0, safety.cooldownMs - elapsedMs);
+
+    if (puckSpeed <= UNREACHABLE_PUCK_SPEED_EPSILON && isInUnreachablePuckLane(puck)) {
+      safety.stillMs += elapsedMs;
+    } else {
+      safety.stillMs = 0;
+    }
+
+    if (
+      safety.cooldownMs > 0 ||
+      safety.stillMs < UNREACHABLE_PUCK_TIME_MS
+    ) {
+      return;
+    }
+
+    // Nudges a dead puck out of the thin top/bottom lane where paddles cannot reach it.
+    const centerVector = getVectorToCenter(puck);
+
+    puck.vx += centerVector.x * UNREACHABLE_PUCK_NUDGE_FORCE * 0.45;
+    puck.vy += centerVector.y * UNREACHABLE_PUCK_NUDGE_FORCE;
+    puck.y = clamp(
+      puck.y + centerVector.y * 6,
+      PUCK_R,
+      ARENA_H - PUCK_R
+    );
+
+    safety.stillMs = 0;
+    safety.cooldownMs = UNREACHABLE_PUCK_COOLDOWN_MS;
+  }
+
   function scoreGoal(side) {
     if (side === 'user') {
       const awardResult = awardGoalPoint();
@@ -607,6 +663,7 @@ export default function GorillaMiniHockey() {
     }
 
     releaseStuckBotAndPuck(dt);
+    releaseUnreachablePuck(dt);
   }
 
   function stepFrame(timestamp) {
