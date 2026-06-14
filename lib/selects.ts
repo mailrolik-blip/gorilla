@@ -163,6 +163,19 @@ export const trainingBookingInclude = {
   },
 } satisfies Prisma.TrainingBookingInclude;
 
+export const adminTrainingBookingSelect = {
+  id: true,
+  status: true,
+  createdAt: true,
+  updatedAt: true,
+  participant: {
+    select: participantSummarySelect,
+  },
+  training: {
+    select: trainingSelect,
+  },
+} satisfies Prisma.TrainingBookingSelect;
+
 export const myTrainingBookingParticipantSelect = {
   id: true,
   profileType: true,

@@ -34,7 +34,8 @@ export type StaffManagedTeamApplicationStatus =
   | 'PENDING'
   | 'IN_REVIEW'
   | 'ACCEPTED'
-  | 'REJECTED';
+  | 'REJECTED'
+  | 'CANCELLED';
 
 const ACTIVE_TEAM_APPLICATION_STATUSES: TeamApplicationStatus[] = [
   'PENDING',

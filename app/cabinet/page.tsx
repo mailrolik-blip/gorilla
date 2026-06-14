@@ -216,15 +216,15 @@ const trainingTypeLabels: Record<string, string> = {
 };
 
 const statusLabels: Record<string, string> = {
-  booked: 'Запись оформлена',
+  booked: 'Вы записаны',
   cancelled: 'Отменено',
-  PENDING: 'На рассмотрении',
+  PENDING: 'Заявка получена',
   IN_REVIEW: 'В работе',
-  ACCEPTED: 'Одобрено',
-  REJECTED: 'Отклонено',
+  ACCEPTED: 'Вы записаны',
+  REJECTED: 'Отказ',
   CANCELLED: 'Отменено',
-  PENDING_CONFIRMATION: 'Ждет подтверждения',
-  CONFIRMED: 'Подтверждено',
+  PENDING_CONFIRMATION: 'Заявка получена',
+  CONFIRMED: 'Вы записаны',
   AVAILABLE: 'Доступно',
   BOOKED: 'Забронировано',
   UNAVAILABLE: 'Недоступно',

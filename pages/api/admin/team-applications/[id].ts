@@ -13,6 +13,7 @@ const STAFF_MANAGED_TEAM_APPLICATION_STATUSES: StaffManagedTeamApplicationStatus
   'IN_REVIEW',
   'ACCEPTED',
   'REJECTED',
+  'CANCELLED',
 ];
 
 function toPositiveInt(value: unknown): number | null {
@@ -85,7 +86,7 @@ export default async function handler(
 
   if (status === 'invalid') {
     return res.status(400).json({
-      error: 'status must be one of PENDING, IN_REVIEW, ACCEPTED, REJECTED',
+      error: 'status must be one of PENDING, IN_REVIEW, ACCEPTED, REJECTED, CANCELLED',
     });
   }
 

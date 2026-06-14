@@ -1,6 +1,11 @@
 import { Prisma, type PrismaClient } from '@prisma/client';
 
-import { myTrainingBookingInclude, trainingBookingInclude } from './selects';
+import {
+  adminTrainingBookingSelect,
+  myTrainingBookingInclude,
+  trainingBookingInclude,
+} from './selects';
+import { assertGlobalStaffAccess } from './staff';
 
 export class HttpError extends Error {
   statusCode: number;
@@ -16,6 +21,14 @@ type CreateTrainingBookingInput = {
   participantId: number;
   trainingId: number;
 };
+
+type UpdateTrainingBookingByAdminInput = {
+  bookingId: number;
+  currentUserId: number;
+  status?: StaffManagedTrainingBookingStatus;
+};
+
+export type StaffManagedTrainingBookingStatus = 'booked' | 'cancelled';
 
 const BOOKED_STATUS = 'booked';
 const CANCELLED_STATUS = 'cancelled';
@@ -112,6 +125,52 @@ export async function listTrainingBookingsForUser(
     (left, right) =>
       left.training.startTime.getTime() - right.training.startTime.getTime()
   );
+}
+
+export async function listTrainingBookingsForAdmin(
+  prisma: PrismaClient,
+  currentUserId: number
+) {
+  await assertGlobalStaffAccess(prisma, currentUserId);
+
+  return prisma.trainingBooking.findMany({
+    select: adminTrainingBookingSelect,
+    orderBy: {
+      createdAt: 'desc',
+    },
+  });
+}
+
+export async function updateTrainingBookingByAdmin(
+  prisma: PrismaClient,
+  input: UpdateTrainingBookingByAdminInput
+) {
+  const { bookingId, currentUserId, status } = input;
+
+  await assertGlobalStaffAccess(prisma, currentUserId);
+
+  const booking = await prisma.trainingBooking.findUnique({
+    where: { id: bookingId },
+    select: {
+      id: true,
+    },
+  });
+
+  if (!booking) {
+    throw new HttpError(404, 'Training booking not found');
+  }
+
+  if (status === undefined) {
+    throw new HttpError(400, 'At least one of status is required');
+  }
+
+  return prisma.trainingBooking.update({
+    where: { id: booking.id },
+    data: {
+      status,
+    },
+    select: adminTrainingBookingSelect,
+  });
 }
 
 export async function cancelTrainingBookingForUser(

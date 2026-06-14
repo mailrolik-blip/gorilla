@@ -140,6 +140,32 @@ type AdminTrainingSummary = {
   updatedAt: string;
 };
 
+type AdminTrainingBookingSummary = {
+  id: number;
+  status: string;
+  createdAt: string;
+  updatedAt: string;
+  participant: (PersonSummary & {
+    birthDate: string | null;
+    city: CitySummary | null;
+    user: {
+      id: number;
+      email: string | null;
+      phone: string | null;
+      telegramId: string | null;
+    };
+  }) | null;
+  training: {
+    trainingId: number;
+    name: string;
+    trainingType: string;
+    startTime: string;
+    endTime: string;
+    location: string;
+    city: CitySummary;
+  };
+};
+
 type TrainerTrainingSummary = {
   trainingId: number;
   name: string;
@@ -167,6 +193,7 @@ type TrainerTrainingSummary = {
 type AdminSectionId =
   | 'overview'
   | 'trainerWorkspace'
+  | 'requests'
   | 'teams'
   | 'roster'
   | 'teamApplications'
@@ -274,6 +301,7 @@ type AdminOverview = {
   teamMembers: AdminTeamMemberSummary[];
   teamApplications: AdminTeamApplicationSummary[];
   trainings: AdminTrainingSummary[];
+  trainingBookings: AdminTrainingBookingSummary[];
   rentalBookings: AdminRentalBookingSummary[];
   rentalSlots: AdminRentalSlotSummary[];
   rentalFacilities: AdminRentalFacilitySummary[];
@@ -292,7 +320,8 @@ type StaffManagedTeamApplicationStatus =
   | 'PENDING'
   | 'IN_REVIEW'
   | 'ACCEPTED'
-  | 'REJECTED';
+  | 'REJECTED'
+  | 'CANCELLED';
 
 type TeamApplicationEditorState = {
   status: AdminTeamApplicationSummary['status'];
@@ -428,6 +457,42 @@ type CrmUserSort =
   | 'OLDEST'
   | 'POINTS_DESC'
   | 'ACTIVITY_DESC';
+type RequestPipelineFilter =
+  | 'ALL'
+  | 'NEW'
+  | 'IN_WORK'
+  | 'CONTACTED'
+  | 'ENROLLED'
+  | 'REJECTED'
+  | 'CANCELLED'
+  | 'TRAINING'
+  | 'TEAM'
+  | 'RENTAL';
+type RequestPipelineSort = 'NEWEST' | 'OLDEST' | 'TYPE' | 'STATUS';
+type RequestPipelineType = 'training' | 'team' | 'rental';
+type RequestPipelineItem = {
+  id: string;
+  numericId: number;
+  type: RequestPipelineType;
+  typeLabel: string;
+  userId: number | null;
+  userName: string;
+  contact: string;
+  participantName: string;
+  cityName: string;
+  createdAt: string;
+  updatedAt: string;
+  status: string;
+  statusGroup: RequestPipelineFilter;
+  target: string;
+  comment: string | null;
+  adminNote: string | null;
+  canEditStatus: boolean;
+  raw:
+    | AdminTrainingBookingSummary
+    | AdminTeamApplicationSummary
+    | AdminRentalBookingSummary;
+};
 type CrmDetailSection =
   | 'contact'
   | 'participants'
@@ -713,7 +778,7 @@ function createTeamApplicationEditorState(
   application: AdminTeamApplicationSummary
 ): TeamApplicationEditorState {
   return {
-    status: ['PENDING', 'IN_REVIEW', 'ACCEPTED', 'REJECTED'].includes(
+    status: ['PENDING', 'IN_REVIEW', 'ACCEPTED', 'REJECTED', 'CANCELLED'].includes(
       application.status
     )
       ? (application.status as StaffManagedTeamApplicationStatus)
@@ -902,6 +967,47 @@ function getStatusBadgeClass(status: string) {
     default:
       return 'bg-amber-500/15 text-amber-100';
   }
+}
+
+function getRequestStatusGroup(status: string): RequestPipelineFilter {
+  switch (status) {
+    case 'PENDING':
+    case 'PENDING_CONFIRMATION':
+      return 'NEW';
+    case 'IN_REVIEW':
+      return 'IN_WORK';
+    case 'ACCEPTED':
+    case 'CONFIRMED':
+    case 'booked':
+      return 'ENROLLED';
+    case 'REJECTED':
+      return 'REJECTED';
+    case 'CANCELLED':
+    case 'cancelled':
+      return 'CANCELLED';
+    default:
+      return 'IN_WORK';
+  }
+}
+
+function getRequestTypeFilter(type: RequestPipelineType): RequestPipelineFilter {
+  switch (type) {
+    case 'training':
+      return 'TRAINING';
+    case 'team':
+      return 'TEAM';
+    case 'rental':
+      return 'RENTAL';
+  }
+}
+
+function getRequestUserIdentity(user: {
+  id: number;
+  email: string | null;
+  phone: string | null;
+  telegramId: string | null;
+} | null) {
+  return user ? formatUserIdentity(user) : 'Пользователь не указан';
 }
 
 const sharedDescriptionValidationErrorKey = 'description must be a string or null';
@@ -3539,6 +3645,16 @@ export default function AdminPage() {
   const [savingTeamApplicationId, setSavingTeamApplicationId] = useState<
     number | null
   >(null);
+  const [requestSearch, setRequestSearch] = useState('');
+  const [requestFilter, setRequestFilter] =
+    useState<RequestPipelineFilter>('ALL');
+  const [requestSort, setRequestSort] = useState<RequestPipelineSort>('NEWEST');
+  const [requestsPerPage, setRequestsPerPage] = useState(25);
+  const [requestsPage, setRequestsPage] = useState(1);
+  const [selectedRequestId, setSelectedRequestId] = useState<string | null>(null);
+  const [requestFeedback, setRequestFeedback] =
+    useState<TeamApplicationFeedback | null>(null);
+  const [savingRequestId, setSavingRequestId] = useState<string | null>(null);
   const [trainingCityOptions, setTrainingCityOptions] = useState<CitySummary[]>(
     []
   );
@@ -3695,6 +3811,7 @@ export default function AdminPage() {
             trainings: (trainingsResult.payload as TrainerTrainingSummary[]).map(
               normalizeTrainerTraining
             ),
+            trainingBookings: [],
             rentalBookings: [],
             rentalSlots: [],
             rentalFacilities: [],
@@ -3711,6 +3828,7 @@ export default function AdminPage() {
         teamMembersResult,
         teamApplicationsResult,
         trainingsResult,
+        trainingBookingsResult,
         citiesResult,
         coachOptionsResult,
         usersResult,
@@ -3724,6 +3842,7 @@ export default function AdminPage() {
         fetchJson<AdminTeamMemberSummary[]>('/api/admin/team-members'),
         fetchJson<AdminTeamApplicationSummary[]>('/api/admin/team-applications'),
         fetchJson<AdminTrainingSummary[]>('/api/admin/trainings'),
+        fetchJson<AdminTrainingBookingSummary[]>('/api/admin/training-bookings'),
         fetchJson<CitySummary[]>('/api/city'),
         fetchJson<TrainingCoachOption[]>('/api/users?view=options'),
         fetchJson<AdminUserSummary[]>('/api/users'),
@@ -3739,6 +3858,7 @@ export default function AdminPage() {
         teamMembersResult,
         teamApplicationsResult,
         trainingsResult,
+        trainingBookingsResult,
         citiesResult,
         coachOptionsResult,
         usersResult,
@@ -3782,6 +3902,8 @@ export default function AdminPage() {
           teamApplications:
             teamApplicationsResult.payload as AdminTeamApplicationSummary[],
           trainings: trainingsResult.payload as AdminTrainingSummary[],
+          trainingBookings:
+            trainingBookingsResult.payload as AdminTrainingBookingSummary[],
           rentalBookings: rentalBookingsResult.payload as AdminRentalBookingSummary[],
           rentalSlots: rentalSlotsResult.payload as AdminRentalSlotSummary[],
           rentalFacilities:
@@ -3831,11 +3953,168 @@ export default function AdminPage() {
         (booking.participant && profileIds.has(booking.participant.id))
     );
   };
+  const getUserTrainingBookings = (user: AdminUserSummary) => {
+    const profileIds = new Set(user.profiles.map((profile) => profile.id));
+
+    return (overview?.trainingBookings ?? []).filter(
+      (booking) =>
+        booking.participant && profileIds.has(booking.participant.id)
+    );
+  };
   const getUserTrainingBookingsCount = (user: AdminUserSummary) =>
     user.profiles.reduce(
       (count, profile) => count + (profile._count?.trainingBookings ?? 0),
       0
     );
+  const userByProfileId = new Map<number, AdminUserSummary>();
+
+  for (const user of overview?.users ?? []) {
+    for (const profile of user.profiles) {
+      userByProfileId.set(profile.id, user);
+    }
+  }
+
+  const canManageRequests =
+    currentUser?.staffRole === 'ADMIN' || currentUser?.staffRole === 'MANAGER';
+  const requestPipelineItems: RequestPipelineItem[] = [
+    ...(overview?.trainingBookings ?? []).map((booking) => ({
+      id: `training-${booking.id}`,
+      numericId: booking.id,
+      type: 'training' as const,
+      typeLabel: 'Тренировка',
+      userId: booking.participant?.user.id ?? null,
+      userName: booking.participant
+        ? getRequestUserIdentity(booking.participant.user)
+        : 'Пользователь не указан',
+      contact: booking.participant
+        ? formatUserIdentity(booking.participant.user)
+        : 'Контакт не указан',
+      participantName: formatPersonName(booking.participant),
+      cityName: booking.training.city.name,
+      createdAt: booking.createdAt,
+      updatedAt: booking.updatedAt,
+      status: booking.status,
+      statusGroup: getRequestStatusGroup(booking.status),
+      target: `${booking.training.name} / ${formatDateTime(booking.training.startTime)}`,
+      comment: null,
+      adminNote: null,
+      canEditStatus: canManageRequests,
+      raw: booking,
+    })),
+    ...(overview?.teamApplications ?? []).map((application) => {
+      const user = application.participant
+        ? (userByProfileId.get(application.participant.id) ?? null)
+        : null;
+
+      return {
+        id: `team-${application.id}`,
+        numericId: application.id,
+        type: 'team' as const,
+        typeLabel: 'Команда',
+        userId: user?.id ?? null,
+        userName: user ? getUserDisplayName(user) : 'Пользователь не найден',
+        contact: user ? formatUserIdentity(user) : 'Контакт в карточке пользователя',
+        participantName: formatPersonName(application.participant),
+        cityName:
+          application.team.city?.name ??
+          application.participant?.city?.name ??
+          'Город не указан',
+        createdAt: application.createdAt,
+        updatedAt: application.updatedAt,
+        status: application.status,
+        statusGroup: getRequestStatusGroup(application.status),
+        target: application.team.name,
+        comment: application.commentFromApplicant,
+        adminNote: application.internalNote,
+        canEditStatus: canManageRequests && application.status !== 'CANCELLED',
+        raw: application,
+      };
+    }),
+    ...(overview?.rentalBookings ?? []).map((booking) => ({
+      id: `rental-${booking.id}`,
+      numericId: booking.id,
+      type: 'rental' as const,
+      typeLabel: 'Аренда',
+      userId: booking.user.id,
+      userName: booking.participant
+        ? formatPersonName(booking.participant)
+        : getRequestUserIdentity(booking.user),
+      contact: formatUserIdentity(booking.user),
+      participantName: booking.participant
+        ? formatPersonName(booking.participant)
+        : 'На себя',
+      cityName: booking.city.name,
+      createdAt: booking.createdAt,
+      updatedAt: booking.updatedAt,
+      status: booking.status,
+      statusGroup: getRequestStatusGroup(booking.status),
+      target: `${booking.resource.name} / ${booking.facility.name}`,
+      comment: booking.noteFromUser,
+      adminNote: booking.managerNote,
+      canEditStatus: canManageRequests,
+      raw: booking,
+    })),
+  ];
+
+  const requestMatchesSearch = (request: RequestPipelineItem) => {
+    const query = requestSearch.trim().toLowerCase();
+
+    if (!query) {
+      return true;
+    }
+
+    return [
+      request.userName,
+      request.contact,
+      request.participantName,
+      request.cityName,
+      request.target,
+      request.comment,
+      request.adminNote,
+    ]
+      .filter((value): value is string => Boolean(value))
+      .join(' ')
+      .toLowerCase()
+      .includes(query);
+  };
+
+  const filteredRequests = requestPipelineItems
+    .filter((request) => {
+      if (requestFilter === 'ALL') {
+        return true;
+      }
+
+      if (['TRAINING', 'TEAM', 'RENTAL'].includes(requestFilter)) {
+        return getRequestTypeFilter(request.type) === requestFilter;
+      }
+
+      return request.statusGroup === requestFilter;
+    })
+    .filter(requestMatchesSearch)
+    .sort((left, right) => {
+      switch (requestSort) {
+        case 'OLDEST':
+          return new Date(left.createdAt).getTime() - new Date(right.createdAt).getTime();
+        case 'TYPE':
+          return left.typeLabel.localeCompare(right.typeLabel, 'ru');
+        case 'STATUS':
+          return formatStatus(left.status).localeCompare(formatStatus(right.status), 'ru');
+        default:
+          return new Date(right.createdAt).getTime() - new Date(left.createdAt).getTime();
+      }
+    });
+  const requestsTotalPages = Math.max(1, Math.ceil(filteredRequests.length / requestsPerPage));
+  const activeRequestsPage = Math.min(requestsPage, requestsTotalPages);
+  const paginatedRequests = filteredRequests.slice(
+    (activeRequestsPage - 1) * requestsPerPage,
+    activeRequestsPage * requestsPerPage
+  );
+  const selectedRequest =
+    requestPipelineItems.find((request) => request.id === selectedRequestId) ?? null;
+  const selectedRequestUser =
+    selectedRequest?.userId !== null && selectedRequest?.userId !== undefined
+      ? (overview?.users ?? []).find((user) => user.id === selectedRequest.userId) ?? null
+      : null;
   const userMatchesCrmSearch = (user: AdminUserSummary) => {
     const query = crmUserSearch.trim().toLowerCase();
 
@@ -3915,8 +4194,11 @@ export default function AdminPage() {
   const selectedCrmUserRentalBookings = selectedCrmUser
     ? getUserRentalBookings(selectedCrmUser)
     : [];
+  const selectedCrmUserTrainingBookings = selectedCrmUser
+    ? getUserTrainingBookings(selectedCrmUser)
+    : [];
   const selectedCrmUserTrainingBookingsCount = selectedCrmUser
-    ? getUserTrainingBookingsCount(selectedCrmUser)
+    ? selectedCrmUserTrainingBookings.length || getUserTrainingBookingsCount(selectedCrmUser)
     : 0;
   const crmPipelineItems = [
     ...(overview?.teamApplications ?? []).map((application) => ({
@@ -4208,6 +4490,14 @@ export default function AdminPage() {
           label: 'Состав',
           description: 'Участники команд и статус состава.',
           badge: overview?.teamMembers.length ?? null,
+        }
+      : null,
+    visibleAdminSectionIds.has('teamApplications')
+      ? {
+          id: 'requests' as const,
+          label: 'CRM заявки',
+          description: 'Единая очередь тренировок, команд и аренды.',
+          badge: requestPipelineItems.length ?? null,
         }
       : null,
     visibleAdminSectionIds.has('teamApplications')
@@ -5200,7 +5490,7 @@ export default function AdminPage() {
 
     if (
       selectedTeamApplication.status !== activeTeamApplicationEditor.status &&
-      ['PENDING', 'IN_REVIEW', 'ACCEPTED', 'REJECTED'].includes(
+      ['PENDING', 'IN_REVIEW', 'ACCEPTED', 'REJECTED', 'CANCELLED'].includes(
         activeTeamApplicationEditor.status
       )
     ) {
@@ -5272,6 +5562,96 @@ export default function AdminPage() {
     setTeamApplicationFeedback({
       tone: 'success',
       message: 'Заявка сохранена. Изменения уже отражены в списке.',
+    });
+  }
+
+  async function handleRequestStatusUpdate(
+    request: RequestPipelineItem,
+    nextStatus: string
+  ) {
+    if (!request.canEditStatus) {
+      return;
+    }
+
+    const endpoint =
+      request.type === 'team'
+        ? `/api/admin/team-applications/${request.numericId}`
+        : request.type === 'rental'
+          ? `/api/admin/rental-bookings/${request.numericId}`
+          : `/api/admin/training-bookings/${request.numericId}`;
+
+    setSavingRequestId(request.id);
+    setRequestFeedback(null);
+
+    const updateResult = await fetchJson<
+      AdminTeamApplicationSummary | AdminRentalBookingSummary | AdminTrainingBookingSummary
+    >(endpoint, {
+      method: 'PATCH',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ status: nextStatus }),
+    });
+
+    if (updateResult.response.status === 401) {
+      router.replace('/dev/login?next=/admin');
+      return;
+    }
+
+    setSavingRequestId(null);
+
+    if (!updateResult.response.ok) {
+      setRequestFeedback({
+        tone: 'error',
+        message: translateErrorMessage(
+          (updateResult.payload as { error?: string } | null)?.error ||
+            'Failed to update request'
+        ),
+      });
+      return;
+    }
+
+    const updatedRequest = updateResult.payload;
+
+    setOverview((currentOverview) => {
+      if (!currentOverview) {
+        return currentOverview;
+      }
+
+      if (request.type === 'team') {
+        const updatedApplication = updatedRequest as AdminTeamApplicationSummary;
+
+        return {
+          ...currentOverview,
+          teamApplications: currentOverview.teamApplications.map((application) =>
+            application.id === updatedApplication.id ? updatedApplication : application
+          ),
+        };
+      }
+
+      if (request.type === 'rental') {
+        const updatedBooking = updatedRequest as AdminRentalBookingSummary;
+
+        return {
+          ...currentOverview,
+          rentalBookings: currentOverview.rentalBookings.map((booking) =>
+            booking.id === updatedBooking.id ? updatedBooking : booking
+          ),
+        };
+      }
+
+      const updatedTrainingBooking = updatedRequest as AdminTrainingBookingSummary;
+
+      return {
+        ...currentOverview,
+        trainingBookings: currentOverview.trainingBookings.map((booking) =>
+          booking.id === updatedTrainingBooking.id ? updatedTrainingBooking : booking
+        ),
+      };
+    });
+    setRequestFeedback({
+      tone: 'success',
+      message: 'Статус заявки сохранен.',
     });
   }
 
@@ -6388,6 +6768,205 @@ export default function AdminPage() {
 
                 {activeAdminSection !== 'overview' ? (
                   <div className="space-y-8">
+              {activeAdminSection === 'requests' ? (
+                <SectionCard
+                  title="Заявки"
+                  description="Единая CRM-очередь по тренировкам, командам и аренде. Пользователь активен сразу, админ обрабатывает конкретную заявку."
+                >
+                  <div className="space-y-5">
+                    <div className="grid gap-3 xl:grid-cols-[minmax(220px,1fr)_180px_180px_140px]">
+                      <label className="text-sm font-medium text-stone-300">
+                        Поиск
+                        <input
+                          value={requestSearch}
+                          onChange={(event) => {
+                            setRequestSearch(event.target.value);
+                            setRequestsPage(1);
+                          }}
+                          className="mt-2 w-full rounded-2xl border border-white/10 bg-[#0b0f13] px-4 py-3 text-base text-stone-100 outline-none transition focus:border-amber-400"
+                          placeholder="Имя, телефон, email, участник, город, комментарий"
+                        />
+                      </label>
+                      <label className="text-sm font-medium text-stone-300">
+                        Фильтр
+                        <select
+                          value={requestFilter}
+                          onChange={(event) => {
+                            setRequestFilter(event.target.value as RequestPipelineFilter);
+                            setRequestsPage(1);
+                          }}
+                          className="mt-2 w-full rounded-2xl border border-white/10 bg-[#0b0f13] px-4 py-3 text-base text-stone-100 outline-none transition focus:border-amber-400"
+                        >
+                          <option value="ALL">Все заявки</option>
+                          <option value="NEW">Новые</option>
+                          <option value="IN_WORK">В работе</option>
+                          <option value="CONTACTED">Связались</option>
+                          <option value="ENROLLED">Записан</option>
+                          <option value="REJECTED">Отказ</option>
+                          <option value="CANCELLED">Отмененные</option>
+                          <option value="TRAINING">Тренировки</option>
+                          <option value="TEAM">Команда</option>
+                          <option value="RENTAL">Аренда</option>
+                        </select>
+                      </label>
+                      <label className="text-sm font-medium text-stone-300">
+                        Сортировка
+                        <select
+                          value={requestSort}
+                          onChange={(event) => {
+                            setRequestSort(event.target.value as RequestPipelineSort);
+                            setRequestsPage(1);
+                          }}
+                          className="mt-2 w-full rounded-2xl border border-white/10 bg-[#0b0f13] px-4 py-3 text-base text-stone-100 outline-none transition focus:border-amber-400"
+                        >
+                          <option value="NEWEST">Новые сверху</option>
+                          <option value="OLDEST">Старые сверху</option>
+                          <option value="TYPE">По типу</option>
+                          <option value="STATUS">По статусу</option>
+                        </select>
+                      </label>
+                      <label className="text-sm font-medium text-stone-300">
+                        На странице
+                        <select
+                          value={requestsPerPage}
+                          onChange={(event) => {
+                            setRequestsPerPage(Number(event.target.value));
+                            setRequestsPage(1);
+                          }}
+                          className="mt-2 w-full rounded-2xl border border-white/10 bg-[#0b0f13] px-4 py-3 text-base text-stone-100 outline-none transition focus:border-amber-400"
+                        >
+                          <option value={25}>25</option>
+                          <option value={50}>50</option>
+                        </select>
+                      </label>
+                    </div>
+
+                    {requestFeedback ? (
+                      <p
+                        className={`rounded-2xl border px-4 py-3 text-sm ${
+                          requestFeedback.tone === 'success'
+                            ? 'border-emerald-400/30 bg-emerald-500/12 text-emerald-100'
+                            : 'border-rose-400/30 bg-rose-500/12 text-rose-100'
+                        }`}
+                      >
+                        {requestFeedback.message}
+                      </p>
+                    ) : null}
+
+                    <div className="overflow-hidden rounded-[1.35rem] border border-white/8 bg-black/18">
+                      {filteredRequests.length === 0 ? (
+                        <p className="p-5 text-sm text-stone-400">Заявок пока нет.</p>
+                      ) : (
+                        <>
+                          <div className="hidden overflow-x-auto xl:block">
+                            <table className="min-w-full border-collapse text-sm">
+                              <thead className="bg-white/[0.04] text-left text-[11px] uppercase tracking-[0.16em] text-stone-500">
+                                <tr>
+                                  <th className="px-4 py-3 font-semibold">Тип</th>
+                                  <th className="px-4 py-3 font-semibold">Пользователь</th>
+                                  <th className="px-4 py-3 font-semibold">Участник</th>
+                                  <th className="px-4 py-3 font-semibold">Город</th>
+                                  <th className="px-4 py-3 font-semibold">Создана</th>
+                                  <th className="px-4 py-3 font-semibold">Статус</th>
+                                  <th className="px-4 py-3 font-semibold">Комментарий</th>
+                                  <th className="px-4 py-3 text-right font-semibold">Действие</th>
+                                </tr>
+                              </thead>
+                              <tbody className="divide-y divide-white/8">
+                                {paginatedRequests.map((request) => (
+                                  <tr key={request.id} className="align-middle text-stone-200">
+                                    <td className="px-4 py-3 font-semibold text-white">{request.typeLabel}</td>
+                                    <td className="px-4 py-3">
+                                      <p className="font-semibold text-white">{request.userName}</p>
+                                      <p className="mt-1 text-xs text-stone-500">{request.contact}</p>
+                                    </td>
+                                    <td className="px-4 py-3 text-stone-300">{request.participantName}</td>
+                                    <td className="px-4 py-3 text-stone-300">{request.cityName}</td>
+                                    <td className="px-4 py-3 text-xs text-stone-400">{formatDateTime(request.createdAt)}</td>
+                                    <td className="px-4 py-3">
+                                      <span className={`rounded-full px-3 py-1 text-xs font-semibold ${getStatusBadgeClass(request.status)}`}>
+                                        {formatStatus(request.status)}
+                                      </span>
+                                    </td>
+                                    <td className="max-w-[220px] truncate px-4 py-3 text-stone-300">
+                                      {request.comment || request.adminNote || '-'}
+                                    </td>
+                                    <td className="px-4 py-3 text-right">
+                                      <button
+                                        type="button"
+                                        onClick={() => {
+                                          setSelectedRequestId(request.id);
+                                          setRequestFeedback(null);
+                                        }}
+                                        className="inline-flex items-center justify-center rounded-full border border-white/12 bg-white/6 px-4 py-2 text-center text-sm font-semibold leading-none text-stone-100 transition hover:bg-white/10"
+                                      >
+                                        Открыть
+                                      </button>
+                                    </td>
+                                  </tr>
+                                ))}
+                              </tbody>
+                            </table>
+                          </div>
+                          <div className="grid gap-3 p-3 xl:hidden">
+                            {paginatedRequests.map((request) => (
+                              <article key={request.id} className="rounded-2xl border border-white/8 bg-white/[0.04] p-4">
+                                <div className="flex items-start justify-between gap-3">
+                                  <div>
+                                    <p className="font-semibold text-white">{request.typeLabel}: {request.target}</p>
+                                    <p className="mt-1 text-sm text-stone-400">{request.userName} / {request.cityName}</p>
+                                    <p className="mt-2 text-sm text-stone-300">{request.comment || request.adminNote || 'Комментарий не указан.'}</p>
+                                  </div>
+                                  <span className={`rounded-full px-3 py-1 text-xs font-semibold ${getStatusBadgeClass(request.status)}`}>
+                                    {formatStatus(request.status)}
+                                  </span>
+                                </div>
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    setSelectedRequestId(request.id);
+                                    setRequestFeedback(null);
+                                  }}
+                                  className="mt-4 inline-flex items-center justify-center rounded-full border border-white/12 bg-white/6 px-4 py-2 text-center text-sm font-semibold leading-none text-stone-100 transition hover:bg-white/10"
+                                >
+                                  Открыть
+                                </button>
+                              </article>
+                            ))}
+                          </div>
+                        </>
+                      )}
+                    </div>
+
+                    {filteredRequests.length > 0 ? (
+                      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                        <p className="text-sm text-stone-400">
+                          Страница {activeRequestsPage} из {requestsTotalPages}
+                        </p>
+                        <div className="flex gap-2">
+                          <button
+                            type="button"
+                            onClick={() => setRequestsPage((page) => Math.max(1, page - 1))}
+                            disabled={activeRequestsPage <= 1}
+                            className="inline-flex items-center justify-center rounded-full border border-white/12 bg-white/6 px-4 py-2 text-center text-sm font-semibold leading-none text-stone-100 transition hover:bg-white/10 disabled:cursor-not-allowed disabled:opacity-50"
+                          >
+                            Назад
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => setRequestsPage((page) => Math.min(requestsTotalPages, page + 1))}
+                            disabled={activeRequestsPage >= requestsTotalPages}
+                            className="inline-flex items-center justify-center rounded-full border border-white/12 bg-white/6 px-4 py-2 text-center text-sm font-semibold leading-none text-stone-100 transition hover:bg-white/10 disabled:cursor-not-allowed disabled:opacity-50"
+                          >
+                            Вперед
+                          </button>
+                        </div>
+                      </div>
+                    ) : null}
+                  </div>
+                </SectionCard>
+              ) : null}
+
               {visibleAdminSectionIds.has('teams') &&
               activeAdminSection === 'teams' ? (
                 <SectionCard
@@ -6948,6 +7527,155 @@ export default function AdminPage() {
                   </div>
                 ) : null}
               </div>
+              {selectedRequest ? (
+                <div className="fixed inset-0 z-50 flex items-end bg-black/70 px-3 py-4 backdrop-blur-sm sm:items-center sm:justify-center">
+                  <div className="max-h-[92vh] w-full max-w-4xl overflow-y-auto rounded-[1.5rem] border border-white/10 bg-[#0b0f13] p-5 shadow-[0_24px_80px_rgba(0,0,0,0.55)]">
+                    <div className="flex flex-col gap-4 border-b border-white/8 pb-4 lg:flex-row lg:items-start lg:justify-between">
+                      <div>
+                        <p className="text-xs font-semibold uppercase tracking-[0.2em] text-amber-300">
+                          CRM заявка
+                        </p>
+                        <h3 className="mt-2 text-2xl font-semibold tracking-[-0.04em] text-white">
+                          {selectedRequest.typeLabel}: {selectedRequest.target}
+                        </h3>
+                        <p className="mt-1 text-sm text-stone-400">
+                          {selectedRequest.userName} / {selectedRequest.contact}
+                        </p>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => setSelectedRequestId(null)}
+                        className="inline-flex items-center justify-center rounded-full border border-white/12 bg-white/6 px-4 py-2 text-center text-sm font-semibold leading-none text-stone-100 transition hover:bg-white/10"
+                      >
+                        Закрыть
+                      </button>
+                    </div>
+
+                    <div className="mt-5 grid gap-4 lg:grid-cols-[1fr_1fr]">
+                      <div className="space-y-4">
+                        <div className="rounded-2xl border border-white/8 bg-black/20 p-4">
+                          <h4 className="font-semibold text-white">Контакт</h4>
+                          <div className="mt-3 grid gap-2 text-sm text-stone-300">
+                            <p>Пользователь: {selectedRequest.userName}</p>
+                            <p>Контакт: {selectedRequest.contact}</p>
+                            <p>Город: {selectedRequest.cityName}</p>
+                            <p>Создана: {formatDateTime(selectedRequest.createdAt)}</p>
+                          </div>
+                        </div>
+
+                        <div className="rounded-2xl border border-white/8 bg-black/20 p-4">
+                          <h4 className="font-semibold text-white">Участник</h4>
+                          <p className="mt-3 text-sm text-stone-300">
+                            {selectedRequest.participantName}
+                          </p>
+                        </div>
+
+                        <div className="rounded-2xl border border-white/8 bg-black/20 p-4">
+                          <h4 className="font-semibold text-white">Комментарии</h4>
+                          <p className="mt-3 text-sm leading-6 text-stone-300">
+                            Пользователь: {selectedRequest.comment || 'не указан'}
+                          </p>
+                          <p className="mt-2 text-sm leading-6 text-stone-300">
+                            Админ: {selectedRequest.adminNote || 'не указан'}
+                          </p>
+                        </div>
+                      </div>
+
+                      <div className="space-y-4">
+                        <div className="rounded-2xl border border-white/8 bg-black/20 p-4">
+                          <h4 className="font-semibold text-white">Статус</h4>
+                          <span className={`mt-3 inline-flex rounded-full px-3 py-1 text-xs font-semibold ${getStatusBadgeClass(selectedRequest.status)}`}>
+                            {formatStatus(selectedRequest.status)}
+                          </span>
+
+                          {selectedRequest.canEditStatus ? (
+                            <div className="mt-4 flex flex-wrap gap-2">
+                              {selectedRequest.type === 'team'
+                                ? [
+                                    ['PENDING', 'Новая'],
+                                    ['IN_REVIEW', 'В работе'],
+                                    ['ACCEPTED', 'Записан'],
+                                    ['REJECTED', 'Отказ'],
+                                    ['CANCELLED', 'Отменена'],
+                                  ].map(([statusValue, label]) => (
+                                    <button
+                                      key={statusValue}
+                                      type="button"
+                                      onClick={() => handleRequestStatusUpdate(selectedRequest, statusValue)}
+                                      disabled={savingRequestId === selectedRequest.id}
+                                      className="inline-flex items-center justify-center rounded-full border border-white/12 bg-white/6 px-3 py-2 text-center text-xs font-semibold leading-none text-stone-100 transition hover:bg-white/10 disabled:cursor-not-allowed disabled:opacity-50"
+                                    >
+                                      {label}
+                                    </button>
+                                  ))
+                                : selectedRequest.type === 'rental'
+                                  ? [
+                                      ['PENDING_CONFIRMATION', 'Новая'],
+                                      ['CONFIRMED', 'Записан'],
+                                      ['CANCELLED', 'Отменена'],
+                                    ].map(([statusValue, label]) => (
+                                      <button
+                                        key={statusValue}
+                                        type="button"
+                                        onClick={() => handleRequestStatusUpdate(selectedRequest, statusValue)}
+                                        disabled={savingRequestId === selectedRequest.id}
+                                        className="inline-flex items-center justify-center rounded-full border border-white/12 bg-white/6 px-3 py-2 text-center text-xs font-semibold leading-none text-stone-100 transition hover:bg-white/10 disabled:cursor-not-allowed disabled:opacity-50"
+                                      >
+                                        {label}
+                                      </button>
+                                    ))
+                                  : [
+                                      ['booked', 'Записан'],
+                                      ['cancelled', 'Отменена'],
+                                    ].map(([statusValue, label]) => (
+                                      <button
+                                        key={statusValue}
+                                        type="button"
+                                        onClick={() => handleRequestStatusUpdate(selectedRequest, statusValue)}
+                                        disabled={savingRequestId === selectedRequest.id}
+                                        className="inline-flex items-center justify-center rounded-full border border-white/12 bg-white/6 px-3 py-2 text-center text-xs font-semibold leading-none text-stone-100 transition hover:bg-white/10 disabled:cursor-not-allowed disabled:opacity-50"
+                                      >
+                                        {label}
+                                      </button>
+                                    ))}
+                            </div>
+                          ) : (
+                            <p className="mt-3 text-sm text-stone-400">
+                              Для этого типа заявки статус доступен только для просмотра.
+                            </p>
+                          )}
+                          <p className="mt-4 text-xs leading-5 text-stone-500">
+                            Статус “Связались” требует отдельного поля в модели и сейчас не сохраняется.
+                          </p>
+                        </div>
+
+                        <div className="rounded-2xl border border-white/8 bg-black/20 p-4">
+                          <h4 className="font-semibold text-white">Связанные данные</h4>
+                          <p className="mt-3 text-sm text-stone-300">
+                            У пользователя заявок: {selectedRequestUser ? getUserRequestsCount(selectedRequestUser) : 0}
+                          </p>
+                          <p className="mt-2 text-sm text-stone-300">
+                            Бронирований: {selectedRequestUser ? selectedRequestUser.activity.rentalBookings + getUserTrainingBookingsCount(selectedRequestUser) : 0}
+                          </p>
+                          {selectedRequestUser ? (
+                            <button
+                              type="button"
+                              onClick={() => {
+                                openCrmUser(selectedRequestUser, 'requests');
+                                setSelectedRequestId(null);
+                              }}
+                              className="mt-4 inline-flex items-center justify-center rounded-full bg-amber-400 px-4 py-2 text-center text-sm font-black leading-none text-black transition hover:bg-amber-300"
+                            >
+                              Открыть пользователя
+                            </button>
+                          ) : null}
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              ) : null}
+
               {selectedCrmUser ? (
                 <div className="fixed inset-0 z-50 flex items-end bg-black/70 px-3 py-4 backdrop-blur-sm sm:items-center sm:justify-center">
                   <div className="max-h-[92vh] w-full max-w-5xl overflow-y-auto rounded-[1.5rem] border border-white/10 bg-[#0b0f13] p-5 shadow-[0_24px_80px_rgba(0,0,0,0.55)]">
@@ -7237,7 +7965,7 @@ export default function AdminPage() {
                           <div className="space-y-3">
                             <h4 className="text-lg font-semibold text-white">Заявки</h4>
                             {selectedCrmUserTeamApplications.length === 0 &&
-                            selectedCrmUserTrainingBookingsCount === 0 ? (
+                            selectedCrmUserTrainingBookings.length === 0 ? (
                               <p className="rounded-2xl border border-white/8 bg-black/20 p-4 text-sm text-stone-400">
                                 Заявок пока нет.
                               </p>
@@ -7260,7 +7988,25 @@ export default function AdminPage() {
                                 </div>
                               </article>
                             ))}
-                            {selectedCrmUserTrainingBookingsCount > 0 ? (
+                            {selectedCrmUserTrainingBookings.map((booking) => (
+                              <article key={booking.id} className="rounded-2xl border border-white/8 bg-black/20 p-4">
+                                <div className="flex items-start justify-between gap-3">
+                                  <div>
+                                    <p className="font-semibold text-white">Запись на тренировку</p>
+                                    <p className="mt-1 text-sm text-stone-400">
+                                      {booking.training.name} / {formatPersonName(booking.participant)}
+                                    </p>
+                                    <p className="mt-2 text-sm text-stone-300">
+                                      {formatDateTime(booking.training.startTime)}
+                                    </p>
+                                  </div>
+                                  <span className={`rounded-full px-3 py-1 text-xs font-semibold ${getStatusBadgeClass(booking.status)}`}>
+                                    {formatStatus(booking.status)}
+                                  </span>
+                                </div>
+                              </article>
+                            ))}
+                            {false && selectedCrmUserTrainingBookingsCount > 0 ? (
                               <p className="rounded-2xl border border-white/8 bg-black/20 p-4 text-sm text-stone-300">
                                 Записей на тренировки: {selectedCrmUserTrainingBookingsCount}. Детальная staff-очередь тренировок требует отдельного admin API для TrainingBooking.
                               </p>
