@@ -2,9 +2,10 @@ import { Prisma } from '@prisma/client';
 import type { NextApiRequest, NextApiResponse } from 'next';
 import { z } from 'zod';
 
+import { adminUserSelect, mapAdminUser } from '../../../lib/admin-users';
 import { requireManagerOrAdmin } from '../../../lib/current-user';
 import prisma from '../../../lib/prisma';
-import { currentUserProfileSelect, publicUserSelect } from '../../../lib/selects';
+import { publicUserSelect } from '../../../lib/selects';
 import { HttpError } from '../../../lib/training-bookings';
 
 // Валидация через Zod
@@ -12,7 +13,6 @@ const userSchema = z.object({
   email: z.string().email().optional(),
   phone: z.string().min(10).max(15).optional(), // Пример проверки для телефона
   telegramId: z.string().regex(/^\d+$/).optional(), // Проверка на цифры
-  passwordHash: z.string().min(8).optional(), // Пример для хешированного пароля
 });
 
 export default async function handler(
@@ -21,13 +21,15 @@ export default async function handler(
 ) {
   if (req.method === 'POST') {
     try {
+      await requireManagerOrAdmin(prisma, req);
+
       const parsedData = userSchema.safeParse(req.body); // Проверка данных через Zod
 
       if (!parsedData.success) {
         return res.status(400).json({ error: parsedData.error.issues });
       }
 
-      const { email, phone, telegramId, passwordHash } = parsedData.data;
+      const { email, phone, telegramId } = parsedData.data;
 
       // Простой fallback для обязательных полей
       if (!email && !phone && !telegramId) {
@@ -41,7 +43,6 @@ export default async function handler(
           email: email ?? null,
           phone: phone ?? null,
           telegramId: telegramId ?? null,
-          passwordHash: passwordHash ?? null,
         },
         select: publicUserSelect,
       });
@@ -66,21 +67,14 @@ export default async function handler(
       await requireManagerOrAdmin(prisma, req);
 
       const users = await prisma.user.findMany({
-        select: {
-          ...publicUserSelect,
-          staffRole: true,
-          profiles: {
-            orderBy: [{ createdAt: 'asc' }, { id: 'asc' }],
-            select: currentUserProfileSelect,
-          },
-        },
+        select: adminUserSelect,
         orderBy: {
           createdAt: 'desc',
         },
-        take: 50,
+        take: 200,
       });
 
-      return res.status(200).json(users);
+      return res.status(200).json(users.map(mapAdminUser));
     } catch (error) {
       console.error(error);
 

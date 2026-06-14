@@ -348,10 +348,30 @@ type TrainingCoachOption = {
 type AdminUserSummary = TrainingCoachOption & {
   staffRole: string | null;
   createdAt: string;
-  profiles: Array<PersonSummary & {
-    birthDate: string | null;
-    city: CitySummary | null;
-  }>;
+  updatedAt: string;
+  pointsBalance: number | null;
+  profiles: Array<
+    PersonSummary & {
+      birthDate: string | null;
+      city: CitySummary | null;
+      createdAt: string;
+      updatedAt: string;
+      _count?: {
+        rentalBookings: number;
+        teamApplications: number;
+        teamMemberships: number;
+        trainingBookings: number;
+      };
+    }
+  >;
+  activity: {
+    participants: number;
+    teamApplications: number;
+    trainingBookings: number;
+    rentalBookings: number;
+    promoTickets: number;
+    teamMemberships: number;
+  };
 };
 
 type TrainingEditorState = {
@@ -395,6 +415,46 @@ type RentalBookingFeedback = {
 type RentalSlotStatusFilter = 'ALL' | 'AVAILABLE' | 'BOOKED' | 'UNAVAILABLE';
 type StaffManagedRentalSlotStatus = 'AVAILABLE' | 'BOOKED' | 'UNAVAILABLE';
 type RentalSlotFormMode = 'create' | 'edit';
+type CrmUserFilter =
+  | 'ALL'
+  | 'WITH_PARTICIPANTS'
+  | 'WITHOUT_PARTICIPANTS'
+  | 'WITH_REQUESTS'
+  | 'WITH_BOOKINGS'
+  | 'WITH_POINTS'
+  | 'NEW_7_DAYS';
+type CrmUserSort =
+  | 'NEWEST'
+  | 'OLDEST'
+  | 'POINTS_DESC'
+  | 'ACTIVITY_DESC';
+type CrmDetailSection =
+  | 'contact'
+  | 'participants'
+  | 'requests'
+  | 'bookings'
+  | 'points'
+  | 'actions';
+
+type CrmUserEditorState = {
+  email: string;
+  phone: string;
+  telegramId: string;
+};
+
+type CrmParticipantEditorState = {
+  id: number | null;
+  profileType: string;
+  firstName: string;
+  lastName: string;
+  birthDate: string;
+  cityId: string;
+};
+
+type CrmFeedback = {
+  tone: 'success' | 'error';
+  message: string;
+};
 
 type RentalSlotEditorState = {
   resourceId: string;
@@ -587,6 +647,66 @@ function formatUserIdentity(user: {
   }
 
   return `Пользователь #${user.id}`;
+}
+
+function getPrimaryUserProfile(user: AdminUserSummary) {
+  return user.profiles[0] ?? null;
+}
+
+function getUserDisplayName(user: AdminUserSummary) {
+  const primaryProfile = getPrimaryUserProfile(user);
+
+  return primaryProfile ? formatPersonName(primaryProfile) : formatUserIdentity(user);
+}
+
+function getUserCityName(user: AdminUserSummary) {
+  return getPrimaryUserProfile(user)?.city?.name ?? 'Не указан';
+}
+
+function getUserRequestsCount(user: AdminUserSummary) {
+  return user.activity.teamApplications + user.activity.trainingBookings;
+}
+
+function getUserActivityCount(user: AdminUserSummary) {
+  return (
+    user.activity.participants +
+    user.activity.teamApplications +
+    user.activity.trainingBookings +
+    user.activity.rentalBookings +
+    user.activity.promoTickets
+  );
+}
+
+function createCrmUserEditorState(user: AdminUserSummary): CrmUserEditorState {
+  return {
+    email: user.email ?? '',
+    phone: user.phone ?? '',
+    telegramId: user.telegramId ?? '',
+  };
+}
+
+function createCrmParticipantEditorState(
+  profile?: AdminUserSummary['profiles'][number] | null
+): CrmParticipantEditorState {
+  if (profile) {
+    return {
+      id: profile.id,
+      profileType: profile.profileType,
+      firstName: profile.firstName ?? '',
+      lastName: profile.lastName ?? '',
+      birthDate: profile.birthDate ? toDateInputValue(new Date(profile.birthDate)) : '',
+      cityId: profile.city ? String(profile.city.id) : '',
+    };
+  }
+
+  return {
+    id: null,
+    profileType: 'CHILD',
+    firstName: '',
+    lastName: '',
+    birthDate: '',
+    cityId: '',
+  };
 }
 
 function createTeamApplicationEditorState(
@@ -3472,6 +3592,23 @@ export default function AdminPage() {
   const [savingRentalSlotKey, setSavingRentalSlotKey] = useState<string | null>(
     null
   );
+  const [crmUserSearch, setCrmUserSearch] = useState('');
+  const [crmUserFilter, setCrmUserFilter] = useState<CrmUserFilter>('ALL');
+  const [crmUserSort, setCrmUserSort] = useState<CrmUserSort>('NEWEST');
+  const [crmUsersPerPage, setCrmUsersPerPage] = useState(25);
+  const [crmUsersPage, setCrmUsersPage] = useState(1);
+  const [selectedCrmUserId, setSelectedCrmUserId] = useState<number | null>(null);
+  const [activeCrmDetailSection, setActiveCrmDetailSection] =
+    useState<CrmDetailSection>('contact');
+  const [crmUserEditor, setCrmUserEditor] = useState<CrmUserEditorState | null>(
+    null
+  );
+  const [crmParticipantEditor, setCrmParticipantEditor] =
+    useState<CrmParticipantEditorState | null>(null);
+  const [crmFeedback, setCrmFeedback] = useState<CrmFeedback | null>(null);
+  const [savingCrmUser, setSavingCrmUser] = useState(false);
+  const [savingCrmParticipant, setSavingCrmParticipant] = useState(false);
+  const [crmNow] = useState(() => Date.now());
 
   useEffect(() => {
     let isCancelled = false;
@@ -3674,9 +3811,6 @@ export default function AdminPage() {
     overview?.rentalBookings.filter(
       (booking) => booking.status === 'PENDING_CONFIRMATION'
     ).length ?? 0;
-  const recentlyRegisteredUsers = (overview?.users ?? [])
-    .filter((user) => user.staffRole === null)
-    .slice(0, 6);
   const getUserTeamApplications = (user: AdminUserSummary) => {
     const profileIds = new Set(user.profiles.map((profile) => profile.id));
 
@@ -3694,6 +3828,124 @@ export default function AdminPage() {
         (booking.participant && profileIds.has(booking.participant.id))
     );
   };
+  const getUserTrainingBookingsCount = (user: AdminUserSummary) =>
+    user.profiles.reduce(
+      (count, profile) => count + (profile._count?.trainingBookings ?? 0),
+      0
+    );
+  const userMatchesCrmSearch = (user: AdminUserSummary) => {
+    const query = crmUserSearch.trim().toLowerCase();
+
+    if (!query) {
+      return true;
+    }
+
+    const searchableText = [
+      getUserDisplayName(user),
+      user.email,
+      user.phone,
+      user.telegramId,
+      getUserCityName(user),
+      ...user.profiles.flatMap((profile) => [
+        profile.firstName,
+        profile.lastName,
+        profile.city?.name,
+      ]),
+    ]
+      .filter((value): value is string => Boolean(value))
+      .join(' ')
+      .toLowerCase();
+
+    return searchableText.includes(query);
+  };
+  const userMatchesCrmFilter = (user: AdminUserSummary) => {
+    const requestsCount = getUserRequestsCount(user);
+    const bookingsCount =
+      user.activity.rentalBookings + getUserTrainingBookingsCount(user);
+    const createdAt = new Date(user.createdAt).getTime();
+    const sevenDaysAgo = crmNow - 7 * 24 * 60 * 60 * 1000;
+
+    switch (crmUserFilter) {
+      case 'WITH_PARTICIPANTS':
+        return user.activity.participants > 0;
+      case 'WITHOUT_PARTICIPANTS':
+        return user.activity.participants === 0;
+      case 'WITH_REQUESTS':
+        return requestsCount > 0;
+      case 'WITH_BOOKINGS':
+        return bookingsCount > 0;
+      case 'WITH_POINTS':
+        return (user.pointsBalance ?? 0) > 0;
+      case 'NEW_7_DAYS':
+        return createdAt >= sevenDaysAgo;
+      default:
+        return true;
+    }
+  };
+  const filteredCrmUsers = (overview?.users ?? [])
+    .filter((user) => user.staffRole === null)
+    .filter(userMatchesCrmSearch)
+    .filter(userMatchesCrmFilter)
+    .sort((left, right) => {
+      switch (crmUserSort) {
+        case 'OLDEST':
+          return new Date(left.createdAt).getTime() - new Date(right.createdAt).getTime();
+        case 'POINTS_DESC':
+          return (right.pointsBalance ?? 0) - (left.pointsBalance ?? 0);
+        case 'ACTIVITY_DESC':
+          return getUserActivityCount(right) - getUserActivityCount(left);
+        default:
+          return new Date(right.createdAt).getTime() - new Date(left.createdAt).getTime();
+      }
+    });
+  const crmTotalPages = Math.max(1, Math.ceil(filteredCrmUsers.length / crmUsersPerPage));
+  const activeCrmPage = Math.min(crmUsersPage, crmTotalPages);
+  const paginatedCrmUsers = filteredCrmUsers.slice(
+    (activeCrmPage - 1) * crmUsersPerPage,
+    activeCrmPage * crmUsersPerPage
+  );
+  const selectedCrmUser =
+    (overview?.users ?? []).find((user) => user.id === selectedCrmUserId) ?? null;
+  const selectedCrmUserTeamApplications = selectedCrmUser
+    ? getUserTeamApplications(selectedCrmUser)
+    : [];
+  const selectedCrmUserRentalBookings = selectedCrmUser
+    ? getUserRentalBookings(selectedCrmUser)
+    : [];
+  const selectedCrmUserTrainingBookingsCount = selectedCrmUser
+    ? getUserTrainingBookingsCount(selectedCrmUser)
+    : 0;
+  const crmPipelineItems = [
+    ...(overview?.teamApplications ?? []).map((application) => ({
+      id: `team-${application.id}`,
+      type: 'Заявка в команду',
+      owner: application.participant
+        ? formatPersonName(application.participant)
+        : 'Участник не указан',
+      contact: 'Контакт в карточке пользователя',
+      target: application.team.name,
+      status: application.status,
+      comment: application.commentFromApplicant,
+      createdAt: application.createdAt,
+    })),
+    ...(overview?.rentalBookings ?? []).map((booking) => ({
+      id: `rental-${booking.id}`,
+      type: 'Бронирование аренды',
+      owner: booking.participant
+        ? formatPersonName(booking.participant)
+        : formatUserIdentity(booking.user),
+      contact: formatUserIdentity(booking.user),
+      target: `${booking.resource.name} / ${booking.city.name}`,
+      status: booking.status,
+      comment: booking.noteFromUser,
+      createdAt: booking.createdAt,
+    })),
+  ]
+    .sort(
+      (left, right) =>
+        new Date(right.createdAt).getTime() - new Date(left.createdAt).getTime()
+    )
+    .slice(0, 8);
   const currentUserCapabilities = getRoleCapabilities(currentUser);
   const visibleAdminSections = getVisibleAdminSections(currentUserCapabilities);
   const visibleAdminSectionIds = new Set(
@@ -4293,9 +4545,172 @@ export default function AdminPage() {
         onClick={handleRentalSlotCreateStart}
         className="inline-flex items-center justify-center rounded-full bg-amber-400 px-4 py-2 text-center text-sm font-black leading-none text-black transition hover:bg-amber-300"
       >
-        Создать слот
+      Создать слот
       </button>
     ) : null;
+
+  function updateCrmUserInOverview(updatedUser: AdminUserSummary) {
+    setOverview((currentOverview) => {
+      if (!currentOverview) {
+        return currentOverview;
+      }
+
+      return {
+        ...currentOverview,
+        users: currentOverview.users.map((user) =>
+          user.id === updatedUser.id ? updatedUser : user
+        ),
+      };
+    });
+  }
+
+  function openCrmUser(user: AdminUserSummary, section: CrmDetailSection = 'contact') {
+    const primaryProfile = getPrimaryUserProfile(user);
+
+    setSelectedCrmUserId(user.id);
+    setActiveCrmDetailSection(section);
+    setCrmUserEditor(createCrmUserEditorState(user));
+    setCrmParticipantEditor(createCrmParticipantEditorState(primaryProfile));
+    setCrmFeedback(null);
+  }
+
+  function closeCrmUser() {
+    setSelectedCrmUserId(null);
+    setCrmUserEditor(null);
+    setCrmParticipantEditor(null);
+    setCrmFeedback(null);
+  }
+
+  async function handleCrmUserSave() {
+    if (!selectedCrmUser || !crmUserEditor) {
+      return;
+    }
+
+    setSavingCrmUser(true);
+    setCrmFeedback(null);
+
+    const updateResult = await fetchJson<AdminUserSummary>(
+      `/api/users/${selectedCrmUser.id}`,
+      {
+        method: 'PATCH',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          email: crmUserEditor.email,
+          phone: crmUserEditor.phone,
+          telegramId: crmUserEditor.telegramId,
+        }),
+      }
+    );
+
+    if (updateResult.response.status === 401) {
+      router.replace('/dev/login?next=/admin');
+      return;
+    }
+
+    setSavingCrmUser(false);
+
+    if (!updateResult.response.ok) {
+      setCrmFeedback({
+        tone: 'error',
+        message: translateErrorMessage(
+          (updateResult.payload as { error?: string } | null)?.error ||
+            'Failed to update user'
+        ),
+      });
+      return;
+    }
+
+    const updatedUser = updateResult.payload as AdminUserSummary;
+    updateCrmUserInOverview(updatedUser);
+    setSelectedCrmUserId(updatedUser.id);
+    setCrmUserEditor(createCrmUserEditorState(updatedUser));
+    setCrmFeedback({
+      tone: 'success',
+      message: 'Контакты пользователя сохранены.',
+    });
+  }
+
+  async function handleCrmParticipantSave() {
+    if (!selectedCrmUser || !crmParticipantEditor) {
+      return;
+    }
+
+    if (!crmParticipantEditor.profileType.trim()) {
+      setCrmFeedback({
+        tone: 'error',
+        message: 'Укажите формат участника.',
+      });
+      return;
+    }
+
+    setSavingCrmParticipant(true);
+    setCrmFeedback(null);
+
+    const participantPayload = {
+      userId: selectedCrmUser.id,
+      profileType: crmParticipantEditor.profileType.trim(),
+      firstName: crmParticipantEditor.firstName,
+      lastName: crmParticipantEditor.lastName,
+      birthDate: crmParticipantEditor.birthDate,
+      cityId: crmParticipantEditor.cityId,
+    };
+    const participantUrl = crmParticipantEditor.id
+      ? `/api/participants/${crmParticipantEditor.id}`
+      : '/api/participants';
+    const participantResult = await fetchJson<ParticipantSummary>(participantUrl, {
+      method: crmParticipantEditor.id ? 'PATCH' : 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(participantPayload),
+    });
+
+    if (participantResult.response.status === 401) {
+      router.replace('/dev/login?next=/admin');
+      return;
+    }
+
+    if (!participantResult.response.ok) {
+      setSavingCrmParticipant(false);
+      setCrmFeedback({
+        tone: 'error',
+        message: translateErrorMessage(
+          (participantResult.payload as { error?: string } | null)?.error ||
+            'Failed to update participant'
+        ),
+      });
+      return;
+    }
+
+    const userResult = await fetchJson<AdminUserSummary>(
+      `/api/users/${selectedCrmUser.id}`
+    );
+
+    setSavingCrmParticipant(false);
+
+    if (!userResult.response.ok) {
+      setCrmFeedback({
+        tone: 'error',
+        message: 'Участник сохранён, но обновить CRM-карточку не удалось.',
+      });
+      return;
+    }
+
+    const updatedUser = userResult.payload as AdminUserSummary;
+    updateCrmUserInOverview(updatedUser);
+    setSelectedCrmUserId(updatedUser.id);
+    setCrmParticipantEditor(
+      createCrmParticipantEditorState(getPrimaryUserProfile(updatedUser))
+    );
+    setCrmFeedback({
+      tone: 'success',
+      message: crmParticipantEditor.id
+        ? 'Карточка участника сохранена.'
+        : 'Участник добавлен пользователю.',
+    });
+  }
 
   function handleTeamSelect(team: AdminTeamSummary) {
     setSelectedTeamId(team.id);
@@ -5666,121 +6081,284 @@ export default function AdminPage() {
                 {activeAdminSection === 'overview' &&
                 !currentUserCapabilities.isTrainer ? (
                   <WorkspaceInset className="p-6">
-                    <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
+                    <div className="flex flex-col gap-2 xl:flex-row xl:items-start xl:justify-between">
                       <div>
                         <p className="text-xs font-semibold uppercase tracking-[0.24em] text-amber-300">
-                          Новые пользователи
+                          CRM
                         </p>
                         <h3 className="mt-3 text-xl font-semibold text-white">
-                          Последние регистрации
+                          Пользователи и активность
                         </h3>
                       </div>
                       <span className="rounded-full bg-white/8 px-3 py-1 text-xs font-semibold uppercase tracking-[0.14em] text-stone-100 ring-1 ring-white/10">
-                        {recentlyRegisteredUsers.length}
+                        {filteredCrmUsers.length} из {overview.users.filter((user) => user.staffRole === null).length}
                       </span>
                     </div>
                     <p className="mt-3 max-w-3xl text-sm leading-6 text-stone-300">
-                      Быстрый обзор новых обычных пользователей: контакты, город,
-                      карточки участников и связанные заявки. Отдельного approval-статуса
-                      в модели пока нет, поэтому блок не имитирует подтверждение аккаунта.
+                      Аккаунты активны сразу после регистрации. Админ обрабатывает участников, заявки, бронирования и активность пользователя.
                     </p>
-                    <div className="mt-5 grid gap-3 lg:grid-cols-2">
-                      {recentlyRegisteredUsers.length === 0 ? (
-                        <p className="rounded-[1.35rem] border border-white/8 bg-white/[0.04] p-5 text-sm text-stone-400">
-                          Новых пользователей пока нет.
+
+                    <div className="mt-5 grid gap-3 xl:grid-cols-[minmax(220px,1fr)_220px_220px_140px]">
+                      <label className="text-sm font-medium text-stone-300">
+                        Поиск
+                        <input
+                          value={crmUserSearch}
+                          onChange={(event) => {
+                            setCrmUserSearch(event.target.value);
+                            setCrmUsersPage(1);
+                          }}
+                          className="mt-2 w-full rounded-2xl border border-white/10 bg-[#0b0f13] px-4 py-3 text-base text-stone-100 outline-none transition focus:border-amber-400"
+                          placeholder="Имя, телефон, email, город, Telegram"
+                        />
+                      </label>
+                      <label className="text-sm font-medium text-stone-300">
+                        Фильтр
+                        <select
+                          value={crmUserFilter}
+                          onChange={(event) => {
+                            setCrmUserFilter(event.target.value as CrmUserFilter);
+                            setCrmUsersPage(1);
+                          }}
+                          className="mt-2 w-full rounded-2xl border border-white/10 bg-[#0b0f13] px-4 py-3 text-base text-stone-100 outline-none transition focus:border-amber-400"
+                        >
+                          <option value="ALL">Все пользователи</option>
+                          <option value="WITH_PARTICIPANTS">С участниками</option>
+                          <option value="WITHOUT_PARTICIPANTS">Без участников</option>
+                          <option value="WITH_REQUESTS">С заявками</option>
+                          <option value="WITH_BOOKINGS">С бронированиями</option>
+                          <option value="WITH_POINTS">С поинтами</option>
+                          <option value="NEW_7_DAYS">Новые за 7 дней</option>
+                        </select>
+                      </label>
+                      <label className="text-sm font-medium text-stone-300">
+                        Сортировка
+                        <select
+                          value={crmUserSort}
+                          onChange={(event) => {
+                            setCrmUserSort(event.target.value as CrmUserSort);
+                            setCrmUsersPage(1);
+                          }}
+                          className="mt-2 w-full rounded-2xl border border-white/10 bg-[#0b0f13] px-4 py-3 text-base text-stone-100 outline-none transition focus:border-amber-400"
+                        >
+                          <option value="NEWEST">Новые сверху</option>
+                          <option value="OLDEST">Старые сверху</option>
+                          <option value="POINTS_DESC">Больше поинтов</option>
+                          <option value="ACTIVITY_DESC">Больше активности</option>
+                        </select>
+                      </label>
+                      <label className="text-sm font-medium text-stone-300">
+                        На странице
+                        <select
+                          value={crmUsersPerPage}
+                          onChange={(event) => {
+                            setCrmUsersPerPage(Number(event.target.value));
+                            setCrmUsersPage(1);
+                          }}
+                          className="mt-2 w-full rounded-2xl border border-white/10 bg-[#0b0f13] px-4 py-3 text-base text-stone-100 outline-none transition focus:border-amber-400"
+                        >
+                          <option value={25}>25</option>
+                          <option value={50}>50</option>
+                        </select>
+                      </label>
+                    </div>
+
+                    <div className="mt-5 overflow-hidden rounded-[1.35rem] border border-white/8 bg-black/18">
+                      {filteredCrmUsers.length === 0 ? (
+                        <p className="p-5 text-sm text-stone-400">
+                          Пользователей пока нет.
                         </p>
                       ) : (
-                        recentlyRegisteredUsers.map((user) => {
-                          const primaryProfile = user.profiles[0] ?? null;
-                          const userTeamApplications = getUserTeamApplications(user);
-                          const userRentalBookings = getUserRentalBookings(user);
-                          const relatedRequestsCount =
-                            userTeamApplications.length + userRentalBookings.length;
+                        <>
+                          <div className="hidden overflow-x-auto xl:block">
+                            <table className="min-w-full border-collapse text-sm">
+                              <thead className="bg-white/[0.04] text-left text-[11px] uppercase tracking-[0.16em] text-stone-500">
+                                <tr>
+                                  <th className="px-4 py-3 font-semibold">Пользователь</th>
+                                  <th className="px-4 py-3 font-semibold">Телефон</th>
+                                  <th className="px-4 py-3 font-semibold">Email</th>
+                                  <th className="px-4 py-3 font-semibold">Город</th>
+                                  <th className="px-3 py-3 text-center font-semibold">Участ.</th>
+                                  <th className="px-3 py-3 text-center font-semibold">Заявки</th>
+                                  <th className="px-3 py-3 text-center font-semibold">Брони</th>
+                                  <th className="px-3 py-3 text-center font-semibold">GP</th>
+                                  <th className="px-4 py-3 font-semibold">Дата</th>
+                                  <th className="px-4 py-3 text-right font-semibold">Действие</th>
+                                </tr>
+                              </thead>
+                              <tbody className="divide-y divide-white/8">
+                                {paginatedCrmUsers.map((user) => {
+                                  const requestsCount = getUserRequestsCount(user);
+                                  const bookingsCount =
+                                    user.activity.rentalBookings + getUserTrainingBookingsCount(user);
 
-                          return (
-                            <article
-                              key={user.id}
-                              className="rounded-[1.35rem] border border-white/8 bg-white/[0.04] p-4"
-                            >
-                              <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
-                                <div>
-                                  <p className="font-semibold text-white">
-                                    {primaryProfile
-                                      ? formatPersonName(primaryProfile)
-                                      : formatUserIdentity(user)}
-                                  </p>
-                                  <p className="mt-1 text-sm text-stone-400">
-                                    {user.email || 'Email не указан'} /{' '}
-                                    {user.phone || 'Телефон не указан'}
-                                  </p>
-                                  <p className="mt-1 text-sm text-stone-400">
-                                    Город: {primaryProfile?.city?.name || 'не указан'}
-                                  </p>
-                                </div>
-                                <p className="text-xs font-medium uppercase tracking-[0.18em] text-stone-500">
-                                  {formatDateTime(user.createdAt)}
-                                </p>
-                              </div>
+                                  return (
+                                    <tr key={user.id} className="align-middle text-stone-200">
+                                      <td className="px-4 py-3">
+                                        <button
+                                          type="button"
+                                          onClick={() => openCrmUser(user, 'contact')}
+                                          className="text-left font-semibold text-white transition hover:text-amber-200"
+                                        >
+                                          {getUserDisplayName(user)}
+                                        </button>
+                                        <p className="mt-1 text-xs text-stone-500">
+                                          {user.telegramId ? `@${user.telegramId}` : `#${user.id}`}
+                                        </p>
+                                      </td>
+                                      <td className="px-4 py-3 text-stone-300">{user.phone || '-'}</td>
+                                      <td className="px-4 py-3 text-stone-300">{user.email || '-'}</td>
+                                      <td className="px-4 py-3 text-stone-300">{getUserCityName(user)}</td>
+                                      <td className="px-3 py-3 text-center">
+                                        <button type="button" onClick={() => openCrmUser(user, 'participants')} className="rounded-full bg-white/8 px-3 py-1 text-xs font-semibold text-stone-100 hover:bg-white/12">
+                                          {user.activity.participants}
+                                        </button>
+                                      </td>
+                                      <td className="px-3 py-3 text-center">
+                                        <button type="button" onClick={() => openCrmUser(user, 'requests')} className="rounded-full bg-white/8 px-3 py-1 text-xs font-semibold text-stone-100 hover:bg-white/12">
+                                          {requestsCount}
+                                        </button>
+                                      </td>
+                                      <td className="px-3 py-3 text-center">
+                                        <button type="button" onClick={() => openCrmUser(user, 'bookings')} className="rounded-full bg-white/8 px-3 py-1 text-xs font-semibold text-stone-100 hover:bg-white/12">
+                                          {bookingsCount}
+                                        </button>
+                                      </td>
+                                      <td className="px-3 py-3 text-center">
+                                        <button type="button" onClick={() => openCrmUser(user, 'points')} className="rounded-full bg-white/8 px-3 py-1 text-xs font-semibold text-stone-100 hover:bg-white/12">
+                                          {user.pointsBalance ?? '-'}
+                                        </button>
+                                      </td>
+                                      <td className="px-4 py-3 text-xs text-stone-400">{formatDateTime(user.createdAt)}</td>
+                                      <td className="px-4 py-3 text-right">
+                                        <button
+                                          type="button"
+                                          onClick={() => openCrmUser(user, 'contact')}
+                                          className="inline-flex items-center justify-center rounded-full border border-white/12 bg-white/6 px-3 py-2 text-center text-xs font-semibold leading-none text-stone-100 transition hover:bg-white/10"
+                                        >
+                                          Открыть
+                                        </button>
+                                      </td>
+                                    </tr>
+                                  );
+                                })}
+                              </tbody>
+                            </table>
+                          </div>
 
-                              <div className="mt-4 grid gap-2 sm:grid-cols-2">
-                                <div className="rounded-2xl border border-white/8 bg-black/20 p-3">
-                                  <p className="text-xs font-semibold uppercase tracking-[0.14em] text-stone-500">
-                                    Участник
-                                  </p>
-                                  <p className="mt-2 text-sm text-stone-200">
-                                    {user.profiles.length > 0
-                                      ? `${user.profiles.length} в кабинете`
-                                      : 'Не добавлен'}
-                                  </p>
-                                </div>
-                                <div className="rounded-2xl border border-white/8 bg-black/20 p-3">
-                                  <p className="text-xs font-semibold uppercase tracking-[0.14em] text-stone-500">
-                                    Заявки
-                                  </p>
-                                  <p className="mt-2 text-sm text-stone-200">
-                                    {relatedRequestsCount > 0
-                                      ? `${relatedRequestsCount} связ.`
-                                      : 'Заявок пока нет'}
-                                  </p>
-                                </div>
-                              </div>
+                          <div className="grid gap-3 p-3 xl:hidden">
+                            {paginatedCrmUsers.map((user) => {
+                              const requestsCount = getUserRequestsCount(user);
+                              const bookingsCount =
+                                user.activity.rentalBookings + getUserTrainingBookingsCount(user);
 
-                              {user.profiles.length > 0 ? (
-                                <div className="mt-3 flex flex-wrap gap-2">
-                                  {user.profiles.map((profile) => (
-                                    <span
-                                      key={profile.id}
-                                      className="rounded-full border border-white/8 bg-black/20 px-3 py-1 text-xs font-semibold text-stone-200"
+                              return (
+                                <article key={user.id} className="rounded-2xl border border-white/8 bg-white/[0.04] p-4">
+                                  <div className="flex items-start justify-between gap-3">
+                                    <div>
+                                      <p className="font-semibold text-white">{getUserDisplayName(user)}</p>
+                                      <p className="mt-1 text-xs text-stone-500">{formatDateTime(user.createdAt)}</p>
+                                    </div>
+                                    <button
+                                      type="button"
+                                      onClick={() => openCrmUser(user, 'contact')}
+                                      className="inline-flex items-center justify-center rounded-full border border-white/12 bg-white/6 px-3 py-2 text-center text-xs font-semibold leading-none text-stone-100"
                                     >
-                                      {formatPersonName(profile)} / {formatProfileType(profile.profileType)}
-                                    </span>
-                                  ))}
-                                </div>
-                              ) : (
-                                <p className="mt-3 text-sm text-stone-500">
-                                  Карточка ребёнка / участника ещё не добавлена.
-                                </p>
-                              )}
+                                      Открыть
+                                    </button>
+                                  </div>
+                                  <div className="mt-3 grid gap-1 text-sm text-stone-300">
+                                    <p>{user.phone || 'Телефон не указан'} / {user.email || 'Email не указан'}</p>
+                                    <p>Город: {getUserCityName(user)}</p>
+                                  </div>
+                                  <div className="mt-3 grid grid-cols-4 gap-2 text-center text-xs">
+                                    <button type="button" onClick={() => openCrmUser(user, 'participants')} className="rounded-2xl bg-black/20 p-2 text-stone-100">У: {user.activity.participants}</button>
+                                    <button type="button" onClick={() => openCrmUser(user, 'requests')} className="rounded-2xl bg-black/20 p-2 text-stone-100">З: {requestsCount}</button>
+                                    <button type="button" onClick={() => openCrmUser(user, 'bookings')} className="rounded-2xl bg-black/20 p-2 text-stone-100">Б: {bookingsCount}</button>
+                                    <button type="button" onClick={() => openCrmUser(user, 'points')} className="rounded-2xl bg-black/20 p-2 text-stone-100">GP: {user.pointsBalance ?? '-'}</button>
+                                  </div>
+                                </article>
+                              );
+                            })}
+                          </div>
+                        </>
+                      )}
+                    </div>
 
-                              {relatedRequestsCount > 0 ? (
-                                <div className="mt-3 grid gap-1 text-xs text-stone-400">
-                                  {userTeamApplications.length > 0 ? (
-                                    <p>
-                                      Команда: {userTeamApplications.length} / последняя{' '}
-                                      {formatStatus(userTeamApplications[0].status)}
-                                    </p>
-                                  ) : null}
-                                  {userRentalBookings.length > 0 ? (
-                                    <p>
-                                      Аренда: {userRentalBookings.length} / последняя{' '}
-                                      {formatStatus(userRentalBookings[0].status)}
-                                    </p>
-                                  ) : null}
-                                </div>
-                              ) : null}
+                    {filteredCrmUsers.length > 0 ? (
+                      <div className="mt-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                        <p className="text-sm text-stone-400">
+                          Страница {activeCrmPage} из {crmTotalPages}
+                        </p>
+                        <div className="flex gap-2">
+                          <button
+                            type="button"
+                            onClick={() => setCrmUsersPage((page) => Math.max(1, page - 1))}
+                            disabled={activeCrmPage <= 1}
+                            className="inline-flex items-center justify-center rounded-full border border-white/12 bg-white/6 px-4 py-2 text-center text-sm font-semibold leading-none text-stone-100 transition hover:bg-white/10 disabled:cursor-not-allowed disabled:opacity-50"
+                          >
+                            Назад
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => setCrmUsersPage((page) => Math.min(crmTotalPages, page + 1))}
+                            disabled={activeCrmPage >= crmTotalPages}
+                            className="inline-flex items-center justify-center rounded-full border border-white/12 bg-white/6 px-4 py-2 text-center text-sm font-semibold leading-none text-stone-100 transition hover:bg-white/10 disabled:cursor-not-allowed disabled:opacity-50"
+                          >
+                            Вперёд
+                          </button>
+                        </div>
+                      </div>
+                    ) : null}
+
+                    <div className="mt-6 rounded-[1.35rem] border border-white/8 bg-white/[0.035] p-4">
+                      <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
+                        <div>
+                          <p className="text-xs font-semibold uppercase tracking-[0.18em] text-stone-500">
+                            Pipeline заявок
+                          </p>
+                          <h4 className="mt-2 text-lg font-semibold text-white">
+                            Последние обращения
+                          </h4>
+                        </div>
+                        <span className="rounded-full bg-black/20 px-3 py-1 text-xs font-semibold text-stone-300">
+                          {crmPipelineItems.length}
+                        </span>
+                      </div>
+                      {crmPipelineItems.length === 0 ? (
+                        <p className="mt-4 rounded-2xl border border-white/8 bg-black/20 p-4 text-sm text-stone-400">
+                          Заявок пока нет.
+                        </p>
+                      ) : (
+                        <div className="mt-4 grid gap-2">
+                          {crmPipelineItems.map((item) => (
+                            <article
+                              key={item.id}
+                              className="grid gap-3 rounded-2xl border border-white/8 bg-black/20 p-3 text-sm md:grid-cols-[150px_minmax(0,1fr)_minmax(0,1fr)_120px]"
+                            >
+                              <div>
+                                <p className="text-xs font-semibold uppercase tracking-[0.14em] text-stone-500">
+                                  {item.type}
+                                </p>
+                                <p className="mt-1 text-xs text-stone-500">
+                                  {formatDateTime(item.createdAt)}
+                                </p>
+                              </div>
+                              <div>
+                                <p className="font-semibold text-white">{item.owner}</p>
+                                <p className="mt-1 text-xs text-stone-500">{item.contact}</p>
+                              </div>
+                              <div>
+                                <p className="text-stone-200">{item.target}</p>
+                                <p className="mt-1 truncate text-xs text-stone-500">
+                                  {item.comment || 'Комментарий не указан'}
+                                </p>
+                              </div>
+                              <span className={`self-start rounded-full px-3 py-1 text-xs font-semibold ${getStatusBadgeClass(item.status)}`}>
+                                {formatStatus(item.status)}
+                              </span>
                             </article>
-                          );
-                        })
+                          ))}
+                        </div>
                       )}
                     </div>
                   </WorkspaceInset>
@@ -6367,6 +6945,381 @@ export default function AdminPage() {
                   </div>
                 ) : null}
               </div>
+              {selectedCrmUser ? (
+                <div className="fixed inset-0 z-50 flex items-end bg-black/70 px-3 py-4 backdrop-blur-sm sm:items-center sm:justify-center">
+                  <div className="max-h-[92vh] w-full max-w-5xl overflow-y-auto rounded-[1.5rem] border border-white/10 bg-[#0b0f13] p-5 shadow-[0_24px_80px_rgba(0,0,0,0.55)]">
+                    <div className="flex flex-col gap-4 border-b border-white/8 pb-4 lg:flex-row lg:items-start lg:justify-between">
+                      <div>
+                        <p className="text-xs font-semibold uppercase tracking-[0.2em] text-amber-300">
+                          CRM карточка
+                        </p>
+                        <h3 className="mt-2 text-2xl font-semibold tracking-[-0.04em] text-white">
+                          {getUserDisplayName(selectedCrmUser)}
+                        </h3>
+                        <p className="mt-1 text-sm text-stone-400">
+                          {selectedCrmUser.phone || 'Телефон не указан'} /{' '}
+                          {selectedCrmUser.email || 'Email не указан'} /{' '}
+                          {getUserCityName(selectedCrmUser)}
+                        </p>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={closeCrmUser}
+                        className="inline-flex items-center justify-center rounded-full border border-white/12 bg-white/6 px-4 py-2 text-center text-sm font-semibold leading-none text-stone-100 transition hover:bg-white/10"
+                      >
+                        Закрыть
+                      </button>
+                    </div>
+
+                    <div className="mt-4 grid gap-2 sm:grid-cols-6">
+                      {[
+                        { id: 'participants' as const, label: 'Участники', value: selectedCrmUser.activity.participants },
+                        { id: 'requests' as const, label: 'Заявки', value: getUserRequestsCount(selectedCrmUser) },
+                        {
+                          id: 'bookings' as const,
+                          label: 'Брони',
+                          value:
+                            selectedCrmUser.activity.rentalBookings +
+                            selectedCrmUserTrainingBookingsCount,
+                        },
+                        { id: 'points' as const, label: 'Поинты', value: selectedCrmUser.pointsBalance ?? '-' },
+                        { id: 'contact' as const, label: 'Контакт', value: 'edit' },
+                        { id: 'actions' as const, label: 'Действия', value: 'safe' },
+                      ].map((item) => (
+                        <button
+                          key={item.id}
+                          type="button"
+                          onClick={() => setActiveCrmDetailSection(item.id)}
+                          className={`rounded-2xl border p-3 text-left transition ${
+                            activeCrmDetailSection === item.id
+                              ? 'border-amber-300/30 bg-amber-400/10 text-amber-50'
+                              : 'border-white/8 bg-white/[0.04] text-stone-200 hover:bg-white/[0.07]'
+                          }`}
+                        >
+                          <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-stone-500">
+                            {item.label}
+                          </p>
+                          <p className="mt-2 text-lg font-semibold text-white">
+                            {item.value}
+                          </p>
+                        </button>
+                      ))}
+                    </div>
+
+                    {crmFeedback ? (
+                      <p
+                        className={`mt-4 rounded-2xl border px-4 py-3 text-sm ${
+                          crmFeedback.tone === 'success'
+                            ? 'border-emerald-400/30 bg-emerald-500/12 text-emerald-100'
+                            : 'border-rose-400/30 bg-rose-500/12 text-rose-100'
+                        }`}
+                      >
+                        {crmFeedback.message}
+                      </p>
+                    ) : null}
+
+                    <div className="mt-5 grid gap-5 lg:grid-cols-[0.9fr_1.1fr]">
+                      <div className="space-y-3">
+                        <div className="rounded-2xl border border-white/8 bg-white/[0.04] p-4">
+                          <p className="text-xs font-semibold uppercase tracking-[0.14em] text-stone-500">
+                            Контакт
+                          </p>
+                          <div className="mt-3 grid gap-1 text-sm text-stone-300">
+                            <p>Телефон: {selectedCrmUser.phone || 'не указан'}</p>
+                            <p>Email: {selectedCrmUser.email || 'не указан'}</p>
+                            <p>Telegram: {selectedCrmUser.telegramId ? `@${selectedCrmUser.telegramId}` : 'не указан'}</p>
+                            <p>Создан: {formatDateTime(selectedCrmUser.createdAt)}</p>
+                          </div>
+                        </div>
+                        <div className="rounded-2xl border border-white/8 bg-white/[0.04] p-4">
+                          <p className="text-xs font-semibold uppercase tracking-[0.14em] text-stone-500">
+                            Активность
+                          </p>
+                          <div className="mt-3 grid grid-cols-2 gap-2 text-sm">
+                            <button type="button" onClick={() => setActiveCrmDetailSection('participants')} className="rounded-xl bg-black/20 p-3 text-left text-stone-200">
+                              Участников: {selectedCrmUser.activity.participants}
+                            </button>
+                            <button type="button" onClick={() => setActiveCrmDetailSection('requests')} className="rounded-xl bg-black/20 p-3 text-left text-stone-200">
+                              Заявок: {getUserRequestsCount(selectedCrmUser)}
+                            </button>
+                            <button type="button" onClick={() => setActiveCrmDetailSection('bookings')} className="rounded-xl bg-black/20 p-3 text-left text-stone-200">
+                              Бронирований: {selectedCrmUser.activity.rentalBookings + selectedCrmUserTrainingBookingsCount}
+                            </button>
+                            <button type="button" onClick={() => setActiveCrmDetailSection('points')} className="rounded-xl bg-black/20 p-3 text-left text-stone-200">
+                              GP: {selectedCrmUser.pointsBalance ?? 'нет данных'}
+                            </button>
+                          </div>
+                        </div>
+                      </div>
+
+                      <div className="rounded-2xl border border-white/8 bg-white/[0.04] p-4">
+                        {activeCrmDetailSection === 'contact' && crmUserEditor ? (
+                          <div className="space-y-4">
+                            <div>
+                              <h4 className="text-lg font-semibold text-white">Контакт</h4>
+                              <p className="mt-1 text-sm text-stone-400">
+                                Безопасное редактирование: email, телефон и Telegram. Пароль и роли не меняются.
+                              </p>
+                            </div>
+                            <div className="grid gap-3 sm:grid-cols-2">
+                              <label className="text-sm font-medium text-stone-300">
+                                Email
+                                <input
+                                  value={crmUserEditor.email}
+                                  onChange={(event) =>
+                                    setCrmUserEditor((editor) =>
+                                      editor ? { ...editor, email: event.target.value } : editor
+                                    )
+                                  }
+                                  className="mt-2 w-full rounded-2xl border border-white/10 bg-[#0b0f13] px-4 py-3 text-base text-stone-100 outline-none transition focus:border-amber-400"
+                                />
+                              </label>
+                              <label className="text-sm font-medium text-stone-300">
+                                Телефон
+                                <input
+                                  value={crmUserEditor.phone}
+                                  onChange={(event) =>
+                                    setCrmUserEditor((editor) =>
+                                      editor ? { ...editor, phone: event.target.value } : editor
+                                    )
+                                  }
+                                  className="mt-2 w-full rounded-2xl border border-white/10 bg-[#0b0f13] px-4 py-3 text-base text-stone-100 outline-none transition focus:border-amber-400"
+                                />
+                              </label>
+                              <label className="text-sm font-medium text-stone-300 sm:col-span-2">
+                                Telegram username / ID
+                                <input
+                                  value={crmUserEditor.telegramId}
+                                  onChange={(event) =>
+                                    setCrmUserEditor((editor) =>
+                                      editor ? { ...editor, telegramId: event.target.value } : editor
+                                    )
+                                  }
+                                  className="mt-2 w-full rounded-2xl border border-white/10 bg-[#0b0f13] px-4 py-3 text-base text-stone-100 outline-none transition focus:border-amber-400"
+                                />
+                              </label>
+                            </div>
+                            <button
+                              type="button"
+                              onClick={handleCrmUserSave}
+                              disabled={savingCrmUser}
+                              className="inline-flex items-center justify-center rounded-full bg-amber-400 px-4 py-2 text-center text-sm font-black leading-none text-black transition hover:bg-amber-300 disabled:cursor-not-allowed disabled:opacity-60"
+                            >
+                              {savingCrmUser ? 'Сохраняем...' : 'Сохранить контакт'}
+                            </button>
+                          </div>
+                        ) : null}
+
+                        {activeCrmDetailSection === 'participants' && crmParticipantEditor ? (
+                          <div className="space-y-4">
+                            <div>
+                              <h4 className="text-lg font-semibold text-white">Участники</h4>
+                              <p className="mt-1 text-sm text-stone-400">
+                                Редактируется первая карточка участника. Если карточки нет, её можно создать для выбранного пользователя.
+                              </p>
+                            </div>
+                            {selectedCrmUser.profiles.length > 0 ? (
+                              <div className="flex flex-wrap gap-2">
+                                {selectedCrmUser.profiles.map((profile) => (
+                                  <button
+                                    key={profile.id}
+                                    type="button"
+                                    onClick={() => setCrmParticipantEditor(createCrmParticipantEditorState(profile))}
+                                    className={`rounded-full border px-3 py-1 text-xs font-semibold ${
+                                      crmParticipantEditor.id === profile.id
+                                        ? 'border-amber-300/30 bg-amber-400/10 text-amber-100'
+                                        : 'border-white/8 bg-black/20 text-stone-200'
+                                    }`}
+                                  >
+                                    {formatPersonName(profile)}
+                                  </button>
+                                ))}
+                              </div>
+                            ) : (
+                              <p className="rounded-2xl border border-white/8 bg-black/20 p-4 text-sm text-stone-400">
+                                Участников пока нет.
+                              </p>
+                            )}
+                            <div className="grid gap-3 sm:grid-cols-2">
+                              <label className="text-sm font-medium text-stone-300">
+                                Имя
+                                <input
+                                  value={crmParticipantEditor.firstName}
+                                  onChange={(event) =>
+                                    setCrmParticipantEditor((editor) =>
+                                      editor ? { ...editor, firstName: event.target.value } : editor
+                                    )
+                                  }
+                                  className="mt-2 w-full rounded-2xl border border-white/10 bg-[#0b0f13] px-4 py-3 text-base text-stone-100 outline-none transition focus:border-amber-400"
+                                />
+                              </label>
+                              <label className="text-sm font-medium text-stone-300">
+                                Фамилия
+                                <input
+                                  value={crmParticipantEditor.lastName}
+                                  onChange={(event) =>
+                                    setCrmParticipantEditor((editor) =>
+                                      editor ? { ...editor, lastName: event.target.value } : editor
+                                    )
+                                  }
+                                  className="mt-2 w-full rounded-2xl border border-white/10 bg-[#0b0f13] px-4 py-3 text-base text-stone-100 outline-none transition focus:border-amber-400"
+                                />
+                              </label>
+                              <label className="text-sm font-medium text-stone-300">
+                                Формат
+                                <select
+                                  value={crmParticipantEditor.profileType}
+                                  onChange={(event) =>
+                                    setCrmParticipantEditor((editor) =>
+                                      editor ? { ...editor, profileType: event.target.value } : editor
+                                    )
+                                  }
+                                  className="mt-2 w-full rounded-2xl border border-white/10 bg-[#0b0f13] px-4 py-3 text-base text-stone-100 outline-none transition focus:border-amber-400"
+                                >
+                                  <option value="CHILD">Ребёнок</option>
+                                  <option value="PLAYER">Игрок</option>
+                                  <option value="ADULT">Взрослый</option>
+                                  <option value="PARENT">Родитель</option>
+                                </select>
+                              </label>
+                              <label className="text-sm font-medium text-stone-300">
+                                Дата рождения
+                                <input
+                                  type="date"
+                                  value={crmParticipantEditor.birthDate}
+                                  onChange={(event) =>
+                                    setCrmParticipantEditor((editor) =>
+                                      editor ? { ...editor, birthDate: event.target.value } : editor
+                                    )
+                                  }
+                                  className="mt-2 w-full rounded-2xl border border-white/10 bg-[#0b0f13] px-4 py-3 text-base text-stone-100 outline-none transition focus:border-amber-400"
+                                />
+                              </label>
+                              <label className="text-sm font-medium text-stone-300 sm:col-span-2">
+                                Город
+                                <select
+                                  value={crmParticipantEditor.cityId}
+                                  onChange={(event) =>
+                                    setCrmParticipantEditor((editor) =>
+                                      editor ? { ...editor, cityId: event.target.value } : editor
+                                    )
+                                  }
+                                  className="mt-2 w-full rounded-2xl border border-white/10 bg-[#0b0f13] px-4 py-3 text-base text-stone-100 outline-none transition focus:border-amber-400"
+                                >
+                                  <option value="">Не указан</option>
+                                  {trainingCityOptions.map((city) => (
+                                    <option key={city.id} value={city.id}>
+                                      {city.name}
+                                    </option>
+                                  ))}
+                                </select>
+                              </label>
+                            </div>
+                            <button
+                              type="button"
+                              onClick={handleCrmParticipantSave}
+                              disabled={savingCrmParticipant}
+                              className="inline-flex items-center justify-center rounded-full bg-amber-400 px-4 py-2 text-center text-sm font-black leading-none text-black transition hover:bg-amber-300 disabled:cursor-not-allowed disabled:opacity-60"
+                            >
+                              {savingCrmParticipant
+                                ? 'Сохраняем...'
+                                : crmParticipantEditor.id
+                                  ? 'Сохранить участника'
+                                  : 'Добавить участника'}
+                            </button>
+                          </div>
+                        ) : null}
+
+                        {activeCrmDetailSection === 'requests' ? (
+                          <div className="space-y-3">
+                            <h4 className="text-lg font-semibold text-white">Заявки</h4>
+                            {selectedCrmUserTeamApplications.length === 0 &&
+                            selectedCrmUserTrainingBookingsCount === 0 ? (
+                              <p className="rounded-2xl border border-white/8 bg-black/20 p-4 text-sm text-stone-400">
+                                Заявок пока нет.
+                              </p>
+                            ) : null}
+                            {selectedCrmUserTeamApplications.map((application) => (
+                              <article key={application.id} className="rounded-2xl border border-white/8 bg-black/20 p-4">
+                                <div className="flex items-start justify-between gap-3">
+                                  <div>
+                                    <p className="font-semibold text-white">Заявка в команду</p>
+                                    <p className="mt-1 text-sm text-stone-400">
+                                      {application.team.name} / {application.participant ? formatPersonName(application.participant) : 'Участник не указан'}
+                                    </p>
+                                    <p className="mt-2 text-sm text-stone-300">
+                                      {application.commentFromApplicant || 'Комментарий не указан.'}
+                                    </p>
+                                  </div>
+                                  <span className={`rounded-full px-3 py-1 text-xs font-semibold ${getStatusBadgeClass(application.status)}`}>
+                                    {formatStatus(application.status)}
+                                  </span>
+                                </div>
+                              </article>
+                            ))}
+                            {selectedCrmUserTrainingBookingsCount > 0 ? (
+                              <p className="rounded-2xl border border-white/8 bg-black/20 p-4 text-sm text-stone-300">
+                                Записей на тренировки: {selectedCrmUserTrainingBookingsCount}. Детальная staff-очередь тренировок требует отдельного admin API для TrainingBooking.
+                              </p>
+                            ) : null}
+                          </div>
+                        ) : null}
+
+                        {activeCrmDetailSection === 'bookings' ? (
+                          <div className="space-y-3">
+                            <h4 className="text-lg font-semibold text-white">Бронирования</h4>
+                            {selectedCrmUserRentalBookings.length === 0 ? (
+                              <p className="rounded-2xl border border-white/8 bg-black/20 p-4 text-sm text-stone-400">
+                                Бронирований пока нет.
+                              </p>
+                            ) : (
+                              selectedCrmUserRentalBookings.map((booking) => (
+                                <article key={booking.id} className="rounded-2xl border border-white/8 bg-black/20 p-4">
+                                  <div className="flex items-start justify-between gap-3">
+                                    <div>
+                                      <p className="font-semibold text-white">{booking.resource.name}</p>
+                                      <p className="mt-1 text-sm text-stone-400">
+                                        {booking.facility.name} / {booking.city.name}
+                                      </p>
+                                      <p className="mt-1 text-sm text-stone-400">
+                                        {formatDateTime(booking.rentalSlot.startsAt)}
+                                      </p>
+                                    </div>
+                                    <span className={`rounded-full px-3 py-1 text-xs font-semibold ${getStatusBadgeClass(booking.status)}`}>
+                                      {formatStatus(booking.status)}
+                                    </span>
+                                  </div>
+                                </article>
+                              ))
+                            )}
+                          </div>
+                        ) : null}
+
+                        {activeCrmDetailSection === 'points' ? (
+                          <div className="space-y-3">
+                            <h4 className="text-lg font-semibold text-white">Поинты и промо</h4>
+                            <p className="rounded-2xl border border-white/8 bg-black/20 p-4 text-sm leading-6 text-stone-300">
+                              Серверной истории Gorilla Points в текущей модели нет. Баланс игры хранится на клиенте пользователя, поэтому CRM показывает только отсутствие серверных данных.
+                            </p>
+                            <p className="rounded-2xl border border-white/8 bg-black/20 p-4 text-sm text-stone-300">
+                              Промо-билетов: {selectedCrmUser.activity.promoTickets}
+                            </p>
+                          </div>
+                        ) : null}
+
+                        {activeCrmDetailSection === 'actions' ? (
+                          <div className="space-y-3">
+                            <h4 className="text-lg font-semibold text-white">Админские действия</h4>
+                            <p className="rounded-2xl border border-white/8 bg-black/20 p-4 text-sm leading-6 text-stone-300">
+                              В этой задаче доступны только безопасные правки контактов и карточки участника. Удаление, бан, архив и смена ролей нужны отдельной задачей и отдельными правилами доступа.
+                            </p>
+                          </div>
+                        ) : null}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              ) : null}
           </WorkspaceCanvas>
         ) : null}
       </div>

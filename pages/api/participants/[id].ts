@@ -51,12 +51,20 @@ export default async function handler(
 
   try {
     if (req.method === 'GET') {
+      const currentUser = await requireCurrentUser(prisma, req);
       const participant = await prisma.userProfile.findUnique({
         where: { id: participantId },
         select: participantDetailSelect,
       });
 
       if (!participant) {
+        return res.status(404).json({ error: 'Participant not found' });
+      }
+
+      const isManagerOrAdmin =
+        currentUser.staffRole === 'MANAGER' || currentUser.staffRole === 'ADMIN';
+
+      if (participant.user.id !== currentUser.id && !isManagerOrAdmin) {
         return res.status(404).json({ error: 'Participant not found' });
       }
 
@@ -74,7 +82,10 @@ export default async function handler(
         return res.status(404).json({ error: 'Participant not found' });
       }
 
-      if (existingParticipant.userId !== currentUser.id) {
+      const isManagerOrAdmin =
+        currentUser.staffRole === 'MANAGER' || currentUser.staffRole === 'ADMIN';
+
+      if (existingParticipant.userId !== currentUser.id && !isManagerOrAdmin) {
         return res.status(404).json({ error: 'Participant not found' });
       }
 
@@ -148,7 +159,7 @@ export default async function handler(
           }
 
           const parent = await prisma.userProfile.findFirst({
-            where: { id: parentId, userId: currentUser.id },
+            where: { id: parentId, userId: existingParticipant.userId },
             select: { id: true },
           });
 

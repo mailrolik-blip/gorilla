@@ -1,7 +1,7 @@
 import { Prisma } from '@prisma/client';
 import type { NextApiRequest, NextApiResponse } from 'next';
 
-import { requireCurrentUser } from '../../../lib/current-user';
+import { requireCurrentUser, requireManagerOrAdmin } from '../../../lib/current-user';
 import prisma from '../../../lib/prisma';
 import { participantDetailSelect } from '../../../lib/selects';
 import { HttpError } from '../../../lib/training-bookings';
@@ -41,7 +41,13 @@ export default async function handler(
   try {
     if (req.method === 'POST') {
       const currentUser = await requireCurrentUser(prisma, req);
-      const userId = currentUser.id;
+      const requestedUserId =
+        req.body.userId === undefined || req.body.userId === null || req.body.userId === ''
+          ? null
+          : toPositiveInt(req.body.userId);
+      const isManagerOrAdmin =
+        currentUser.staffRole === 'MANAGER' || currentUser.staffRole === 'ADMIN';
+      const userId = isManagerOrAdmin && requestedUserId ? requestedUserId : currentUser.id;
       const profileType = toOptionalString(req.body.profileType);
       const parentId =
         req.body.parentId === undefined || req.body.parentId === null || req.body.parentId === ''
@@ -57,6 +63,14 @@ export default async function handler(
         return res.status(400).json({ error: 'profileType is required' });
       }
 
+      if (requestedUserId === null && req.body.userId) {
+        return res.status(400).json({ error: 'userId must be a positive integer' });
+      }
+
+      if (requestedUserId && !isManagerOrAdmin) {
+        return res.status(403).json({ error: 'Manager or admin access required' });
+      }
+
       if (parentId === null && req.body.parentId) {
         return res.status(400).json({ error: 'parentId must be a positive integer' });
       }
@@ -69,7 +83,11 @@ export default async function handler(
         return res.status(400).json({ error: 'birthDate must be a valid date' });
       }
 
-      const [parent, city] = await Promise.all([
+      const [targetUser, parent, city] = await Promise.all([
+        prisma.user.findUnique({
+          where: { id: userId },
+          select: { id: true },
+        }),
         parentId
           ? prisma.userProfile.findFirst({
               where: { id: parentId, userId },
@@ -78,6 +96,10 @@ export default async function handler(
           : Promise.resolve(null),
         cityId ? prisma.city.findUnique({ where: { id: cityId }, select: { id: true } }) : Promise.resolve(null),
       ]);
+
+      if (!targetUser) {
+        return res.status(404).json({ error: 'User not found' });
+      }
 
       if (parentId && !parent) {
         return res.status(404).json({ error: 'Parent participant not found' });
@@ -118,6 +140,8 @@ export default async function handler(
     }
 
     if (req.method === 'GET') {
+      await requireManagerOrAdmin(prisma, req);
+
       const participants = await prisma.userProfile.findMany({
         select: participantDetailSelect,
         orderBy: {
