@@ -3712,6 +3712,7 @@ export default function AdminPage() {
         teamApplicationsResult,
         trainingsResult,
         citiesResult,
+        coachOptionsResult,
         usersResult,
         participantsResult,
         rentalBookingsResult,
@@ -3724,6 +3725,7 @@ export default function AdminPage() {
         fetchJson<AdminTeamApplicationSummary[]>('/api/admin/team-applications'),
         fetchJson<AdminTrainingSummary[]>('/api/admin/trainings'),
         fetchJson<CitySummary[]>('/api/city'),
+        fetchJson<TrainingCoachOption[]>('/api/users?view=options'),
         fetchJson<AdminUserSummary[]>('/api/users'),
         fetchJson<ParticipantSummary[]>('/api/participants'),
         fetchJson<AdminRentalBookingSummary[]>('/api/admin/rental-bookings'),
@@ -3738,6 +3740,7 @@ export default function AdminPage() {
         teamApplicationsResult,
         trainingsResult,
         citiesResult,
+        coachOptionsResult,
         usersResult,
         participantsResult,
         rentalBookingsResult,
@@ -3770,7 +3773,7 @@ export default function AdminPage() {
 
       if (!isCancelled) {
         setTrainingCityOptions(citiesResult.payload as CitySummary[]);
-        setTrainingCoachOptions(usersResult.payload as TrainingCoachOption[]);
+        setTrainingCoachOptions(coachOptionsResult.payload as TrainingCoachOption[]);
         setOverview({
           users: usersResult.payload as AdminUserSummary[],
           participants: participantsResult.payload as ParticipantSummary[],

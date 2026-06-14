@@ -24,11 +24,6 @@ export const adminUserSelect = {
       id: true,
     },
   },
-  promoTickets: {
-    select: {
-      id: true,
-    },
-  },
 } satisfies Prisma.UserSelect;
 
 export type AdminUserRecord = Prisma.UserGetPayload<{
@@ -37,7 +32,7 @@ export type AdminUserRecord = Prisma.UserGetPayload<{
 
 export type AdminUserView = Omit<
   AdminUserRecord,
-  'rentalBookings' | 'promoTickets'
+  'rentalBookings'
 > & {
   pointsBalance: number | null;
   activity: {
@@ -83,7 +78,7 @@ export function mapAdminUser(user: AdminUserRecord): AdminUserView {
       teamApplications: profileActivity.teamApplications,
       trainingBookings: profileActivity.trainingBookings,
       rentalBookings: user.rentalBookings.length + profileActivity.rentalBookings,
-      promoTickets: user.promoTickets.length,
+      promoTickets: 0,
       teamMemberships: profileActivity.teamMemberships,
     },
   };

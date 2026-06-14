@@ -66,6 +66,22 @@ export default async function handler(
     try {
       await requireManagerOrAdmin(prisma, req);
 
+      const view = Array.isArray(req.query.view)
+        ? req.query.view[0]
+        : req.query.view;
+
+      if (view === 'options') {
+        const users = await prisma.user.findMany({
+          select: publicUserSelect,
+          orderBy: {
+            createdAt: 'desc',
+          },
+          take: 200,
+        });
+
+        return res.status(200).json(users);
+      }
+
       const users = await prisma.user.findMany({
         select: adminUserSelect,
         orderBy: {
@@ -82,7 +98,7 @@ export default async function handler(
         return res.status(error.statusCode).json({ error: error.message });
       }
 
-      return res.status(500).json({ error: 'Failed to fetch users' });
+      return res.status(500).json({ error: 'Failed to fetch CRM users' });
     }
   }
 
