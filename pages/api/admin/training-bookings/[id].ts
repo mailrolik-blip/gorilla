@@ -1,4 +1,5 @@
 import type { NextApiRequest, NextApiResponse } from 'next';
+import type { CrmRequestStatus } from '@prisma/client';
 
 import { requireManagerOrAdmin } from '../../../../lib/current-user';
 import prisma from '../../../../lib/prisma';
@@ -11,6 +12,14 @@ import {
 const STAFF_MANAGED_TRAINING_BOOKING_STATUSES: StaffManagedTrainingBookingStatus[] = [
   'booked',
   'cancelled',
+];
+const CRM_REQUEST_STATUSES: CrmRequestStatus[] = [
+  'NEW',
+  'IN_PROGRESS',
+  'CONTACTED',
+  'BOOKED',
+  'REJECTED',
+  'CANCELLED',
 ];
 
 function toPositiveInt(value: unknown): number | null {
@@ -45,6 +54,39 @@ function toStaffManagedStatus(
   return 'invalid';
 }
 
+function toCrmStatus(value: unknown): CrmRequestStatus | undefined | 'invalid' {
+  if (value === undefined) {
+    return undefined;
+  }
+
+  if (typeof value !== 'string') {
+    return 'invalid';
+  }
+
+  return CRM_REQUEST_STATUSES.includes(value as CrmRequestStatus)
+    ? (value as CrmRequestStatus)
+    : 'invalid';
+}
+
+function toOptionalManagerNote(
+  value: unknown
+): string | null | undefined | 'invalid' {
+  if (value === undefined) {
+    return undefined;
+  }
+
+  if (value === null || value === '') {
+    return null;
+  }
+
+  if (typeof value !== 'string') {
+    return 'invalid';
+  }
+
+  const trimmed = value.trim();
+  return trimmed.length > 0 ? trimmed : null;
+}
+
 export default async function handler(
   req: NextApiRequest,
   res: NextApiResponse
@@ -56,6 +98,8 @@ export default async function handler(
   const rawBookingId = Array.isArray(req.query.id) ? req.query.id[0] : req.query.id;
   const bookingId = toPositiveInt(rawBookingId);
   const status = toStaffManagedStatus(req.body.status);
+  const crmStatus = toCrmStatus(req.body.crmStatus);
+  const managerNote = toOptionalManagerNote(req.body.managerNote);
 
   if (!bookingId) {
     return res.status(400).json({ error: 'Invalid training booking id' });
@@ -67,8 +111,18 @@ export default async function handler(
     });
   }
 
-  if (status === undefined) {
-    return res.status(400).json({ error: 'At least one of status is required' });
+  if (crmStatus === 'invalid') {
+    return res.status(400).json({
+      error: 'crmStatus must be one of NEW, IN_PROGRESS, CONTACTED, BOOKED, REJECTED, CANCELLED',
+    });
+  }
+
+  if (managerNote === 'invalid') {
+    return res.status(400).json({ error: 'managerNote must be a string or null' });
+  }
+
+  if (status === undefined && crmStatus === undefined && managerNote === undefined) {
+    return res.status(400).json({ error: 'At least one of status, crmStatus or managerNote is required' });
   }
 
   try {
@@ -77,6 +131,8 @@ export default async function handler(
       bookingId,
       currentUserId: currentUser.id,
       status,
+      crmStatus,
+      managerNote,
     });
 
     return res.status(200).json(booking);

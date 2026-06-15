@@ -1,4 +1,4 @@
-import { Prisma, type PrismaClient } from '@prisma/client';
+import { Prisma, type CrmRequestStatus, type PrismaClient } from '@prisma/client';
 
 import {
   adminTrainingBookingSelect,
@@ -26,12 +26,42 @@ type UpdateTrainingBookingByAdminInput = {
   bookingId: number;
   currentUserId: number;
   status?: StaffManagedTrainingBookingStatus;
+  crmStatus?: CrmRequestStatus;
+  managerNote?: string | null;
 };
 
 export type StaffManagedTrainingBookingStatus = 'booked' | 'cancelled';
 
 const BOOKED_STATUS = 'booked';
 const CANCELLED_STATUS = 'cancelled';
+
+function mapTrainingStatusToCrmStatus(status: string): CrmRequestStatus {
+  if (status === CANCELLED_STATUS) {
+    return 'CANCELLED';
+  }
+
+  if (status === BOOKED_STATUS) {
+    return 'BOOKED';
+  }
+
+  return 'NEW';
+}
+
+function mapCrmStatusToTrainingStatus(status: CrmRequestStatus) {
+  if (status === 'CANCELLED') {
+    return CANCELLED_STATUS;
+  }
+
+  if (status === 'REJECTED') {
+    return CANCELLED_STATUS;
+  }
+
+  if (status === 'BOOKED') {
+    return BOOKED_STATUS;
+  }
+
+  return undefined;
+}
 
 export async function createTrainingBooking(
   prisma: PrismaClient,
@@ -88,7 +118,7 @@ export async function createTrainingBooking(
       if (existingBooking?.status === CANCELLED_STATUS) {
         return tx.trainingBooking.update({
           where: { id: existingBooking.id },
-          data: { status: BOOKED_STATUS },
+          data: { status: BOOKED_STATUS, crmStatus: 'NEW' },
           include: trainingBookingInclude,
         });
       }
@@ -98,6 +128,7 @@ export async function createTrainingBooking(
           participantId,
           trainingId,
           status: BOOKED_STATUS,
+          crmStatus: 'NEW',
         },
         include: trainingBookingInclude,
       });
@@ -145,7 +176,7 @@ export async function updateTrainingBookingByAdmin(
   prisma: PrismaClient,
   input: UpdateTrainingBookingByAdminInput
 ) {
-  const { bookingId, currentUserId, status } = input;
+  const { bookingId, currentUserId, status, crmStatus, managerNote } = input;
 
   await assertGlobalStaffAccess(prisma, currentUserId);
 
@@ -160,14 +191,27 @@ export async function updateTrainingBookingByAdmin(
     throw new HttpError(404, 'Training booking not found');
   }
 
-  if (status === undefined) {
-    throw new HttpError(400, 'At least one of status is required');
+  if (status === undefined && crmStatus === undefined && managerNote === undefined) {
+    throw new HttpError(400, 'At least one of status, crmStatus or managerNote is required');
   }
+
+  const nextCrmStatus = crmStatus ?? (status ? mapTrainingStatusToCrmStatus(status) : undefined);
+  const nextLegacyStatus = nextCrmStatus
+    ? mapCrmStatusToTrainingStatus(nextCrmStatus)
+    : status;
 
   return prisma.trainingBooking.update({
     where: { id: booking.id },
     data: {
-      status,
+      ...(nextLegacyStatus ? { status: nextLegacyStatus } : {}),
+      ...(nextCrmStatus
+        ? {
+            crmStatus: nextCrmStatus,
+            reviewedAt: new Date(),
+            contactedAt: nextCrmStatus === 'CONTACTED' ? new Date() : undefined,
+          }
+        : {}),
+      ...(managerNote !== undefined ? { managerNote } : {}),
     },
     select: adminTrainingBookingSelect,
   });
@@ -202,6 +246,7 @@ export async function cancelTrainingBookingForUser(
     where: { id: bookingId },
     data: {
       status: CANCELLED_STATUS,
+      crmStatus: 'CANCELLED',
     },
     include: myTrainingBookingInclude,
   });

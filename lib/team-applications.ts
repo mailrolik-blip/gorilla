@@ -1,4 +1,9 @@
-import { Prisma, type PrismaClient, type TeamApplicationStatus } from '@prisma/client';
+import {
+  Prisma,
+  type CrmRequestStatus,
+  type PrismaClient,
+  type TeamApplicationStatus,
+} from '@prisma/client';
 
 import {
   adminTeamApplicationSelect,
@@ -19,7 +24,9 @@ type UpdateTeamApplicationByStaffInput = {
   applicationId: number;
   currentUserId: number;
   status?: StaffManagedTeamApplicationStatus;
+  crmStatus?: CrmRequestStatus;
   internalNote?: string | null;
+  managerNote?: string | null;
 };
 
 type ListTeamApplicationsForAdminInput = {
@@ -42,6 +49,41 @@ const ACTIVE_TEAM_APPLICATION_STATUSES: TeamApplicationStatus[] = [
   'IN_REVIEW',
   'ACCEPTED',
 ];
+
+function mapTeamApplicationStatusToCrmStatus(
+  status: TeamApplicationStatus
+): CrmRequestStatus {
+  switch (status) {
+    case 'IN_REVIEW':
+      return 'IN_PROGRESS';
+    case 'ACCEPTED':
+      return 'BOOKED';
+    case 'REJECTED':
+      return 'REJECTED';
+    case 'CANCELLED':
+      return 'CANCELLED';
+    default:
+      return 'NEW';
+  }
+}
+
+function mapCrmStatusToTeamApplicationStatus(
+  status: CrmRequestStatus
+): TeamApplicationStatus | undefined {
+  switch (status) {
+    case 'IN_PROGRESS':
+    case 'CONTACTED':
+      return 'IN_REVIEW';
+    case 'BOOKED':
+      return 'ACCEPTED';
+    case 'REJECTED':
+      return 'REJECTED';
+    case 'CANCELLED':
+      return 'CANCELLED';
+    case 'NEW':
+      return 'PENDING';
+  }
+}
 
 function getVisibleTeamApplicationsWhere(
   staffAccess: StaffAccessContext
@@ -112,6 +154,7 @@ export async function createTeamApplication(
           participantId,
           teamId,
           status: 'PENDING',
+          crmStatus: 'NEW',
           commentFromApplicant,
         },
         select: myTeamApplicationSelect,
@@ -170,6 +213,7 @@ export async function cancelTeamApplicationForUser(
     where: { id: applicationId },
     data: {
       status: 'CANCELLED',
+      crmStatus: 'CANCELLED',
     },
     select: myTeamApplicationSelect,
   });
@@ -214,7 +258,7 @@ export async function updateTeamApplicationByStaff(
   prisma: PrismaClient,
   input: UpdateTeamApplicationByStaffInput
 ) {
-  const { applicationId, currentUserId, status, internalNote } = input;
+  const { applicationId, currentUserId, status, crmStatus, internalNote, managerNote } = input;
   const staffAccess = await assertStaffAccess(prisma, currentUserId);
 
   const application = await prisma.teamApplication.findFirst({
@@ -233,15 +277,36 @@ export async function updateTeamApplicationByStaff(
 
   const data: Prisma.TeamApplicationUpdateInput = {};
 
-  if (status !== undefined) {
-    data.status = status;
+  const nextCrmStatus =
+    crmStatus ?? (status ? mapTeamApplicationStatusToCrmStatus(status) : undefined);
+  const nextLegacyStatus = nextCrmStatus
+    ? mapCrmStatusToTeamApplicationStatus(nextCrmStatus)
+    : status;
+
+  if (nextLegacyStatus !== undefined) {
+    data.status = nextLegacyStatus;
+  }
+
+  if (nextCrmStatus !== undefined) {
+    data.crmStatus = nextCrmStatus;
+    data.reviewedAt = new Date();
+    data.contactedAt = nextCrmStatus === 'CONTACTED' ? new Date() : undefined;
   }
 
   if (internalNote !== undefined) {
     data.internalNote = internalNote;
   }
 
-  if (status !== undefined || internalNote !== undefined) {
+  if (managerNote !== undefined) {
+    data.managerNote = managerNote;
+  }
+
+  if (
+    status !== undefined ||
+    crmStatus !== undefined ||
+    internalNote !== undefined ||
+    managerNote !== undefined
+  ) {
     data.reviewedBy = {
       connect: { id: currentUserId },
     };

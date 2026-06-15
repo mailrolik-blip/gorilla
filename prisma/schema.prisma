@@ -45,6 +45,15 @@ enum RentalBookingStatus {
   CANCELLED
 }
 
+enum CrmRequestStatus {
+  NEW
+  IN_PROGRESS
+  CONTACTED
+  BOOKED
+  REJECTED
+  CANCELLED
+}
+
 enum PromoTicketStatus {
   NEW
   OPENED
@@ -233,6 +242,10 @@ model TrainingBooking {
   trainingId    Int
 
   status        String   // booked, cancelled
+  crmStatus     CrmRequestStatus @default(NEW)
+  managerNote   String?
+  reviewedAt    DateTime?
+  contactedAt   DateTime?
 
   createdAt     DateTime @default(now())
   updatedAt     DateTime @updatedAt
@@ -243,6 +256,7 @@ model TrainingBooking {
   @@unique([participantId, trainingId])
   @@index([participantId])
   @@index([trainingId])
+  @@index([crmStatus])
 }
 
 model TeamApplication {
@@ -251,8 +265,12 @@ model TeamApplication {
   teamId               Int
   reviewedById         Int?
   status               TeamApplicationStatus @default(PENDING)
+  crmStatus            CrmRequestStatus      @default(NEW)
   commentFromApplicant String?
   internalNote         String?
+  managerNote          String?
+  reviewedAt           DateTime?
+  contactedAt          DateTime?
   createdAt            DateTime              @default(now())
   updatedAt            DateTime              @updatedAt
 
@@ -264,6 +282,7 @@ model TeamApplication {
   @@index([teamId])
   @@index([reviewedById])
   @@index([status])
+  @@index([crmStatus])
 }
 
 model RentalFacility {
@@ -319,8 +338,11 @@ model RentalBooking {
   userId        Int
   participantId Int?
   status        RentalBookingStatus @default(PENDING_CONFIRMATION)
+  crmStatus     CrmRequestStatus    @default(NEW)
   noteFromUser  String?
   managerNote   String?
+  reviewedAt    DateTime?
+  contactedAt   DateTime?
   createdAt     DateTime            @default(now())
   updatedAt     DateTime            @updatedAt
 
@@ -332,6 +354,7 @@ model RentalBooking {
   @@index([userId])
   @@index([participantId])
   @@index([status])
+  @@index([crmStatus])
 }
 
 model PromoPrize {

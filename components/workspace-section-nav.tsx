@@ -21,9 +21,15 @@ export function WorkspaceSectionNav<T extends string>({
   const isRail = mode === 'rail';
 
   return (
-    <nav className="overflow-x-auto">
+    <nav className="relative">
+      {!isRail ? (
+        <>
+          <span className="pointer-events-none absolute bottom-0 left-0 top-0 z-10 w-6 bg-gradient-to-r from-[#05070a] to-transparent" />
+          <span className="pointer-events-none absolute bottom-0 right-0 top-0 z-10 w-6 bg-gradient-to-l from-[#05070a] to-transparent" />
+        </>
+      ) : null}
       <div
-        className={`flex min-w-max gap-2 rounded-[1.75rem] bg-black/24 p-1.5 shadow-[0_24px_72px_-54px_rgba(0,0,0,0.8)] ring-1 ring-white/7 backdrop-blur ${
+        className={`flex gap-2 overflow-x-auto rounded-[1.75rem] bg-black/24 p-1.5 shadow-[0_24px_72px_-54px_rgba(0,0,0,0.8)] ring-1 ring-white/7 backdrop-blur [scrollbar-width:none] [&::-webkit-scrollbar]:hidden ${
           isRail ? 'flex-col min-w-0' : 'flex-row'
         }`}
       >

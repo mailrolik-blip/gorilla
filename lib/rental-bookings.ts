@@ -1,5 +1,6 @@
 import {
   Prisma,
+  type CrmRequestStatus,
   type PrismaClient,
   type RentalBookingStatus,
 } from '@prisma/client';
@@ -23,6 +24,7 @@ type UpdateRentalBookingByStaffInput = {
   bookingId: number;
   currentUserId: number;
   status?: StaffManagedRentalBookingStatus;
+  crmStatus?: CrmRequestStatus;
   managerNote?: string | null;
 };
 
@@ -50,6 +52,36 @@ const ACTIVE_RENTAL_BOOKING_STATUSES: RentalBookingStatus[] = [
 
 const CANCELLED_RENTAL_BOOKING_STATUS: RentalBookingStatus = 'CANCELLED';
 
+function mapRentalBookingStatusToCrmStatus(
+  status: RentalBookingStatus
+): CrmRequestStatus {
+  switch (status) {
+    case 'CONFIRMED':
+      return 'BOOKED';
+    case 'CANCELLED':
+      return 'CANCELLED';
+    default:
+      return 'NEW';
+  }
+}
+
+function mapCrmStatusToRentalBookingStatus(
+  status: CrmRequestStatus
+): RentalBookingStatus | undefined {
+  switch (status) {
+    case 'BOOKED':
+      return 'CONFIRMED';
+    case 'CANCELLED':
+      return 'CANCELLED';
+    case 'REJECTED':
+      return 'CANCELLED';
+    case 'NEW':
+    case 'IN_PROGRESS':
+    case 'CONTACTED':
+      return 'PENDING_CONFIRMATION';
+  }
+}
+
 function mapPublicRentalSlot(slot: PublicRentalSlotRecord) {
   return {
     id: slot.id,
@@ -74,6 +106,10 @@ function mapRentalBookingForUser(booking: MyRentalBookingRecord) {
   return {
     id: booking.id,
     status: booking.status,
+    crmStatus: booking.crmStatus,
+    managerNote: booking.managerNote,
+    reviewedAt: booking.reviewedAt,
+    contactedAt: booking.contactedAt,
     createdAt: booking.createdAt,
     updatedAt: booking.updatedAt,
     participant: booking.participant,
@@ -100,6 +136,7 @@ function mapRentalBookingForStaff(booking: StaffRentalBookingRecord) {
   return {
     id: booking.id,
     status: booking.status,
+    crmStatus: booking.crmStatus,
     bookingType: booking.participantId ? 'PARTICIPANT' : 'SELF',
     noteFromUser: booking.noteFromUser,
     managerNote: booking.managerNote,
@@ -300,6 +337,7 @@ export async function createRentalBooking(
             connect: { id: currentUserId },
           },
           status: 'PENDING_CONFIRMATION',
+          crmStatus: 'NEW',
           noteFromUser,
           ...(participant
             ? {
@@ -387,6 +425,7 @@ export async function cancelRentalBookingForUser(
       where: { id: bookingId },
       data: {
         status: CANCELLED_RENTAL_BOOKING_STATUS,
+        crmStatus: 'CANCELLED',
       },
     });
 
@@ -425,7 +464,7 @@ export async function updateRentalBookingByStaff(
   prisma: PrismaClient,
   input: UpdateRentalBookingByStaffInput
 ) {
-  const { bookingId, currentUserId, status, managerNote } = input;
+  const { bookingId, currentUserId, status, crmStatus, managerNote } = input;
 
   await assertGlobalStaffAccess(prisma, currentUserId);
 
@@ -443,16 +482,22 @@ export async function updateRentalBookingByStaff(
       throw new HttpError(404, 'Rental booking not found');
     }
 
+    const nextCrmStatus =
+      crmStatus ?? (status ? mapRentalBookingStatusToCrmStatus(status) : undefined);
+    const nextLegacyStatus = nextCrmStatus
+      ? mapCrmStatusToRentalBookingStatus(nextCrmStatus)
+      : status;
+
     if (
-      status === CANCELLED_RENTAL_BOOKING_STATUS &&
+      nextLegacyStatus === CANCELLED_RENTAL_BOOKING_STATUS &&
       booking.status === CANCELLED_RENTAL_BOOKING_STATUS
     ) {
       throw new HttpError(409, 'Rental booking is already cancelled');
     }
 
     if (
-      status !== undefined &&
-      status !== CANCELLED_RENTAL_BOOKING_STATUS
+      nextLegacyStatus !== undefined &&
+      nextLegacyStatus !== CANCELLED_RENTAL_BOOKING_STATUS
     ) {
       const [slot, otherActiveBooking] = await Promise.all([
         tx.rentalSlot.findUnique({
@@ -493,8 +538,14 @@ export async function updateRentalBookingByStaff(
 
     const data: Prisma.RentalBookingUpdateInput = {};
 
-    if (status !== undefined) {
-      data.status = status;
+    if (nextLegacyStatus !== undefined) {
+      data.status = nextLegacyStatus;
+    }
+
+    if (nextCrmStatus !== undefined) {
+      data.crmStatus = nextCrmStatus;
+      data.reviewedAt = new Date();
+      data.contactedAt = nextCrmStatus === 'CONTACTED' ? new Date() : undefined;
     }
 
     if (managerNote !== undefined) {
@@ -506,7 +557,7 @@ export async function updateRentalBookingByStaff(
       data,
     });
 
-    if (status !== undefined) {
+    if (nextLegacyStatus !== undefined) {
       await syncRentalSlotStatus(tx, booking.slotId);
     }
 

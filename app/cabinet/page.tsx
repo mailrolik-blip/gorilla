@@ -48,6 +48,7 @@ type ParticipantSummary = PersonSummary & {
 type TrainingBookingSummary = {
   id: number;
   status: string;
+  crmStatus?: string;
   participant: ParticipantSummary | null;
   training: {
     trainingId: number;
@@ -85,6 +86,7 @@ type AvailableTrainingSummary = {
 type TeamApplicationSummary = {
   id: number;
   status: string;
+  crmStatus?: string;
   commentFromApplicant: string | null;
   participant: ParticipantSummary | null;
   team: {
@@ -122,6 +124,7 @@ type AvailableRentalSlotSummary = {
 type RentalBookingSummary = {
   id: number;
   status: string;
+  crmStatus?: string;
   participant: ParticipantSummary | null;
   slot: {
     id: number;
@@ -367,7 +370,16 @@ function formatPersonName(person: PersonSummary | null) {
 }
 
 function formatStatus(status: string) {
-  return statusLabels[status] ?? status;
+  const crmStatusLabels: Record<string, string> = {
+    NEW: 'Заявка получена',
+    IN_PROGRESS: 'Заявка в работе',
+    CONTACTED: 'Менеджер связался / свяжется',
+    BOOKED: 'Вы записаны',
+    REJECTED: 'Заявка отклонена',
+    CANCELLED: 'Заявка отменена',
+  };
+
+  return crmStatusLabels[status] ?? statusLabels[status] ?? status;
 }
 
 function getTeamApplicationStatusBadgeClass(status: string) {
@@ -2887,7 +2899,7 @@ export default function CabinetPage() {
                           </div>
                           <div className="flex flex-col items-start gap-3 sm:items-end">
                             <span className="rounded-full bg-emerald-100 px-3 py-1 text-xs font-medium text-emerald-700">
-                              {formatStatus(booking.status)}
+                              {formatStatus(booking.crmStatus ?? booking.status)}
                             </span>
                             <button
                               type="button"
@@ -3062,7 +3074,7 @@ export default function CabinetPage() {
                                         <p className="text-sm text-amber-700">
                                           У {formatPersonName(selectedParticipant)} уже есть
                                           заявка со статусом{' '}
-                                          {formatStatus(existingActiveApplication.status)}.
+                                          {formatStatus(existingActiveApplication.crmStatus ?? existingActiveApplication.status)}.
                                         </p>
                                       ) : null}
                                     </div>
@@ -3150,7 +3162,7 @@ export default function CabinetPage() {
                               <span
                                 className={`rounded-full px-3 py-1 text-xs font-medium ${getTeamApplicationStatusBadgeClass(application.status)}`}
                               >
-                                {formatStatus(application.status)}
+                                {formatStatus(application.crmStatus ?? application.status)}
                               </span>
                               {canCancel ? (
                                 <button
@@ -3411,7 +3423,7 @@ export default function CabinetPage() {
                               <span
                                 className={`rounded-full px-3 py-1 text-xs font-medium ${getRentalBookingStatusBadgeClass(booking.status)}`}
                               >
-                                {formatStatus(booking.status)}
+                                {formatStatus(booking.crmStatus ?? booking.status)}
                               </span>
                               {canCancel ? (
                                 <button

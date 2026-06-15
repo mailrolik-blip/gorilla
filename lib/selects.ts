@@ -166,6 +166,10 @@ export const trainingBookingInclude = {
 export const adminTrainingBookingSelect = {
   id: true,
   status: true,
+  crmStatus: true,
+  managerNote: true,
+  reviewedAt: true,
+  contactedAt: true,
   createdAt: true,
   updatedAt: true,
   participant: {
@@ -246,7 +250,11 @@ export const teamApplicationTeamSelect = {
 export const myTeamApplicationSelect = {
   id: true,
   status: true,
+  crmStatus: true,
   commentFromApplicant: true,
+  managerNote: true,
+  reviewedAt: true,
+  contactedAt: true,
   createdAt: true,
   updatedAt: true,
   participant: {
@@ -260,8 +268,12 @@ export const myTeamApplicationSelect = {
 export const staffTeamApplicationSelect = {
   id: true,
   status: true,
+  crmStatus: true,
   commentFromApplicant: true,
   internalNote: true,
+  managerNote: true,
+  reviewedAt: true,
+  contactedAt: true,
   createdAt: true,
   updatedAt: true,
   participant: {
@@ -275,8 +287,12 @@ export const staffTeamApplicationSelect = {
 export const adminTeamApplicationSelect = {
   id: true,
   status: true,
+  crmStatus: true,
   commentFromApplicant: true,
   internalNote: true,
+  managerNote: true,
+  reviewedAt: true,
+  contactedAt: true,
   createdAt: true,
   updatedAt: true,
   participant: {
@@ -383,6 +399,10 @@ export const publicRentalSlotSelect = {
 export const myRentalBookingSelect = {
   id: true,
   status: true,
+  crmStatus: true,
+  managerNote: true,
+  reviewedAt: true,
+  contactedAt: true,
   createdAt: true,
   updatedAt: true,
   participant: {
@@ -485,9 +505,12 @@ export const staffRentalSlotSelect = {
 export const staffRentalBookingSelect = {
   id: true,
   status: true,
+  crmStatus: true,
   participantId: true,
   noteFromUser: true,
   managerNote: true,
+  reviewedAt: true,
+  contactedAt: true,
   createdAt: true,
   updatedAt: true,
   user: {

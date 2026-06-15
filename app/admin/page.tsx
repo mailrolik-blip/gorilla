@@ -82,8 +82,12 @@ type AdminTeamMemberSummary = {
 type AdminTeamApplicationSummary = {
   id: number;
   status: string;
+  crmStatus: CrmRequestStatus;
   commentFromApplicant: string | null;
   internalNote: string | null;
+  managerNote: string | null;
+  reviewedAt: string | null;
+  contactedAt: string | null;
   createdAt: string;
   updatedAt: string;
   participant: (PersonSummary & {
@@ -142,7 +146,11 @@ type AdminTrainingSummary = {
 
 type AdminTrainingBookingSummary = {
   id: number;
-  status: string;
+  status: CrmRequestStatus;
+  crmStatus: CrmRequestStatus;
+  managerNote: string | null;
+  reviewedAt: string | null;
+  contactedAt: string | null;
   createdAt: string;
   updatedAt: string;
   participant: (PersonSummary & {
@@ -204,9 +212,12 @@ type AdminSectionId =
 type AdminRentalBookingSummary = {
   id: number;
   status: string;
+  crmStatus: CrmRequestStatus;
   bookingType: 'SELF' | 'PARTICIPANT';
   noteFromUser: string | null;
   managerNote: string | null;
+  reviewedAt: string | null;
+  contactedAt: string | null;
   createdAt: string;
   updatedAt: string;
   user: {
@@ -470,6 +481,13 @@ type RequestPipelineFilter =
   | 'RENTAL';
 type RequestPipelineSort = 'NEWEST' | 'OLDEST' | 'TYPE' | 'STATUS';
 type RequestPipelineType = 'training' | 'team' | 'rental';
+type CrmRequestStatus =
+  | 'NEW'
+  | 'IN_PROGRESS'
+  | 'CONTACTED'
+  | 'BOOKED'
+  | 'REJECTED'
+  | 'CANCELLED';
 type RequestPipelineItem = {
   id: string;
   numericId: number;
@@ -932,6 +950,19 @@ function formatStatus(status: string) {
   return statusLabels[status] ?? status;
 }
 
+function formatCrmRequestStatus(status: string) {
+  const crmStatusLabels: Record<string, string> = {
+    NEW: 'Заявка получена',
+    IN_PROGRESS: 'В работе',
+    CONTACTED: 'Связались',
+    BOOKED: 'Записан',
+    REJECTED: 'Отказ',
+    CANCELLED: 'Отменена',
+  };
+
+  return crmStatusLabels[status] ?? formatStatus(status);
+}
+
 function formatTrainingType(trainingType: string) {
   return trainingTypeLabels[trainingType] ?? trainingType;
 }
@@ -954,6 +985,7 @@ function getStatusBadgeClass(status: string) {
     case 'ACTIVE':
     case 'ACCEPTED':
     case 'CONFIRMED':
+    case 'BOOKED':
     case 'AVAILABLE':
       return 'bg-emerald-500/15 text-emerald-100';
     case 'SUSPENDED':
@@ -962,7 +994,8 @@ function getStatusBadgeClass(status: string) {
     case 'UNAVAILABLE':
       return 'bg-rose-500/15 text-rose-100';
     case 'IN_REVIEW':
-    case 'BOOKED':
+    case 'IN_PROGRESS':
+    case 'CONTACTED':
       return 'bg-sky-500/15 text-sky-100';
     default:
       return 'bg-amber-500/15 text-amber-100';
@@ -1000,6 +1033,43 @@ function getRequestTypeFilter(type: RequestPipelineType): RequestPipelineFilter 
       return 'RENTAL';
   }
 }
+
+function normalizeCrmRequestStatus(status: string): CrmRequestStatus {
+  switch (status) {
+    case 'PENDING':
+    case 'PENDING_CONFIRMATION':
+      return 'NEW';
+    case 'IN_REVIEW':
+      return 'IN_PROGRESS';
+    case 'ACCEPTED':
+    case 'CONFIRMED':
+    case 'booked':
+      return 'BOOKED';
+    case 'REJECTED':
+      return 'REJECTED';
+    case 'CANCELLED':
+    case 'cancelled':
+      return 'CANCELLED';
+    case 'CONTACTED':
+      return 'CONTACTED';
+    case 'IN_PROGRESS':
+      return 'IN_PROGRESS';
+    case 'BOOKED':
+      return 'BOOKED';
+    case 'NEW':
+    default:
+      return 'NEW';
+  }
+}
+
+const crmRequestStatusActions: Array<{ value: CrmRequestStatus; label: string }> = [
+  { value: 'NEW', label: 'Новая' },
+  { value: 'IN_PROGRESS', label: 'В работе' },
+  { value: 'CONTACTED', label: 'Связались' },
+  { value: 'BOOKED', label: 'Записан' },
+  { value: 'REJECTED', label: 'Отказ' },
+  { value: 'CANCELLED', label: 'Отменена' },
+];
 
 function getRequestUserIdentity(user: {
   id: number;
@@ -1095,9 +1165,15 @@ function translateErrorMessage(message: string) {
     'status must be one of PENDING_CONFIRMATION, CONFIRMED, CANCELLED':
       'Статус брони должен быть одним из: PENDING_CONFIRMATION, CONFIRMED, CANCELLED.',
     'managerNote must be a string or null':
-      'Manager note должен быть строкой или пустым значением.',
+      'Заметка менеджера должна быть строкой или пустым значением.',
     'At least one of status or managerNote is required':
-      'Измените статус брони или manager note перед сохранением.',
+      'Измените статус брони или заметку менеджера перед сохранением.',
+    'At least one of status, crmStatus or managerNote is required':
+      'Измените CRM-статус или заметку менеджера перед сохранением.',
+    'At least one of status, crmStatus, internalNote or managerNote is required':
+      'Измените статус, CRM-статус или заметку менеджера перед сохранением.',
+    'crmStatus must be one of NEW, IN_PROGRESS, CONTACTED, BOOKED, REJECTED, CANCELLED':
+      'CRM-статус должен быть одним из: NEW, IN_PROGRESS, CONTACTED, BOOKED, REJECTED, CANCELLED.',
     'Invalid rental booking id':
       'Некорректный идентификатор бронирования аренды.',
     'Rental booking not found': 'Бронирование аренды не найдено.',
@@ -1184,6 +1260,10 @@ function normalizeTrainerApplication(
 ): AdminTeamApplicationSummary {
   return {
     ...application,
+    crmStatus: normalizeCrmRequestStatus(application.status),
+    managerNote: application.internalNote,
+    reviewedAt: null,
+    contactedAt: null,
     team: {
       ...application.team,
       slug: null,
@@ -3058,7 +3138,7 @@ function RentalsSectionContent({
                 </label>
 
                 <label className="text-sm font-medium text-stone-300">
-                  Manager note
+                  Заметка менеджера
                   {isRentalOperationalEditable ? (
                     <textarea
                       value={activeRentalBookingEditor.managerNote}
@@ -3652,6 +3732,7 @@ export default function AdminPage() {
   const [requestsPerPage, setRequestsPerPage] = useState(25);
   const [requestsPage, setRequestsPage] = useState(1);
   const [selectedRequestId, setSelectedRequestId] = useState<string | null>(null);
+  const [requestManagerNote, setRequestManagerNote] = useState('');
   const [requestFeedback, setRequestFeedback] =
     useState<TeamApplicationFeedback | null>(null);
   const [savingRequestId, setSavingRequestId] = useState<string | null>(null);
@@ -3926,7 +4007,7 @@ export default function AdminPage() {
     overview?.trainings.filter((training) => training.isActive).length ?? 0;
   const pendingApplicationsCount =
     overview?.teamApplications.filter((application) =>
-      ['PENDING', 'IN_REVIEW'].includes(application.status)
+      ['NEW', 'IN_PROGRESS', 'CONTACTED'].includes(application.crmStatus)
     ).length ?? 0;
   const availablePublicSlotsCount =
     overview?.rentalSlots.filter(
@@ -3934,7 +4015,7 @@ export default function AdminPage() {
     ).length ?? 0;
   const pendingRentalBookingsCount =
     overview?.rentalBookings.filter(
-      (booking) => booking.status === 'PENDING_CONFIRMATION'
+      (booking) => ['NEW', 'IN_PROGRESS', 'CONTACTED'].includes(booking.crmStatus)
     ).length ?? 0;
   const getUserTeamApplications = (user: AdminUserSummary) => {
     const profileIds = new Set(user.profiles.map((profile) => profile.id));
@@ -3993,11 +4074,11 @@ export default function AdminPage() {
       cityName: booking.training.city.name,
       createdAt: booking.createdAt,
       updatedAt: booking.updatedAt,
-      status: booking.status,
-      statusGroup: getRequestStatusGroup(booking.status),
+      status: booking.crmStatus,
+      statusGroup: getRequestStatusGroup(booking.crmStatus),
       target: `${booking.training.name} / ${formatDateTime(booking.training.startTime)}`,
       comment: null,
-      adminNote: null,
+      adminNote: booking.managerNote,
       canEditStatus: canManageRequests,
       raw: booking,
     })),
@@ -4021,12 +4102,12 @@ export default function AdminPage() {
           'Город не указан',
         createdAt: application.createdAt,
         updatedAt: application.updatedAt,
-        status: application.status,
-        statusGroup: getRequestStatusGroup(application.status),
+        status: application.crmStatus,
+        statusGroup: getRequestStatusGroup(application.crmStatus),
         target: application.team.name,
         comment: application.commentFromApplicant,
-        adminNote: application.internalNote,
-        canEditStatus: canManageRequests && application.status !== 'CANCELLED',
+        adminNote: application.managerNote ?? application.internalNote,
+        canEditStatus: canManageRequests && application.crmStatus !== 'CANCELLED',
         raw: application,
       };
     }),
@@ -4046,8 +4127,8 @@ export default function AdminPage() {
       cityName: booking.city.name,
       createdAt: booking.createdAt,
       updatedAt: booking.updatedAt,
-      status: booking.status,
-      statusGroup: getRequestStatusGroup(booking.status),
+      status: booking.crmStatus,
+      statusGroup: getRequestStatusGroup(booking.crmStatus),
       target: `${booking.resource.name} / ${booking.facility.name}`,
       comment: booking.noteFromUser,
       adminNote: booking.managerNote,
@@ -4098,7 +4179,7 @@ export default function AdminPage() {
         case 'TYPE':
           return left.typeLabel.localeCompare(right.typeLabel, 'ru');
         case 'STATUS':
-          return formatStatus(left.status).localeCompare(formatStatus(right.status), 'ru');
+          return formatCrmRequestStatus(left.status).localeCompare(formatCrmRequestStatus(right.status), 'ru');
         default:
           return new Date(right.createdAt).getTime() - new Date(left.createdAt).getTime();
       }
@@ -4209,7 +4290,7 @@ export default function AdminPage() {
         : 'Участник не указан',
       contact: 'Контакт в карточке пользователя',
       target: application.team.name,
-      status: application.status,
+      status: application.crmStatus,
       comment: application.commentFromApplicant,
       createdAt: application.createdAt,
     })),
@@ -4221,7 +4302,7 @@ export default function AdminPage() {
         : formatUserIdentity(booking.user),
       contact: formatUserIdentity(booking.user),
       target: `${booking.resource.name} / ${booking.city.name}`,
-      status: booking.status,
+      status: booking.crmStatus,
       comment: booking.noteFromUser,
       createdAt: booking.createdAt,
     })),
@@ -5567,7 +5648,8 @@ export default function AdminPage() {
 
   async function handleRequestStatusUpdate(
     request: RequestPipelineItem,
-    nextStatus: string
+    nextStatus: string,
+    nextManagerNote = requestManagerNote
   ) {
     if (!request.canEditStatus) {
       return;
@@ -5580,6 +5662,8 @@ export default function AdminPage() {
           ? `/api/admin/rental-bookings/${request.numericId}`
           : `/api/admin/training-bookings/${request.numericId}`;
 
+    const normalizedStatus = normalizeCrmRequestStatus(nextStatus);
+
     setSavingRequestId(request.id);
     setRequestFeedback(null);
 
@@ -5590,7 +5674,10 @@ export default function AdminPage() {
       headers: {
         'Content-Type': 'application/json',
       },
-      body: JSON.stringify({ status: nextStatus }),
+      body: JSON.stringify({
+        crmStatus: normalizedStatus,
+        managerNote: nextManagerNote.trim() || null,
+      }),
     });
 
     if (updateResult.response.status === 401) {
@@ -5612,6 +5699,13 @@ export default function AdminPage() {
     }
 
     const updatedRequest = updateResult.payload;
+    const updatedManagerNote =
+      request.type === 'team'
+        ? ((updatedRequest as AdminTeamApplicationSummary).managerNote ??
+          (updatedRequest as AdminTeamApplicationSummary).internalNote ??
+          '')
+        : ((updatedRequest as AdminRentalBookingSummary | AdminTrainingBookingSummary)
+            .managerNote ?? '');
 
     setOverview((currentOverview) => {
       if (!currentOverview) {
@@ -5649,6 +5743,7 @@ export default function AdminPage() {
         ),
       };
     });
+    setRequestManagerNote(updatedManagerNote);
     setRequestFeedback({
       tone: 'success',
       message: 'Статус заявки сохранен.',
@@ -6737,7 +6832,7 @@ export default function AdminPage() {
                                 </p>
                               </div>
                               <span className={`self-start rounded-full px-3 py-1 text-xs font-semibold ${getStatusBadgeClass(item.status)}`}>
-                                {formatStatus(item.status)}
+                                {formatCrmRequestStatus(item.status)}
                               </span>
                             </article>
                           ))}
@@ -6885,7 +6980,7 @@ export default function AdminPage() {
                                     <td className="px-4 py-3 text-xs text-stone-400">{formatDateTime(request.createdAt)}</td>
                                     <td className="px-4 py-3">
                                       <span className={`rounded-full px-3 py-1 text-xs font-semibold ${getStatusBadgeClass(request.status)}`}>
-                                        {formatStatus(request.status)}
+                                        {formatCrmRequestStatus(request.status)}
                                       </span>
                                     </td>
                                     <td className="max-w-[220px] truncate px-4 py-3 text-stone-300">
@@ -6896,6 +6991,7 @@ export default function AdminPage() {
                                         type="button"
                                         onClick={() => {
                                           setSelectedRequestId(request.id);
+                                          setRequestManagerNote(request.adminNote ?? '');
                                           setRequestFeedback(null);
                                         }}
                                         className="inline-flex items-center justify-center rounded-full border border-white/12 bg-white/6 px-4 py-2 text-center text-sm font-semibold leading-none text-stone-100 transition hover:bg-white/10"
@@ -6918,13 +7014,14 @@ export default function AdminPage() {
                                     <p className="mt-2 text-sm text-stone-300">{request.comment || request.adminNote || 'Комментарий не указан.'}</p>
                                   </div>
                                   <span className={`rounded-full px-3 py-1 text-xs font-semibold ${getStatusBadgeClass(request.status)}`}>
-                                    {formatStatus(request.status)}
+                                    {formatCrmRequestStatus(request.status)}
                                   </span>
                                 </div>
                                 <button
                                   type="button"
                                   onClick={() => {
                                     setSelectedRequestId(request.id);
+                                    setRequestManagerNote(request.adminNote ?? '');
                                     setRequestFeedback(null);
                                   }}
                                   className="mt-4 inline-flex items-center justify-center rounded-full border border-white/12 bg-white/6 px-4 py-2 text-center text-sm font-semibold leading-none text-stone-100 transition hover:bg-white/10"
@@ -7544,7 +7641,10 @@ export default function AdminPage() {
                       </div>
                       <button
                         type="button"
-                        onClick={() => setSelectedRequestId(null)}
+                        onClick={() => {
+                          setSelectedRequestId(null);
+                          setRequestManagerNote('');
+                        }}
                         className="inline-flex items-center justify-center rounded-full border border-white/12 bg-white/6 px-4 py-2 text-center text-sm font-semibold leading-none text-stone-100 transition hover:bg-white/10"
                       >
                         Закрыть
@@ -7585,68 +7685,8 @@ export default function AdminPage() {
                         <div className="rounded-2xl border border-white/8 bg-black/20 p-4">
                           <h4 className="font-semibold text-white">Статус</h4>
                           <span className={`mt-3 inline-flex rounded-full px-3 py-1 text-xs font-semibold ${getStatusBadgeClass(selectedRequest.status)}`}>
-                            {formatStatus(selectedRequest.status)}
+                            {formatCrmRequestStatus(selectedRequest.status)}
                           </span>
-
-                          {selectedRequest.canEditStatus ? (
-                            <div className="mt-4 flex flex-wrap gap-2">
-                              {selectedRequest.type === 'team'
-                                ? [
-                                    ['PENDING', 'Новая'],
-                                    ['IN_REVIEW', 'В работе'],
-                                    ['ACCEPTED', 'Записан'],
-                                    ['REJECTED', 'Отказ'],
-                                    ['CANCELLED', 'Отменена'],
-                                  ].map(([statusValue, label]) => (
-                                    <button
-                                      key={statusValue}
-                                      type="button"
-                                      onClick={() => handleRequestStatusUpdate(selectedRequest, statusValue)}
-                                      disabled={savingRequestId === selectedRequest.id}
-                                      className="inline-flex items-center justify-center rounded-full border border-white/12 bg-white/6 px-3 py-2 text-center text-xs font-semibold leading-none text-stone-100 transition hover:bg-white/10 disabled:cursor-not-allowed disabled:opacity-50"
-                                    >
-                                      {label}
-                                    </button>
-                                  ))
-                                : selectedRequest.type === 'rental'
-                                  ? [
-                                      ['PENDING_CONFIRMATION', 'Новая'],
-                                      ['CONFIRMED', 'Записан'],
-                                      ['CANCELLED', 'Отменена'],
-                                    ].map(([statusValue, label]) => (
-                                      <button
-                                        key={statusValue}
-                                        type="button"
-                                        onClick={() => handleRequestStatusUpdate(selectedRequest, statusValue)}
-                                        disabled={savingRequestId === selectedRequest.id}
-                                        className="inline-flex items-center justify-center rounded-full border border-white/12 bg-white/6 px-3 py-2 text-center text-xs font-semibold leading-none text-stone-100 transition hover:bg-white/10 disabled:cursor-not-allowed disabled:opacity-50"
-                                      >
-                                        {label}
-                                      </button>
-                                    ))
-                                  : [
-                                      ['booked', 'Записан'],
-                                      ['cancelled', 'Отменена'],
-                                    ].map(([statusValue, label]) => (
-                                      <button
-                                        key={statusValue}
-                                        type="button"
-                                        onClick={() => handleRequestStatusUpdate(selectedRequest, statusValue)}
-                                        disabled={savingRequestId === selectedRequest.id}
-                                        className="inline-flex items-center justify-center rounded-full border border-white/12 bg-white/6 px-3 py-2 text-center text-xs font-semibold leading-none text-stone-100 transition hover:bg-white/10 disabled:cursor-not-allowed disabled:opacity-50"
-                                      >
-                                        {label}
-                                      </button>
-                                    ))}
-                            </div>
-                          ) : (
-                            <p className="mt-3 text-sm text-stone-400">
-                              Для этого типа заявки статус доступен только для просмотра.
-                            </p>
-                          )}
-                          <p className="mt-4 text-xs leading-5 text-stone-500">
-                            Статус “Связались” требует отдельного поля в модели и сейчас не сохраняется.
-                          </p>
                         </div>
 
                         <div className="rounded-2xl border border-white/8 bg-black/20 p-4">
@@ -7657,6 +7697,50 @@ export default function AdminPage() {
                           <p className="mt-2 text-sm text-stone-300">
                             Бронирований: {selectedRequestUser ? selectedRequestUser.activity.rentalBookings + getUserTrainingBookingsCount(selectedRequestUser) : 0}
                           </p>
+                          {selectedRequest.canEditStatus ? (
+                            <div className="mt-4 border-t border-white/8 pt-4">
+                              <h4 className="font-semibold text-white">CRM-статус</h4>
+                              <div className="mt-3 flex flex-wrap gap-2">
+                                {crmRequestStatusActions.map((action) => (
+                                  <button
+                                    key={action.value}
+                                    type="button"
+                                    onClick={() =>
+                                      handleRequestStatusUpdate(selectedRequest, action.value)
+                                    }
+                                    disabled={savingRequestId === selectedRequest.id}
+                                    className={`inline-flex items-center justify-center rounded-full border px-3 py-2 text-center text-xs font-semibold leading-none transition disabled:cursor-not-allowed disabled:opacity-50 ${
+                                      selectedRequest.status === action.value
+                                        ? 'border-amber-300 bg-amber-300 text-black'
+                                        : 'border-white/12 bg-white/6 text-stone-100 hover:bg-white/10'
+                                    }`}
+                                  >
+                                    {action.label}
+                                  </button>
+                                ))}
+                              </div>
+                              <label className="mt-4 block text-sm font-medium text-stone-300">
+                                Заметка менеджера
+                                <textarea
+                                  value={requestManagerNote}
+                                  onChange={(event) => setRequestManagerNote(event.target.value)}
+                                  rows={4}
+                                  disabled={savingRequestId === selectedRequest.id}
+                                  className="mt-2 w-full rounded-2xl border border-white/10 bg-[#0b0f13] px-4 py-3 text-base text-stone-100 outline-none transition focus:border-amber-400 disabled:cursor-not-allowed disabled:border-white/6 disabled:bg-white/[0.04] disabled:text-stone-500"
+                                />
+                              </label>
+                              <button
+                                type="button"
+                                onClick={() =>
+                                  handleRequestStatusUpdate(selectedRequest, selectedRequest.status)
+                                }
+                                disabled={savingRequestId === selectedRequest.id}
+                                className="mt-3 inline-flex items-center justify-center rounded-full border border-white/12 bg-white/6 px-4 py-2 text-center text-sm font-semibold leading-none text-stone-100 transition hover:bg-white/10 disabled:cursor-not-allowed disabled:opacity-50"
+                              >
+                                Сохранить заметку
+                              </button>
+                            </div>
+                          ) : null}
                           {selectedRequestUser ? (
                             <button
                               type="button"
@@ -7982,8 +8066,8 @@ export default function AdminPage() {
                                       {application.commentFromApplicant || 'Комментарий не указан.'}
                                     </p>
                                   </div>
-                                  <span className={`rounded-full px-3 py-1 text-xs font-semibold ${getStatusBadgeClass(application.status)}`}>
-                                    {formatStatus(application.status)}
+                                  <span className={`rounded-full px-3 py-1 text-xs font-semibold ${getStatusBadgeClass(application.crmStatus)}`}>
+                                    {formatCrmRequestStatus(application.crmStatus)}
                                   </span>
                                 </div>
                               </article>
@@ -8000,8 +8084,8 @@ export default function AdminPage() {
                                       {formatDateTime(booking.training.startTime)}
                                     </p>
                                   </div>
-                                  <span className={`rounded-full px-3 py-1 text-xs font-semibold ${getStatusBadgeClass(booking.status)}`}>
-                                    {formatStatus(booking.status)}
+                                  <span className={`rounded-full px-3 py-1 text-xs font-semibold ${getStatusBadgeClass(booking.crmStatus)}`}>
+                                    {formatCrmRequestStatus(booking.crmStatus)}
                                   </span>
                                 </div>
                               </article>
@@ -8034,8 +8118,8 @@ export default function AdminPage() {
                                         {formatDateTime(booking.rentalSlot.startsAt)}
                                       </p>
                                     </div>
-                                    <span className={`rounded-full px-3 py-1 text-xs font-semibold ${getStatusBadgeClass(booking.status)}`}>
-                                      {formatStatus(booking.status)}
+                                    <span className={`rounded-full px-3 py-1 text-xs font-semibold ${getStatusBadgeClass(booking.crmStatus)}`}>
+                                      {formatCrmRequestStatus(booking.crmStatus)}
                                     </span>
                                   </div>
                                 </article>

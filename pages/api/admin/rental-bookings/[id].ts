@@ -1,3 +1,4 @@
+import type { CrmRequestStatus } from '@prisma/client';
 import type { NextApiRequest, NextApiResponse } from 'next';
 
 import { requireManagerOrAdmin } from '../../../../lib/current-user';
@@ -11,6 +12,14 @@ import { HttpError } from '../../../../lib/training-bookings';
 const STAFF_MANAGED_RENTAL_BOOKING_STATUSES: StaffManagedRentalBookingStatus[] = [
   'PENDING_CONFIRMATION',
   'CONFIRMED',
+  'CANCELLED',
+];
+const CRM_REQUEST_STATUSES: CrmRequestStatus[] = [
+  'NEW',
+  'IN_PROGRESS',
+  'CONTACTED',
+  'BOOKED',
+  'REJECTED',
   'CANCELLED',
 ];
 
@@ -65,6 +74,20 @@ function toOptionalManagerNote(
   return trimmed.length > 0 ? trimmed : null;
 }
 
+function toCrmStatus(value: unknown): CrmRequestStatus | undefined | 'invalid' {
+  if (value === undefined) {
+    return undefined;
+  }
+
+  if (typeof value !== 'string') {
+    return 'invalid';
+  }
+
+  return CRM_REQUEST_STATUSES.includes(value as CrmRequestStatus)
+    ? (value as CrmRequestStatus)
+    : 'invalid';
+}
+
 export default async function handler(
   req: NextApiRequest,
   res: NextApiResponse
@@ -76,6 +99,7 @@ export default async function handler(
   const rawBookingId = Array.isArray(req.query.id) ? req.query.id[0] : req.query.id;
   const bookingId = toPositiveInt(rawBookingId);
   const status = toStaffManagedStatus(req.body.status);
+  const crmStatus = toCrmStatus(req.body.crmStatus);
   const managerNote = toOptionalManagerNote(req.body.managerNote);
 
   if (!bookingId) {
@@ -92,8 +116,14 @@ export default async function handler(
     return res.status(400).json({ error: 'managerNote must be a string or null' });
   }
 
-  if (status === undefined && managerNote === undefined) {
-    return res.status(400).json({ error: 'At least one of status or managerNote is required' });
+  if (crmStatus === 'invalid') {
+    return res.status(400).json({
+      error: 'crmStatus must be one of NEW, IN_PROGRESS, CONTACTED, BOOKED, REJECTED, CANCELLED',
+    });
+  }
+
+  if (status === undefined && crmStatus === undefined && managerNote === undefined) {
+    return res.status(400).json({ error: 'At least one of status, crmStatus or managerNote is required' });
   }
 
   try {
@@ -102,6 +132,7 @@ export default async function handler(
       bookingId,
       currentUserId: currentUser.id,
       status,
+      crmStatus,
       managerNote,
     });
 
