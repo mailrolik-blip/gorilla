@@ -1,4 +1,5 @@
 import Image from 'next/image';
+import Link from 'next/link';
 
 import type { HomepageSchoolContent } from '@/content/homepage-school';
 
@@ -21,7 +22,7 @@ export function HomeTeams({ section }: HomeTeamsProps) {
         <div className="mt-10 grid gap-7 xl:grid-cols-2">
           {section.items.map((team) => (
             <article
-              key={team.teamName}
+              key={`${team.city}-${team.teamName}`}
               className="home-ice-panel overflow-hidden rounded-[2.2rem] p-4 sm:p-5"
             >
               <div className="relative aspect-[16/10] overflow-hidden rounded-[1.8rem] border border-white/10 bg-black/40 sm:aspect-[16/9]">
@@ -82,7 +83,7 @@ export function HomeTeams({ section }: HomeTeamsProps) {
                 <dl className="grid gap-x-5 gap-y-3 border-y border-white/10 py-4 sm:grid-cols-2">
                   <div>
                     <dt className="text-[10px] font-semibold uppercase tracking-[0.18em] text-[color:var(--gh-muted)]">
-                      Лига
+                      Направление
                     </dt>
                     <dd className="mt-1 text-sm font-bold text-white">{team.league}</dd>
                   </div>
@@ -105,16 +106,25 @@ export function HomeTeams({ section }: HomeTeamsProps) {
                 <div>
                   <div className="flex items-center justify-between gap-4">
                     <p className="text-xs font-semibold uppercase tracking-[0.22em] text-[color:var(--gh-accent)]">
-                      Состав команды
+                      Статус данных
                     </p>
-                    <a
-                      href={team.ctaHref}
-                      target="_blank"
-                      rel="noreferrer"
-                      className="text-[11px] font-black uppercase tracking-[0.16em] text-white/55 transition hover:text-[color:var(--gh-accent)]"
-                    >
-                      Весь состав
-                    </a>
+                    {team.ctaHref.startsWith('/') || team.ctaHref.startsWith('#') ? (
+                      <Link
+                        href={team.ctaHref}
+                        className="text-[11px] font-black uppercase tracking-[0.16em] text-white/55 transition hover:text-[color:var(--gh-accent)]"
+                      >
+                        {team.ctaLabel}
+                      </Link>
+                    ) : (
+                      <a
+                        href={team.ctaHref}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="text-[11px] font-black uppercase tracking-[0.16em] text-white/55 transition hover:text-[color:var(--gh-accent)]"
+                      >
+                        {team.ctaLabel}
+                      </a>
+                    )}
                   </div>
 
                   <ul className="mt-3 grid gap-2 sm:grid-cols-2">

@@ -15,9 +15,9 @@ import { HomeTrainers } from '@/components/homepage-school/home-trainers';
 import { HomeTrainingTypes } from '@/components/homepage-school/home-training-types';
 
 export const metadata: Metadata = {
-  title: 'Детская хоккейная школа Gorilla Hockey',
+  title: 'Gorilla Hockey — хоккейная школа и команда',
   description:
-    'Gorilla Hockey: хоккейная школа для детей, команды ЛХЛ, аренда льда, отзывы и миниигра на скидку.',
+    'Gorilla Hockey: тренировки, заявки, игры и развитие игроков в Москве и Нижнем Новгороде.',
 };
 
 export default function HomePage() {
