@@ -1,0 +1,86 @@
+<!doctype html>
+<html lang="ru" class="__variable_246ccd __variable_c29908 h-full antialiased">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#061018">
+<meta http-equiv="Cache-Control" content="no-store,no-cache,must-revalidate,max-age=0">
+<meta http-equiv="Pragma" content="no-cache">
+<meta http-equiv="Expires" content="0">
+
+<title>Gorilla Hockey — хоккейная школа и команда</title>
+
+<link rel="stylesheet" href="/gorilla-assets/css/b496025c9cd768cc.css">
+<link rel="stylesheet" href="/gorilla-assets/css/64c99de01e8a6fe7.css">
+
+<style id="gorilla-webview-lite">
+@supports (content-visibility: auto) {
+  .homepage-school-shell > .relative > section,
+  .homepage-school-shell > .relative > div {
+    content-visibility: auto;
+    contain-intrinsic-size: auto 900px;
+  }
+
+  .homepage-school-shell #hero {
+    content-visibility: visible;
+  }
+}
+</style>
+
+</head>
+
+<body class="flex min-h-full flex-col bg-[color:var(--gh-bg)]">
+<div id="gorilla-react-root"></div>
+
+
+<script>
+(function () {
+  var armed = false;
+  var reloading = false;
+
+  function forceFresh(reason) {
+    if (reloading) return;
+    reloading = true;
+
+    var url = new URL(window.location.href);
+
+    url.searchParams.set(
+      '_fresh',
+      Date.now().toString() + '-' + Math.random().toString(36).slice(2)
+    );
+
+    window.location.replace(url.pathname + url.search + url.hash);
+  }
+
+  document.addEventListener('visibilitychange', function () {
+    if (document.visibilityState === 'hidden') {
+      armed = true;
+      return;
+    }
+
+    if (document.visibilityState === 'visible' && armed) {
+      forceFresh('visibility');
+    }
+  });
+
+  window.addEventListener('pagehide', function () {
+    armed = true;
+  });
+
+  window.addEventListener('pageshow', function (event) {
+    if (event.persisted) {
+      forceFresh('pageshow-bfcache');
+    }
+  });
+
+  window.addEventListener('focus', function () {
+    if (armed) {
+      forceFresh('focus');
+    }
+  });
+})();
+</script>
+
+<script src="/gorilla-react-home.js" defer></script>
+</body>
+</html>

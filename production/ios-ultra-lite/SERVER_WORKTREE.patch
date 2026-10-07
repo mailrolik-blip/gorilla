@@ -1,0 +1,221 @@
+diff --git a/app/layout.tsx b/app/layout.tsx
+index 1ea7490..d80aa8d 100644
+--- a/app/layout.tsx
++++ b/app/layout.tsx
+@@ -2,6 +2,7 @@ import type { Metadata } from 'next';
+ import { Geist, Geist_Mono } from 'next/font/google';
+ 
+ import { GorillaAccountProvider } from '@/components/gorilla-account-provider';
++import { IosWebviewRecovery } from '@/components/ios-webview-recovery';
+ 
+ import './globals.css';
+ 
+@@ -37,6 +38,7 @@ export default function RootLayout({
+       className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
+     >
+       <body className="flex min-h-full flex-col bg-[color:var(--gh-bg)]">
++        <IosWebviewRecovery />
+         <GorillaAccountProvider>{children}</GorillaAccountProvider>
+       </body>
+     </html>
+diff --git a/app/page.tsx b/app/page.tsx
+index 4a83173..8897e72 100644
+--- a/app/page.tsx
++++ b/app/page.tsx
+@@ -14,6 +14,9 @@ import { HomeTestimonials } from '@/components/homepage-school/home-testimonials
+ import { HomeTrainers } from '@/components/homepage-school/home-trainers';
+ import { HomeTrainingTypes } from '@/components/homepage-school/home-training-types';
+ 
++export const dynamic = 'force-dynamic';
++export const revalidate = 0;
++
+ export const metadata: Metadata = {
+   title: 'Gorilla Hockey — хоккейная школа и команда',
+   description:
+diff --git a/components/homepage-school/home-header.tsx b/components/homepage-school/home-header.tsx
+index 0b62651..5582619 100644
+--- a/components/homepage-school/home-header.tsx
++++ b/components/homepage-school/home-header.tsx
+@@ -364,6 +364,7 @@ export function HomeHeader({ menuItems, site }: HomeHeaderProps) {
+                     <NotificationBellButton compact={isCompact} />
+                     <Link
+                       href={site.cabinetHref}
++                prefetch={false}
+                       className={`${isCompact ? 'px-4 py-2.5 text-xs' : 'px-5 py-3 text-sm'} rounded-full bg-[color:var(--gh-accent)] font-black uppercase tracking-[0.18em] text-black transition hover:brightness-110`}
+                     >
+                       Личный кабинет
+@@ -373,12 +374,14 @@ export function HomeHeader({ menuItems, site }: HomeHeaderProps) {
+                   <>
+                     <Link
+                       href={site.loginHref}
++                prefetch={false}
+                       className={`${isCompact ? 'px-4 py-2.5 text-xs' : 'px-5 py-3 text-sm'} rounded-full border border-[color:var(--gh-border)] bg-[rgba(18,31,45,0.82)] font-bold uppercase tracking-[0.18em] text-[color:var(--gh-text)] transition hover:bg-[rgba(27,43,59,0.94)]`}
+                     >
+                       Вход
+                     </Link>
+                     <Link
+                       href={site.registerHref}
++                prefetch={false}
+                       className={`${isCompact ? 'hidden 2xl:inline-flex px-4 py-2.5 text-xs' : 'hidden px-4 py-3 text-sm xl:inline-flex 2xl:px-5'} rounded-full bg-[color:var(--gh-accent)] font-black uppercase tracking-[0.18em] text-black transition hover:brightness-110`}
+                     >
+                       Регистрация
+@@ -461,6 +464,7 @@ export function HomeHeader({ menuItems, site }: HomeHeaderProps) {
+               <NotificationBellButton compact={false} mobile />
+               <Link
+                 href={site.cabinetHref}
++                prefetch={false}
+                 className="flex min-h-[3.75rem] flex-col items-center justify-center rounded-[1.05rem] bg-[color:var(--gh-accent)] px-2 text-center text-[11px] font-black uppercase tracking-[0.16em] text-black transition hover:brightness-110"
+               >
+                 <span className="mb-1 h-1.5 w-1.5 rounded-full bg-black" />
+@@ -471,6 +475,7 @@ export function HomeHeader({ menuItems, site }: HomeHeaderProps) {
+             <>
+               <Link
+                 href={site.loginHref}
++                prefetch={false}
+                 className="flex min-h-[3.75rem] flex-col items-center justify-center rounded-[1.05rem] border border-[color:var(--gh-border)] bg-[rgba(18,31,45,0.82)] px-2 text-center text-[11px] font-bold uppercase tracking-[0.14em] text-[color:var(--gh-text)] transition hover:bg-[rgba(27,43,59,0.94)]"
+               >
+                 <span className="mb-1 h-1.5 w-1.5 rounded-full bg-[color:var(--gh-accent)]" />
+@@ -478,6 +483,7 @@ export function HomeHeader({ menuItems, site }: HomeHeaderProps) {
+               </Link>
+               <Link
+                 href={site.registerHref}
++                prefetch={false}
+                 className="flex min-h-[3.75rem] flex-col items-center justify-center rounded-[1.05rem] bg-[color:var(--gh-accent)] px-2 text-center text-[11px] font-black uppercase tracking-[0.16em] text-black transition hover:brightness-110"
+               >
+                 <span className="mb-1 h-1.5 w-1.5 rounded-full bg-black" />
+diff --git a/components/homepage-school/home-hero-sequence.tsx b/components/homepage-school/home-hero-sequence.tsx
+index ea3ad45..37de8c7 100644
+--- a/components/homepage-school/home-hero-sequence.tsx
++++ b/components/homepage-school/home-hero-sequence.tsx
+@@ -74,6 +74,8 @@ export function HomeHeroSequence() {
+     const canvas: HTMLCanvasElement = canvasElement;
+     const context: CanvasRenderingContext2D = canvasContext;
+     let mounted = true;
++    let preloadTimer: number | null = null;
++    let preloadStepTimer: number | null = null;
+ 
+     function resizeCanvas() {
+       const dpr = Math.min(window.devicePixelRatio || 1, 2);
+@@ -167,21 +169,62 @@ export function HomeHeroSequence() {
+       });
+     }
+ 
+-    HERO_SEQUENCE_FRAMES.forEach((src, index) => {
++    function loadFrame(frameIndex: number) {
++      const normalizedFrameIndex = clamp(
++        frameIndex,
++        0,
++        HERO_SEQUENCE_FRAMES.length - 1
++      );
++
++      if (frameImagesRef.current[normalizedFrameIndex]) {
++        return;
++      }
++
+       const image = new window.Image();
+       image.decoding = 'async';
+-      image.src = src;
++      image.src = HERO_SEQUENCE_FRAMES[normalizedFrameIndex];
++
+       image.onload = () => {
+         if (!mounted) {
+           return;
+         }
+ 
+-        if (index === 0 || index === getFrameFromScroll()) {
++        if (normalizedFrameIndex === getFrameFromScroll()) {
+           scheduleDraw(true);
+         }
+       };
+-      frameImagesRef.current[index] = image;
+-    });
++
++      frameImagesRef.current[normalizedFrameIndex] = image;
++    }
++
++    // На старте грузим только реально нужный кадр.
++    // Остальные кадры прогреваем позже и по одному, чтобы не душить iOS WebView.
++    const initialFrameIndex = getFrameFromScroll();
++    loadFrame(initialFrameIndex);
++
++    preloadTimer = window.setTimeout(() => {
++      const preloadOrder = HERO_SEQUENCE_FRAMES.map((_, index) => index)
++        .filter((index) => index !== initialFrameIndex)
++        .sort(
++          (a, b) =>
++            Math.abs(a - initialFrameIndex) - Math.abs(b - initialFrameIndex)
++        );
++
++      let cursor = 0;
++
++      const loadNextFrame = () => {
++        if (!mounted || cursor >= preloadOrder.length) {
++          return;
++        }
++
++        loadFrame(preloadOrder[cursor]);
++        cursor += 1;
++
++        preloadStepTimer = window.setTimeout(loadNextFrame, 220);
++      };
++
++      loadNextFrame();
++    }, 2000);
+ 
+     scheduleDraw(true);
+     const handleScroll = () => {
+@@ -189,6 +232,7 @@ export function HomeHeroSequence() {
+         currentFrameRef.current = -1;
+       }
+ 
++      loadFrame(getFrameFromScroll());
+       scheduleDraw(true);
+     };
+     const handleResize = () => scheduleDraw(true);
+@@ -231,6 +275,14 @@ export function HomeHeroSequence() {
+     return () => {
+       mounted = false;
+ 
++      if (preloadTimer !== null) {
++        window.clearTimeout(preloadTimer);
++      }
++
++      if (preloadStepTimer !== null) {
++        window.clearTimeout(preloadStepTimer);
++      }
++
+       if (rafRef.current !== null) {
+         window.cancelAnimationFrame(rafRef.current);
+       }
+@@ -248,7 +300,7 @@ export function HomeHeroSequence() {
+   return (
+     <div className="absolute inset-0 overflow-hidden bg-black">
+       <Image
+-        src={HERO_SEQUENCE_FRAMES[0]}
++        src={HERO_SEQUENCE_FRAMES[HERO_SEQUENCE_FRAMES.length - 1]}
+         alt=""
+         aria-hidden="true"
+         fill
+diff --git a/components/homepage-school/home-hero.tsx b/components/homepage-school/home-hero.tsx
+index b67b156..16d3c04 100644
+--- a/components/homepage-school/home-hero.tsx
++++ b/components/homepage-school/home-hero.tsx
+@@ -55,6 +55,7 @@ export function HomeHero({ hero }: HomeHeroProps) {
+               </a>
+               <Link
+                 href={hero.secondaryCta.href}
++                prefetch={false}
+                 className="inline-flex items-center justify-center rounded-full border border-white/12 bg-black/32 px-6 py-3.5 text-sm font-bold uppercase tracking-[0.18em] text-white backdrop-blur-md transition hover:bg-white/12"
+               >
+                 {hero.secondaryCta.label}
+diff --git a/tsconfig.json b/tsconfig.json
+index 3a13f90..8edfb53 100644
+--- a/tsconfig.json
++++ b/tsconfig.json
+@@ -30,5 +30,5 @@
+     ".next/dev/types/**/*.ts",
+     "**/*.mts"
+   ],
+-  "exclude": ["node_modules"]
++  "exclude": ["node_modules", "avtomagistral"]
+ }

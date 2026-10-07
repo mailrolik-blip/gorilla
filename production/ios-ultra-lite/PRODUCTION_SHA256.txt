@@ -1,0 +1,5 @@
+# Production snapshot created: 2026-10-07T15:30:06+00:00
+
+56e62e19d353fb3062a3d86c4bf8df7997d7465d38362c8df5921cbd17cfd766  /var/www/html/gorilla-react-home.html
+ccc3e036a2133e5d78e4f28bb358434b8e56a389bb46213644c0918124b039a7  /var/www/html/gorilla-react-home.js
+59a800d4cd7e35ce697cf8cc468af7f15ee2ff0a0a2fc5e39f7b4fb427d596b8  /etc/nginx/sites-available/gorilla
